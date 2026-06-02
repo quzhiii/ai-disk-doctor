@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::cleaner::CleanReport;
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
 use crate::OutputFormat;
@@ -19,6 +20,16 @@ pub fn render_plan(report: &PlanReport, format: OutputFormat) -> Result<String> 
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_plan_markdown(report),
         OutputFormat::Text => render_plan_text(report),
+    };
+
+    Ok(output)
+}
+
+pub fn render_clean(report: &CleanReport, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_clean_markdown(report),
+        OutputFormat::Text => render_clean_text(report),
     };
 
     Ok(output)
@@ -299,6 +310,56 @@ fn render_plan_markdown(report: &PlanReport) -> String {
         for skipped in &report.skipped {
             lines.push(format!("| `{}` | {} |", skipped.path, skipped.reason));
         }
+    }
+
+    lines.join("\n")
+}
+
+fn render_clean_text(report: &CleanReport) -> String {
+    let mut lines = vec![
+        "Windows AI Space Clean Preview".to_string(),
+        format!("Generated At: {}", report.generated_at),
+        format!("Mode: {}", report.mode),
+        format!("Candidate Count: {}", report.candidate_count),
+        format!("Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
+        String::new(),
+        "Actions:".to_string(),
+    ];
+
+    for action in &report.actions {
+        lines.push(format!(
+            "- {} | {} | {}",
+            action.path,
+            action.action,
+            human_bytes(action.size_bytes)
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_clean_markdown(report: &CleanReport) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Clean Preview".to_string(),
+        String::new(),
+        format!("- Generated At: {}", report.generated_at),
+        format!("- Mode: {}", report.mode),
+        format!("- Candidate Count: {}", report.candidate_count),
+        format!("- Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
+        String::new(),
+        "## Actions".to_string(),
+        String::new(),
+        "| Path | Action | Size |".to_string(),
+        "|---|---|---:|".to_string(),
+    ];
+
+    for action in &report.actions {
+        lines.push(format!(
+            "| `{}` | {} | {} |",
+            action.path,
+            action.action,
+            human_bytes(action.size_bytes)
+        ));
     }
 
     lines.join("\n")

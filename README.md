@@ -28,6 +28,7 @@
 - 规则加载能力
 - 只读 `scan` 命令最小闭环
 - `plan` 只读 dry-run 骨架
+- `plan` 安全边界首版
 
 ## 快速开始
 
@@ -60,6 +61,12 @@ cargo run -- scan --category browser-cache --json
 cargo run -- plan --safe-only --json
 ```
 
+或保留全部风险等级，但跳过最近仍在变化的路径：
+
+```powershell
+cargo run -- plan --json --skip-modified-within-minutes 30
+```
+
 Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFILE%\projects\**\.playwright-browsers`。
 
 当前 `scan` 输出还包含：
@@ -68,6 +75,13 @@ Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFIL
 - 按风险聚合的空间统计
 - top findings
 - 可回收 safe 空间估算
+
+当前 `plan` 输出还包含：
+
+- 候选项按 action 分组
+- 最近修改时间过滤
+- 敏感路径阻断
+- skipped 列表与原因说明
 
 ## 设计原则
 

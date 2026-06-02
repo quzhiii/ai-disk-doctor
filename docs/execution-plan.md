@@ -60,10 +60,19 @@
 - 加入最近修改时间窗口检查
 - 加入按策略分组和 quarantine 目标生成
 
+当前已完成：
+
+- `safe-only` 过滤
+- 敏感路径关键字阻断
+- 最近修改时间过滤
+- action groups
+- skipped reason 输出
+
 验收标准：
 
 - 所有 `plan` 结果默认 dry-run
-- `dangerous` / `system` 类目不会进入执行队列
+- 敏感路径不会进入候选集
+- 最近仍在变化的路径默认跳过
 
 ## Phase 3: Quarantine Cleanup
 
@@ -108,5 +117,5 @@
 
 1. 补充卷信息与更合理的 summary。
 2. 引入更真实的集成测试 fixtures。
-3. 给 `plan` 增加策略分组和原因分类。
-4. 开始 secret / active-file 安全边界实现。
+3. 把敏感路径阻断从关键字提升到规则+策略双层约束。
+4. 开始 active-file / locked-file 安全边界实现。

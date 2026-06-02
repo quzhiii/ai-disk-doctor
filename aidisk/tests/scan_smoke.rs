@@ -15,6 +15,12 @@ fn loads_playwright_glob_rule_yaml() {
 }
 
 #[test]
+fn loads_sensitive_sample_rule_yaml() {
+    let content = fs::read_to_string("rules/sensitive-samples.yaml").expect("rule file should exist");
+    assert!(content.contains("Login Data"));
+}
+
+#[test]
 fn example_glob_fixture_can_be_created() {
     let temp = tempdir().expect("tempdir should exist");
     let fixture = temp

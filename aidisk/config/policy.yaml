@@ -1,0 +1,15 @@
+sensitive_markers:
+  - token
+  - credential
+  - secret
+  - .env
+  - cookies
+  - login data
+  - auth.json
+
+planner:
+  skip_modified_within_minutes: 30
+  allow_actions:
+    - quarantine
+    - report-only
+    - guide

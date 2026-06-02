@@ -1,0 +1,13 @@
+id: browser-login-data
+name: Browser login data sample
+category: sensitive-sample
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Login Data"
+risk: dangerous
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Browser login data is sensitive and must never enter an automated cleanup candidate set."
+warnings:
+  - "Planner should block this path as sensitive even in non-safe-only mode."

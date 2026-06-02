@@ -6,6 +6,7 @@ use chrono::{DateTime, Duration, Local, Utc};
 use serde::Serialize;
 use walkdir::WalkDir;
 
+use crate::policy::Policy;
 use crate::rules::RiskLevel;
 use crate::scanner::{Finding, ScanReport};
 
@@ -55,10 +56,11 @@ pub struct SkippedItem {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PlanOptions {
     pub safe_only: bool,
     pub skip_modified_within_minutes: u64,
+    pub policy: Policy,
 }
 
 pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport {
@@ -70,7 +72,7 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
     };
 
     for finding in &scan_report.findings {
-        let skip_reason = skip_reason(finding, options);
+        let skip_reason = skip_reason(finding, &options);
         if let Some(reason) = skip_reason {
             summary.skipped_findings += 1;
             if reason.contains("sensitive") {
@@ -113,20 +115,26 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
     }
 }
 
-fn skip_reason(finding: &Finding, options: PlanOptions) -> Option<String> {
+fn skip_reason(finding: &Finding, options: &PlanOptions) -> Option<String> {
     if !finding.exists {
         return Some("path does not exist".to_string());
     }
     if finding.size_bytes == 0 {
         return Some("path has no reclaimable size".to_string());
     }
-    if !matches!(finding.action.as_str(), "quarantine" | "report-only" | "guide") {
+    if !options
+        .policy
+        .planner
+        .allow_actions
+        .iter()
+        .any(|action| action == &finding.action)
+    {
         return Some("action is not supported by planner".to_string());
     }
     if options.safe_only && finding.risk != RiskLevel::Safe {
         return Some("filtered out by safe-only mode".to_string());
     }
-    if is_sensitive_path(&finding.path) {
+    if is_sensitive_path(&finding.path, &options.policy.sensitive_markers) {
         return Some("blocked because path looks sensitive".to_string());
     }
     if was_modified_recently(&finding.path, options.skip_modified_within_minutes) {
@@ -160,21 +168,11 @@ fn build_action_groups(candidates: &[PlanCandidate]) -> Vec<ActionGroup> {
     groups
 }
 
-fn is_sensitive_path(path: &str) -> bool {
+fn is_sensitive_path(path: &str, sensitive_markers: &[String]) -> bool {
     let normalized = path.to_ascii_lowercase();
-    let sensitive_markers = [
-        "token",
-        "credential",
-        "secret",
-        ".env",
-        "cookies",
-        "login data",
-        "auth.json",
-    ];
-
     sensitive_markers
         .iter()
-        .any(|marker| normalized.contains(marker))
+        .any(|marker| normalized.contains(&marker.to_ascii_lowercase()))
 }
 
 fn was_modified_recently(path: &str, within_minutes: u64) -> bool {
@@ -227,6 +225,7 @@ mod tests {
     use chrono::Local;
 
     use super::{build_plan, is_sensitive_path, PlanOptions};
+    use crate::policy::{PlannerPolicy, Policy};
     use crate::rules::RiskLevel;
     use crate::scanner::{Finding, ScanReport, Summary, Volume};
 
@@ -269,6 +268,7 @@ mod tests {
             PlanOptions {
                 safe_only: true,
                 skip_modified_within_minutes: 0,
+                policy: test_policy(),
             },
         );
 
@@ -318,6 +318,7 @@ mod tests {
             PlanOptions {
                 safe_only: false,
                 skip_modified_within_minutes: 0,
+                policy: test_policy(),
             },
         );
 
@@ -329,9 +330,32 @@ mod tests {
 
     #[test]
     fn blocks_sensitive_paths() {
-        assert!(is_sensitive_path("C:\\Users\\demo\\cookies"));
-        assert!(is_sensitive_path("C:\\Users\\demo\\Login Data"));
-        assert!(is_sensitive_path("C:\\Users\\demo\\auth.json"));
-        assert!(!is_sensitive_path("C:\\Users\\demo\\Cache"));
+        let markers = vec!["cookies".to_string(), "login data".to_string(), "auth.json".to_string()];
+        assert!(is_sensitive_path("C:\\Users\\demo\\cookies", &markers));
+        assert!(is_sensitive_path("C:\\Users\\demo\\Login Data", &markers));
+        assert!(is_sensitive_path("C:\\Users\\demo\\auth.json", &markers));
+        assert!(!is_sensitive_path("C:\\Users\\demo\\Cache", &markers));
+    }
+
+    fn test_policy() -> Policy {
+        Policy {
+            sensitive_markers: vec![
+                "token".to_string(),
+                "credential".to_string(),
+                "secret".to_string(),
+                ".env".to_string(),
+                "cookies".to_string(),
+                "login data".to_string(),
+                "auth.json".to_string(),
+            ],
+            planner: PlannerPolicy {
+                skip_modified_within_minutes: 30,
+                allow_actions: vec![
+                    "quarantine".to_string(),
+                    "report-only".to_string(),
+                    "guide".to_string(),
+                ],
+            },
+        }
     }
 }

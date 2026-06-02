@@ -125,6 +125,11 @@ cargo run -- restore --dry-run --json --index "F:\archives\.aidisk\quarantine-in
 cargo run -- restore --yes --json --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 ```
 
+恢复冲突策略：
+
+- 如果恢复目标路径已存在，当前实现会跳过并标记为 `skipped-conflict`
+- 不会覆盖现有目标，也不会自动删除冲突路径
+
 专项诊断：
 
 ```powershell

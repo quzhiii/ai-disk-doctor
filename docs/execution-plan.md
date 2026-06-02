@@ -135,6 +135,6 @@
 ## Immediate Next Steps
 
 1. 引入更真实的集成测试 fixtures。
-2. 为 restore 增加恢复冲突处理和日志。
+2. 为 restore 增加恢复日志追加和冲突恢复策略扩展。
 3. 让 doctor 按主题补更多原生命令建议。
 4. 细化 WSL / Docker / Ollama 专项规则。

@@ -209,11 +209,12 @@ pub fn restore_from_index(index_path: &Path, dry_run: bool) -> Result<RestoreRep
             }
             Err(error) => {
                 failure_count += 1;
+                let (status, message) = classify_restore_error(&error);
                 results.push(RestoreResult {
                     source_path: entry.destination_path.clone(),
                     destination_path: entry.source_path.clone(),
-                    status: "failed".to_string(),
-                    message: error.to_string(),
+                    status,
+                    message,
                 });
             }
         }
@@ -265,6 +266,10 @@ fn restore_entry(source: &str, destination: &str) -> Result<String> {
     }
 
     let destination = Path::new(destination);
+    if destination.exists() {
+        anyhow::bail!("restore destination already exists");
+    }
+
     let parent = destination
         .parent()
         .ok_or_else(|| anyhow::anyhow!("restore destination parent is missing"))?;
@@ -317,6 +322,30 @@ fn classify_execution_error(error: &anyhow::Error) -> (String, String) {
             return (
                 "skipped-locked".to_string(),
                 "permission denied or path may be locked by another process".to_string(),
+            );
+        }
+    }
+
+    ("failed".to_string(), message)
+}
+
+fn classify_restore_error(error: &anyhow::Error) -> (String, String) {
+    let message = error.to_string();
+    let lowered = message.to_ascii_lowercase();
+
+    if lowered.contains("already exists") {
+        return (
+            "skipped-conflict".to_string(),
+            "restore destination already exists; existing path was left untouched".to_string(),
+        );
+    }
+
+    if let Some(io_error) = error.downcast_ref::<std::io::Error>() {
+        if io_error.kind() == std::io::ErrorKind::PermissionDenied {
+            return (
+                "skipped-locked".to_string(),
+                "permission denied or restore destination may be locked by another process"
+                    .to_string(),
             );
         }
     }
@@ -379,8 +408,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_dry_run, build_quarantine_plan, classify_execution_error, execute_quarantine,
-        restore_from_index, QuarantineEntry, QuarantinePlan,
+        build_dry_run, build_quarantine_plan, classify_execution_error, classify_restore_error,
+        execute_quarantine, restore_from_index, QuarantineEntry, QuarantinePlan,
     };
     use crate::planner::{ActionGroup, PlanCandidate, PlanReport, PlanSummary, SkippedItem};
     use crate::rules::RiskLevel;
@@ -578,5 +607,44 @@ mod tests {
 
         assert_eq!(status, "skipped-locked");
         assert!(message.contains("locked") || message.contains("permission denied"));
+    }
+
+    #[test]
+    fn restore_conflict_is_classified_as_skipped_conflict() {
+        let error = anyhow::anyhow!("restore destination already exists");
+
+        let (status, message) = classify_restore_error(&error);
+
+        assert_eq!(status, "skipped-conflict");
+        assert!(message.contains("left untouched"));
+    }
+
+    #[test]
+    fn restore_from_index_skips_existing_destination() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("restore-conflict-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 0,
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("restore-conflict-dir").display().to_string(),
+            }],
+        };
+
+        let execution = execute_quarantine(&plan).expect("execution should succeed");
+        std::fs::create_dir_all(&source).expect("conflicting destination should be recreated");
+
+        let restore = restore_from_index(Path::new(&execution.index_path), false)
+            .expect("restore should complete with conflict report");
+
+        assert_eq!(restore.failure_count, 1);
+        assert_eq!(restore.results[0].status, "skipped-conflict");
+        assert!(source.exists());
+        assert!(destination_root.join("restore-conflict-dir").exists());
     }
 }

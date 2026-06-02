@@ -143,6 +143,8 @@ cargo run -- doctor --wsl --ollama --markdown
 - 空结果与未命中路径的解释
 - 贴近执行的建议清单
 
+真实场景测试样本位于：`aidisk/tests/fixtures/windows-user`
+
 ## 设计原则
 
 - 默认保守：未知路径只报告，不处理

@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-06-02T18:00:00+08:00",
+  "topics": [
+    {
+      "name": "docker",
+      "summary": "3 matching items, 1 existing, total observed size 4940183 bytes",
+      "findings": [
+        {
+          "id": "docker-desktop-data",
+          "path": "C:\\Users\\demo\\AppData\\Local\\Docker",
+          "exists": true,
+          "size_bytes": 4940183,
+          "risk": "review",
+          "action": "report-only",
+          "reason": "Docker Desktop local data can include diagnostics and client-side cache, but should still be reviewed before cleanup."
+        }
+      ],
+      "recommendations": [
+        "Use `docker system df` to inspect image, cache, and volume usage.",
+        "Prefer `docker builder prune` and targeted prune commands over filesystem deletion.",
+        "Treat Docker virtual disk files and volume storage as report-only assets."
+      ]
+    }
+  ]
+}

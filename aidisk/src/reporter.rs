@@ -473,6 +473,8 @@ fn render_execution_text(report: &ExecutionReport) -> String {
         format!("Root: {}", report.root),
         format!("Success Count: {}", report.success_count),
         format!("Failure Count: {}", report.failure_count),
+        format!("Index Path: {}", report.index_path),
+        format!("Log Path: {}", report.log_path),
         String::new(),
         "Results:".to_string(),
     ];
@@ -496,6 +498,8 @@ fn render_execution_markdown(report: &ExecutionReport) -> String {
         format!("- Root: {}", report.root),
         format!("- Success Count: {}", report.success_count),
         format!("- Failure Count: {}", report.failure_count),
+        format!("- Index Path: `{}`", report.index_path),
+        format!("- Log Path: `{}`", report.log_path),
         String::new(),
         "## Results".to_string(),
         String::new(),

@@ -192,7 +192,7 @@ fn main() -> Result<()> {
                 let quarantine_root = quarantine_root
                     .ok_or_else(|| anyhow::anyhow!("clean execution requires --quarantine-root"))?;
                 let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
-                let execution_report = cleaner::execute_quarantine(&quarantine_plan);
+                let execution_report = cleaner::execute_quarantine(&quarantine_plan)?;
                 println!("{}", reporter::render_execution(&execution_report, effective_format)?);
             }
         }

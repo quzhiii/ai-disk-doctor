@@ -89,6 +89,8 @@
 - skipped 继承输出
 - quarantine path planning
 - `clean --yes --quarantine` 执行骨架
+- 恢复索引与执行日志写入
+- active-file 保守跳过
 
 验收标准：
 
@@ -124,6 +126,6 @@
 ## Immediate Next Steps
 
 1. 引入更真实的集成测试 fixtures。
-2. 开始 active-file / locked-file 安全边界实现。
-3. 为 clean execution 增加恢复索引和执行日志。
+2. 细化 locked-file / permission-denied 的判定与回报。
+3. 增加 restore 命令骨架，消费 quarantine index。
 4. 细化 WSL / Docker / Ollama 专项规则。

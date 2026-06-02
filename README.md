@@ -102,8 +102,16 @@ Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFIL
 - action groups
 - skipped 继承说明
 - quarantine 目标路径预演
+- 执行结果报告
+- 恢复索引和执行日志
 
 策略文件位于：`aidisk/config/policy.yaml`
+
+真实执行隔离移动：
+
+```powershell
+cargo run -- clean --yes --safe-only --quarantine-root "F:\archives"
+```
 
 ## 设计原则
 

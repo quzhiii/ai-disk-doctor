@@ -1,8 +1,10 @@
 use std::fs;
+use std::io::Write;
 use std::path::Path;
+use std::time::SystemTime;
 
 use anyhow::Result;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local, Utc};
 use serde::Serialize;
 
 use crate::planner::{ActionGroup, PlanReport, SkippedItem};
@@ -29,6 +31,7 @@ pub struct CleanAction {
 #[derive(Debug, Serialize)]
 pub struct QuarantinePlan {
     pub root: String,
+    pub skip_modified_within_minutes: u64,
     pub entries: Vec<QuarantineEntry>,
 }
 
@@ -45,6 +48,8 @@ pub struct ExecutionReport {
     pub root: String,
     pub success_count: usize,
     pub failure_count: usize,
+    pub index_path: String,
+    pub log_path: String,
     pub results: Vec<ExecutionResult>,
 }
 
@@ -92,17 +97,18 @@ pub fn build_quarantine_plan(plan: &PlanReport, root: &str) -> QuarantinePlan {
 
     QuarantinePlan {
         root: root.to_string(),
+        skip_modified_within_minutes: plan.skip_modified_within_minutes,
         entries,
     }
 }
 
-pub fn execute_quarantine(plan: &QuarantinePlan) -> ExecutionReport {
+pub fn execute_quarantine(plan: &QuarantinePlan) -> Result<ExecutionReport> {
     let mut results = Vec::new();
     let mut success_count = 0_usize;
     let mut failure_count = 0_usize;
 
     for entry in &plan.entries {
-        match move_to_quarantine(entry) {
+        match move_to_quarantine(entry, plan.skip_modified_within_minutes) {
             Ok(message) => {
                 success_count += 1;
                 results.push(ExecutionResult {
@@ -114,30 +120,52 @@ pub fn execute_quarantine(plan: &QuarantinePlan) -> ExecutionReport {
             }
             Err(error) => {
                 failure_count += 1;
+                let (status, message) = classify_execution_error(&error);
                 results.push(ExecutionResult {
                     source_path: entry.source_path.clone(),
                     destination_path: entry.destination_path.clone(),
-                    status: "failed".to_string(),
-                    message: error.to_string(),
+                    status,
+                    message,
                 });
             }
         }
     }
 
-    ExecutionReport {
+    let metadata_dir = Path::new(&plan.root).join(".aidisk");
+    fs::create_dir_all(&metadata_dir)?;
+
+    let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let index_path = metadata_dir.join(format!("quarantine-index-{timestamp}.json"));
+    let log_path = metadata_dir.join(format!("quarantine-log-{timestamp}.log"));
+
+    let report = ExecutionReport {
         generated_at: Local::now(),
         mode: "quarantine".to_string(),
         root: plan.root.clone(),
         success_count,
         failure_count,
+        index_path: index_path.display().to_string(),
+        log_path: log_path.display().to_string(),
         results,
-    }
+    };
+
+    write_execution_index(&index_path, &report)?;
+    write_execution_log(&log_path, &report)?;
+
+    Ok(report)
 }
 
-fn move_to_quarantine(entry: &QuarantineEntry) -> Result<String> {
+fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64) -> Result<String> {
     let source = Path::new(&entry.source_path);
     if !source.exists() {
         anyhow::bail!("source path does not exist");
+    }
+
+    if was_modified_recently(source, skip_modified_within_minutes) {
+        anyhow::bail!(
+            "source path was recently modified within {} minutes",
+            skip_modified_within_minutes
+        );
     }
 
     let destination = Path::new(&entry.destination_path);
@@ -150,13 +178,107 @@ fn move_to_quarantine(entry: &QuarantineEntry) -> Result<String> {
     Ok("moved to quarantine".to_string())
 }
 
+fn write_execution_index(path: &Path, report: &ExecutionReport) -> Result<()> {
+    let content = serde_json::to_string_pretty(report)?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
+fn write_execution_log(path: &Path, report: &ExecutionReport) -> Result<()> {
+    let mut file = fs::File::create(path)?;
+    writeln!(file, "Windows AI Space Quarantine Log")?;
+    writeln!(file, "Generated At: {}", report.generated_at)?;
+    writeln!(file, "Root: {}", report.root)?;
+    writeln!(file, "Success Count: {}", report.success_count)?;
+    writeln!(file, "Failure Count: {}", report.failure_count)?;
+    writeln!(file)?;
+
+    for result in &report.results {
+        writeln!(
+            file,
+            "{} => {} | {} | {}",
+            result.source_path, result.destination_path, result.status, result.message
+        )?;
+    }
+
+    Ok(())
+}
+
 fn sanitize_path(path: &str) -> String {
     path.replace(':', "").replace('\\', "__").replace('/', "__")
+}
+
+fn classify_execution_error(error: &anyhow::Error) -> (String, String) {
+    let message = error.to_string();
+    let lowered = message.to_ascii_lowercase();
+
+    if lowered.contains("recently modified") {
+        return ("skipped-active".to_string(), message);
+    }
+
+    if let Some(io_error) = error.downcast_ref::<std::io::Error>() {
+        if io_error.kind() == std::io::ErrorKind::PermissionDenied {
+            return (
+                "skipped-locked".to_string(),
+                "permission denied or path may be locked by another process".to_string(),
+            );
+        }
+    }
+
+    ("failed".to_string(), message)
+}
+
+fn was_modified_recently(path: &Path, within_minutes: u64) -> bool {
+    if within_minutes == 0 {
+        return false;
+    }
+
+    let latest = latest_modified_time(path);
+    let Some(latest) = latest else {
+        return false;
+    };
+
+    let modified_at_utc: DateTime<Utc> = latest.into();
+    let threshold = Utc::now() - Duration::minutes(within_minutes as i64);
+    modified_at_utc >= threshold
+}
+
+fn latest_modified_time(path: &Path) -> Option<SystemTime> {
+    let metadata = fs::metadata(path).ok()?;
+    if metadata.is_file() {
+        return metadata.modified().ok();
+    }
+
+    let mut latest = metadata.modified().ok();
+    for entry in walkdir::WalkDir::new(path).follow_links(false) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        let modified = match metadata.modified() {
+            Ok(modified) => modified,
+            Err(_) => continue,
+        };
+
+        latest = match latest {
+            Some(current) if current >= modified => Some(current),
+            _ => Some(modified),
+        };
+    }
+
+    latest
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::Local;
+    use std::path::Path;
+    use std::thread;
+    use std::time::Duration as StdDuration;
 
     use tempfile::tempdir;
 
@@ -229,16 +351,66 @@ mod tests {
 
         let plan = QuarantinePlan {
             root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 0,
             entries: vec![QuarantineEntry {
                 source_path: source.display().to_string(),
                 destination_path: destination_root.join("cache-dir").display().to_string(),
             }],
         };
 
-        let report = execute_quarantine(&plan);
+        let report = execute_quarantine(&plan).expect("execution should succeed");
         assert_eq!(report.success_count, 1);
         assert_eq!(report.failure_count, 0);
         assert!(!source.exists());
         assert!(destination_root.join("cache-dir").exists());
+        assert!(Path::new(&report.index_path).exists());
+        assert!(Path::new(&report.log_path).exists());
+    }
+
+    #[test]
+    fn execute_quarantine_skips_recently_modified_sources() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("active-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 60,
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("active-dir").display().to_string(),
+            }],
+        };
+
+        let report = execute_quarantine(&plan).expect("execution should finish with report");
+        assert_eq!(report.success_count, 0);
+        assert_eq!(report.failure_count, 1);
+        assert_eq!(report.results[0].status, "skipped-active");
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn execute_quarantine_allows_older_sources() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("older-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+        thread::sleep(StdDuration::from_millis(1100));
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 0,
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("older-dir").display().to_string(),
+            }],
+        };
+
+        let report = execute_quarantine(&plan).expect("execution should succeed");
+        assert_eq!(report.success_count, 1);
+        assert_eq!(report.results[0].status, "moved");
     }
 }

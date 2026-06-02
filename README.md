@@ -135,6 +135,8 @@ cargo run -- restore --yes --json --index "F:\archives\.aidisk\quarantine-index-
 ```powershell
 cargo run -- doctor --docker --json
 cargo run -- doctor --wsl --ollama --markdown
+cargo run -- doctor --playwright --huggingface --markdown
+cargo run -- doctor --markdown
 ```
 
 当前 `doctor` 输出包含：
@@ -142,6 +144,7 @@ cargo run -- doctor --wsl --ollama --markdown
 - 按主题汇总的专项发现
 - 空结果与未命中路径的解释
 - 贴近执行的建议清单
+- 不带主题参数时的完整诊断集合
 
 真实场景测试样本位于：`aidisk/tests/fixtures/windows-user`
 

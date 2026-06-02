@@ -117,8 +117,11 @@
 - `doctor --docker`
 - `doctor --wsl`
 - `doctor --ollama`
+- `doctor --playwright`
+- `doctor --huggingface`
 - 空结果与未命中路径解释
 - 结构化建议输出
+- 无参数时运行完整诊断集合
 
 ## Phase 5: Skill Integration
 
@@ -136,5 +139,5 @@
 
 1. 在 fixtures 上继续补更大的真实场景样本。
 2. 为 restore 增加恢复日志追加和冲突恢复策略扩展。
-3. 让 doctor 按主题补更多原生命令建议。
-4. 细化 WSL / Docker / Ollama 专项规则。
+3. 细化 WSL / Docker / Ollama / Playwright / Hugging Face 规则与建议。
+4. 开始 Phase 5 的 skill workflow 和 wrapper scripts。

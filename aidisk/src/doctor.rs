@@ -33,6 +33,8 @@ pub struct DoctorOptions {
     pub docker: bool,
     pub wsl: bool,
     pub ollama: bool,
+    pub playwright: bool,
+    pub huggingface: bool,
 }
 
 pub fn build_doctor(scan_report: &ScanReport, options: DoctorOptions) -> DoctorReport {
@@ -67,10 +69,34 @@ pub fn build_doctor(scan_report: &ScanReport, options: DoctorOptions) -> DoctorR
         topics.push(build_topic(
             "ollama",
             scan_report,
-            |finding| finding.id == "ollama-models" || finding.id == "huggingface-cache",
+            |finding| finding.id == "ollama-models",
             vec![
-                "Review model inventory before deletion; prefer model-aware commands over manual removal.".to_string(),
-                "Move large model stores to a larger drive if model usage is frequent.".to_string(),
+                "Run `ollama list` before cleanup so model names and sizes are explicit.".to_string(),
+                "Remove unused models through model-aware commands instead of deleting blob paths directly.".to_string(),
+            ],
+        ));
+    }
+
+    if options.huggingface {
+        topics.push(build_topic(
+            "huggingface",
+            scan_report,
+            |finding| finding.id == "huggingface-cache",
+            vec![
+                "Review which projects share this cache before deleting reusable downloads.".to_string(),
+                "Prefer targeted cache cleanup or relocation over wiping the cache root blindly.".to_string(),
+            ],
+        ));
+    }
+
+    if options.playwright {
+        topics.push(build_topic(
+            "playwright",
+            scan_report,
+            |finding| finding.id == "playwright-project-browsers" || finding.path.contains("ms-playwright"),
+            vec![
+                "Check whether browsers are being downloaded per project instead of via a shared cache.".to_string(),
+                "If browser downloads are repeated, centralize Playwright browser storage before deleting caches.".to_string(),
             ],
         ));
     }
@@ -173,6 +199,18 @@ fn enrich_recommendations(
                     .to_string(),
             );
         }
+        "huggingface" => {
+            recommendations.push(
+                "If Hugging Face artifacts are still needed across projects, relocate the cache to a larger disk instead of repeatedly pruning it."
+                    .to_string(),
+            );
+        }
+        "playwright" => {
+            recommendations.push(
+                "If browser runtimes are expected, track whether `.playwright-browsers` appears in multiple worktrees and consolidate where possible."
+                    .to_string(),
+            );
+        }
         _ => {}
     }
 
@@ -204,6 +242,8 @@ mod tests {
                 docker: true,
                 wsl: false,
                 ollama: false,
+                playwright: false,
+                huggingface: false,
             },
         );
 
@@ -237,9 +277,61 @@ mod tests {
                 docker: false,
                 wsl: true,
                 ollama: false,
+                playwright: false,
+                huggingface: false,
             },
         );
 
         assert!(doctor.topics[0].summary.contains("no existing paths were found"));
+    }
+
+    #[test]
+    fn doctor_can_split_ollama_and_huggingface_topics() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![
+                Finding {
+                    id: "ollama-models".to_string(),
+                    name: "Ollama model store".to_string(),
+                    category: "models".to_string(),
+                    path: "C:\\Users\\demo\\.ollama\\models".to_string(),
+                    exists: true,
+                    size_bytes: 100,
+                    risk: RiskLevel::Review,
+                    action: "guide".to_string(),
+                    reason: "ollama".to_string(),
+                    warnings: Vec::new(),
+                },
+                Finding {
+                    id: "huggingface-cache".to_string(),
+                    name: "Hugging Face cache".to_string(),
+                    category: "models".to_string(),
+                    path: "C:\\Users\\demo\\.cache\\huggingface".to_string(),
+                    exists: true,
+                    size_bytes: 200,
+                    risk: RiskLevel::Review,
+                    action: "guide".to_string(),
+                    reason: "hf".to_string(),
+                    warnings: Vec::new(),
+                },
+            ],
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor(
+            &report,
+            DoctorOptions {
+                docker: false,
+                wsl: false,
+                ollama: true,
+                playwright: false,
+                huggingface: true,
+            },
+        );
+
+        assert_eq!(doctor.topics.len(), 2);
+        assert_eq!(doctor.topics[0].name, "ollama");
+        assert_eq!(doctor.topics[1].name, "huggingface");
     }
 }

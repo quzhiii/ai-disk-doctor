@@ -101,6 +101,10 @@ enum Command {
         #[arg(long)]
         ollama: bool,
         #[arg(long)]
+        playwright: bool,
+        #[arg(long)]
+        huggingface: bool,
+        #[arg(long)]
         rules_dir: Option<PathBuf>,
     },
 }
@@ -254,9 +258,11 @@ fn main() -> Result<()> {
             format,
             json,
             markdown,
-            docker,
-            wsl,
-            ollama,
+            mut docker,
+            mut wsl,
+            mut ollama,
+            mut playwright,
+            mut huggingface,
             rules_dir,
         } => {
             let effective_format = if json {
@@ -267,6 +273,14 @@ fn main() -> Result<()> {
                 format
             };
 
+            if !(docker || wsl || ollama || playwright || huggingface) {
+                docker = true;
+                wsl = true;
+                ollama = true;
+                playwright = true;
+                huggingface = true;
+            }
+
             let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
             let rules = rules::load_rules(&rules_dir)?;
             let scan_report = scanner::scan(&rules)?;
@@ -276,6 +290,8 @@ fn main() -> Result<()> {
                     docker,
                     wsl,
                     ollama,
+                    playwright,
+                    huggingface,
                 },
             );
             println!("{}", reporter::render_doctor(&doctor_report, effective_format)?);

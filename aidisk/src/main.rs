@@ -1,4 +1,5 @@
 mod cleaner;
+mod diff;
 mod doctor;
 mod planner;
 mod policy;
@@ -86,6 +87,18 @@ enum Command {
         yes: bool,
         #[arg(long)]
         index: PathBuf,
+    },
+    Diff {
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+        #[arg(long)]
+        before: PathBuf,
+        #[arg(long)]
+        after: PathBuf,
     },
     Doctor {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -255,6 +268,24 @@ fn main() -> Result<()> {
 
             let report = cleaner::restore_from_index(&index, dry_run)?;
             println!("{}", reporter::render_restore(&report, effective_format)?);
+        }
+        Command::Diff {
+            format,
+            json,
+            markdown,
+            before,
+            after,
+        } => {
+            let effective_format = if json {
+                OutputFormat::Json
+            } else if markdown {
+                OutputFormat::Markdown
+            } else {
+                format
+            };
+
+            let report = diff::build_diff(&before, &after)?;
+            println!("{}", reporter::render_diff(&report, effective_format)?);
         }
         Command::Doctor {
             format,

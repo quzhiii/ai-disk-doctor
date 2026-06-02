@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::cleaner::{CleanReport, ExecutionReport, QuarantinePlan, RestoreReport};
+use crate::diff::DiffReport;
 use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
@@ -612,6 +613,82 @@ fn render_doctor_text(report: &DoctorReport) -> String {
     }
 
     lines.join("\n")
+}
+
+pub fn render_diff(report: &DiffReport, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_diff_markdown(report),
+        OutputFormat::Text => render_diff_text(report),
+    };
+
+    Ok(output)
+}
+
+fn render_diff_text(report: &DiffReport) -> String {
+    let mut lines = vec![
+        "Windows AI Space Diff".to_string(),
+        format!("Generated At: {}", report.generated_at),
+        format!("Before: {}", report.before),
+        format!("After: {}", report.after),
+        format!("Total Growth: {}", human_bytes_delta(report.summary.total_growth_bytes)),
+        format!("Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}", 
+            report.summary.grew, report.summary.shrunk, report.summary.appeared, report.summary.disappeared),
+        String::new(),
+        "Changes:".to_string(),
+    ];
+
+    for change in &report.changes {
+        lines.push(format!(
+            "- [{}] {} | before={} after={} delta={}",
+            change.change,
+            change.path,
+            human_bytes(change.before_bytes),
+            human_bytes(change.after_bytes),
+            human_bytes_delta(change.delta_bytes)
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_diff_markdown(report: &DiffReport) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Diff".to_string(),
+        String::new(),
+        format!("- Generated At: {}", report.generated_at),
+        format!("- Before: `{}`", report.before),
+        format!("- After: `{}`", report.after),
+        format!("- Total Growth: {}", human_bytes_delta(report.summary.total_growth_bytes)),
+        format!("- Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}",
+            report.summary.grew, report.summary.shrunk, report.summary.appeared, report.summary.disappeared),
+        String::new(),
+        "## Changes".to_string(),
+        String::new(),
+        "| Change | Path | Before | After | Delta |".to_string(),
+        "|---|---|---:|---:|---:|".to_string(),
+    ];
+
+    for change in &report.changes {
+        lines.push(format!(
+            "| {} | `{}` | {} | {} | {} |",
+            change.change,
+            change.path,
+            human_bytes(change.before_bytes),
+            human_bytes(change.after_bytes),
+            human_bytes_delta(change.delta_bytes)
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn human_bytes_delta(bytes: i64) -> String {
+    if bytes >= 0 {
+        format!("+{}", human_bytes(bytes as u64))
+    } else {
+        format!("-{}", human_bytes(bytes.unsigned_abs()))
+    }
 }
 
 fn render_doctor_markdown(report: &DoctorReport) -> String {

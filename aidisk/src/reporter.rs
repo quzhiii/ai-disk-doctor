@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cleaner::{CleanReport, QuarantinePlan};
+use crate::cleaner::{CleanReport, ExecutionReport, QuarantinePlan};
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
 use crate::OutputFormat;
@@ -40,6 +40,16 @@ pub fn render_quarantine_plan(report: &QuarantinePlan, format: OutputFormat) -> 
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_quarantine_markdown(report),
         OutputFormat::Text => render_quarantine_text(report),
+    };
+
+    Ok(output)
+}
+
+pub fn render_execution(report: &ExecutionReport, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_execution_markdown(report),
+        OutputFormat::Text => render_execution_text(report),
     };
 
     Ok(output)
@@ -450,6 +460,54 @@ fn render_quarantine_markdown(report: &QuarantinePlan) -> String {
 
     for entry in &report.entries {
         lines.push(format!("| `{}` | `{}` |", entry.source_path, entry.destination_path));
+    }
+
+    lines.join("\n")
+}
+
+fn render_execution_text(report: &ExecutionReport) -> String {
+    let mut lines = vec![
+        "Windows AI Space Quarantine Result".to_string(),
+        format!("Generated At: {}", report.generated_at),
+        format!("Mode: {}", report.mode),
+        format!("Root: {}", report.root),
+        format!("Success Count: {}", report.success_count),
+        format!("Failure Count: {}", report.failure_count),
+        String::new(),
+        "Results:".to_string(),
+    ];
+
+    for result in &report.results {
+        lines.push(format!(
+            "- {} => {} | {} | {}",
+            result.source_path, result.destination_path, result.status, result.message
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_execution_markdown(report: &ExecutionReport) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Quarantine Result".to_string(),
+        String::new(),
+        format!("- Generated At: {}", report.generated_at),
+        format!("- Mode: {}", report.mode),
+        format!("- Root: {}", report.root),
+        format!("- Success Count: {}", report.success_count),
+        format!("- Failure Count: {}", report.failure_count),
+        String::new(),
+        "## Results".to_string(),
+        String::new(),
+        "| Source | Destination | Status | Message |".to_string(),
+        "|---|---|---|---|".to_string(),
+    ];
+
+    for result in &report.results {
+        lines.push(format!(
+            "| `{}` | `{}` | {} | {} |",
+            result.source_path, result.destination_path, result.status, result.message
+        ));
     }
 
     lines.join("\n")

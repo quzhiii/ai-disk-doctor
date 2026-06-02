@@ -29,6 +29,7 @@
 - 只读 `scan` 命令最小闭环
 - `plan` 只读 dry-run 骨架
 - `plan` 安全边界首版
+- `clean` dry-run / quarantine 骨架
 
 ## 快速开始
 
@@ -67,6 +68,18 @@ cargo run -- plan --safe-only --json
 cargo run -- plan --json --skip-modified-within-minutes 30
 ```
 
+生成清理预演：
+
+```powershell
+cargo run -- clean --dry-run --safe-only --markdown
+```
+
+生成隔离移动计划：
+
+```powershell
+cargo run -- clean --dry-run --safe-only --json --quarantine-root "F:\archives"
+```
+
 Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFILE%\projects\**\.playwright-browsers`。
 
 当前 `scan` 输出还包含：
@@ -82,6 +95,15 @@ Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFIL
 - 最近修改时间过滤
 - 敏感路径阻断
 - skipped 列表与原因说明
+
+当前 `clean` 输出还包含：
+
+- dry-run 动作清单
+- action groups
+- skipped 继承说明
+- quarantine 目标路径预演
+
+策略文件位于：`aidisk/config/policy.yaml`
 
 ## 设计原则
 

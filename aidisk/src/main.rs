@@ -60,6 +60,8 @@ enum Command {
         #[arg(long)]
         dry_run: bool,
         #[arg(long)]
+        yes: bool,
+        #[arg(long)]
         safe_only: bool,
         #[arg(long)]
         category: Option<String>,
@@ -143,6 +145,7 @@ fn main() -> Result<()> {
             json,
             markdown,
             dry_run,
+            yes,
             safe_only,
             category,
             rules_dir,
@@ -172,17 +175,25 @@ fn main() -> Result<()> {
                 },
             );
 
-            if !dry_run {
-                anyhow::bail!("clean currently only supports --dry-run");
-            }
+            if dry_run {
+                let clean_report = cleaner::build_dry_run(&plan_report);
+                println!("{}", reporter::render_clean(&clean_report, effective_format)?);
 
-            let clean_report = cleaner::build_dry_run(&plan_report);
-            println!("{}", reporter::render_clean(&clean_report, effective_format)?);
+                if let Some(quarantine_root) = quarantine_root {
+                    let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                    println!();
+                    println!("{}", reporter::render_quarantine_plan(&quarantine_plan, effective_format)?);
+                }
+            } else {
+                if !yes {
+                    anyhow::bail!("clean execution requires --yes");
+                }
 
-            if let Some(quarantine_root) = quarantine_root {
+                let quarantine_root = quarantine_root
+                    .ok_or_else(|| anyhow::anyhow!("clean execution requires --quarantine-root"))?;
                 let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
-                println!();
-                println!("{}", reporter::render_quarantine_plan(&quarantine_plan, effective_format)?);
+                let execution_report = cleaner::execute_quarantine(&quarantine_plan);
+                println!("{}", reporter::render_execution(&execution_report, effective_format)?);
             }
         }
     }

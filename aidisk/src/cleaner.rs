@@ -1,3 +1,7 @@
+use std::fs;
+use std::path::Path;
+
+use anyhow::Result;
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
@@ -32,6 +36,24 @@ pub struct QuarantinePlan {
 pub struct QuarantineEntry {
     pub source_path: String,
     pub destination_path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecutionReport {
+    pub generated_at: DateTime<Local>,
+    pub mode: String,
+    pub root: String,
+    pub success_count: usize,
+    pub failure_count: usize,
+    pub results: Vec<ExecutionResult>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExecutionResult {
+    pub source_path: String,
+    pub destination_path: String,
+    pub status: String,
+    pub message: String,
 }
 
 pub fn build_dry_run(plan: &PlanReport) -> CleanReport {
@@ -74,6 +96,60 @@ pub fn build_quarantine_plan(plan: &PlanReport, root: &str) -> QuarantinePlan {
     }
 }
 
+pub fn execute_quarantine(plan: &QuarantinePlan) -> ExecutionReport {
+    let mut results = Vec::new();
+    let mut success_count = 0_usize;
+    let mut failure_count = 0_usize;
+
+    for entry in &plan.entries {
+        match move_to_quarantine(entry) {
+            Ok(message) => {
+                success_count += 1;
+                results.push(ExecutionResult {
+                    source_path: entry.source_path.clone(),
+                    destination_path: entry.destination_path.clone(),
+                    status: "moved".to_string(),
+                    message,
+                });
+            }
+            Err(error) => {
+                failure_count += 1;
+                results.push(ExecutionResult {
+                    source_path: entry.source_path.clone(),
+                    destination_path: entry.destination_path.clone(),
+                    status: "failed".to_string(),
+                    message: error.to_string(),
+                });
+            }
+        }
+    }
+
+    ExecutionReport {
+        generated_at: Local::now(),
+        mode: "quarantine".to_string(),
+        root: plan.root.clone(),
+        success_count,
+        failure_count,
+        results,
+    }
+}
+
+fn move_to_quarantine(entry: &QuarantineEntry) -> Result<String> {
+    let source = Path::new(&entry.source_path);
+    if !source.exists() {
+        anyhow::bail!("source path does not exist");
+    }
+
+    let destination = Path::new(&entry.destination_path);
+    let parent = destination
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("destination parent is missing"))?;
+    fs::create_dir_all(parent)?;
+    fs::rename(source, destination)?;
+
+    Ok("moved to quarantine".to_string())
+}
+
 fn sanitize_path(path: &str) -> String {
     path.replace(':', "").replace('\\', "__").replace('/', "__")
 }
@@ -82,7 +158,12 @@ fn sanitize_path(path: &str) -> String {
 mod tests {
     use chrono::Local;
 
-    use super::{build_dry_run, build_quarantine_plan};
+    use tempfile::tempdir;
+
+    use super::{
+        build_dry_run, build_quarantine_plan, execute_quarantine, QuarantineEntry,
+        QuarantinePlan,
+    };
     use crate::planner::{ActionGroup, PlanCandidate, PlanReport, PlanSummary, SkippedItem};
     use crate::rules::RiskLevel;
 
@@ -136,5 +217,28 @@ mod tests {
         assert_eq!(quarantine.entries.len(), 1);
         assert!(quarantine.entries[0].destination_path.contains("F:\\archives"));
         assert!(quarantine.entries[0].destination_path.contains("C__temp__cache"));
+    }
+
+    #[test]
+    fn execute_quarantine_moves_source_into_destination() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("cache-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("cache-dir").display().to_string(),
+            }],
+        };
+
+        let report = execute_quarantine(&plan);
+        assert_eq!(report.success_count, 1);
+        assert_eq!(report.failure_count, 0);
+        assert!(!source.exists());
+        assert!(destination_root.join("cache-dir").exists());
     }
 }

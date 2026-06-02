@@ -82,6 +82,14 @@
 - 增加 `aidisk clean --yes --quarantine`
 - 生成恢复说明和执行日志
 
+当前已完成：
+
+- `clean --dry-run`
+- dry-run action groups
+- skipped 继承输出
+- quarantine path planning
+- `clean --yes --quarantine` 执行骨架
+
 验收标准：
 
 - dry-run 与实际执行目标一致
@@ -115,7 +123,7 @@
 
 ## Immediate Next Steps
 
-1. 补充卷信息与更合理的 summary。
-2. 引入更真实的集成测试 fixtures。
-3. 把敏感路径阻断从关键字提升到规则+策略双层约束。
-4. 开始 active-file / locked-file 安全边界实现。
+1. 引入更真实的集成测试 fixtures。
+2. 开始 active-file / locked-file 安全边界实现。
+3. 为 clean execution 增加恢复索引和执行日志。
+4. 细化 WSL / Docker / Ollama 专项规则。

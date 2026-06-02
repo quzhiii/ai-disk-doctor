@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Local, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::planner::{ActionGroup, PlanReport, SkippedItem};
 
@@ -41,7 +41,7 @@ pub struct QuarantineEntry {
     pub destination_path: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExecutionReport {
     pub generated_at: DateTime<Local>,
     pub mode: String,
@@ -53,8 +53,28 @@ pub struct ExecutionReport {
     pub results: Vec<ExecutionResult>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExecutionResult {
+    pub source_path: String,
+    pub destination_path: String,
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RestoreReport {
+    pub generated_at: DateTime<Local>,
+    pub mode: String,
+    pub index_path: String,
+    pub root: String,
+    pub entry_count: usize,
+    pub success_count: usize,
+    pub failure_count: usize,
+    pub results: Vec<RestoreResult>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RestoreResult {
     pub source_path: String,
     pub destination_path: String,
     pub status: String,
@@ -155,6 +175,66 @@ pub fn execute_quarantine(plan: &QuarantinePlan) -> Result<ExecutionReport> {
     Ok(report)
 }
 
+pub fn restore_from_index(index_path: &Path, dry_run: bool) -> Result<RestoreReport> {
+    let content = fs::read_to_string(index_path)?;
+    let execution_report: ExecutionReport = serde_json::from_str(&content)?;
+    let mut results = Vec::new();
+    let mut success_count = 0_usize;
+    let mut failure_count = 0_usize;
+
+    for entry in execution_report
+        .results
+        .iter()
+        .filter(|result| result.status == "moved")
+    {
+        if dry_run {
+            results.push(RestoreResult {
+                source_path: entry.destination_path.clone(),
+                destination_path: entry.source_path.clone(),
+                status: "planned".to_string(),
+                message: "restore dry-run only".to_string(),
+            });
+            continue;
+        }
+
+        match restore_entry(&entry.destination_path, &entry.source_path) {
+            Ok(message) => {
+                success_count += 1;
+                results.push(RestoreResult {
+                    source_path: entry.destination_path.clone(),
+                    destination_path: entry.source_path.clone(),
+                    status: "restored".to_string(),
+                    message,
+                });
+            }
+            Err(error) => {
+                failure_count += 1;
+                results.push(RestoreResult {
+                    source_path: entry.destination_path.clone(),
+                    destination_path: entry.source_path.clone(),
+                    status: "failed".to_string(),
+                    message: error.to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(RestoreReport {
+        generated_at: Local::now(),
+        mode: if dry_run {
+            "dry-run".to_string()
+        } else {
+            "restore".to_string()
+        },
+        index_path: index_path.display().to_string(),
+        root: execution_report.root,
+        entry_count: results.len(),
+        success_count,
+        failure_count,
+        results,
+    })
+}
+
 fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64) -> Result<String> {
     let source = Path::new(&entry.source_path);
     if !source.exists() {
@@ -176,6 +256,22 @@ fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64
     fs::rename(source, destination)?;
 
     Ok("moved to quarantine".to_string())
+}
+
+fn restore_entry(source: &str, destination: &str) -> Result<String> {
+    let source = Path::new(source);
+    if !source.exists() {
+        anyhow::bail!("quarantined source path does not exist");
+    }
+
+    let destination = Path::new(destination);
+    let parent = destination
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("restore destination parent is missing"))?;
+    fs::create_dir_all(parent)?;
+    fs::rename(source, destination)?;
+
+    Ok("restored from quarantine".to_string())
 }
 
 fn write_execution_index(path: &Path, report: &ExecutionReport) -> Result<()> {
@@ -283,8 +379,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_dry_run, build_quarantine_plan, execute_quarantine, QuarantineEntry,
-        QuarantinePlan,
+        build_dry_run, build_quarantine_plan, execute_quarantine, restore_from_index,
+        QuarantineEntry, QuarantinePlan,
     };
     use crate::planner::{ActionGroup, PlanCandidate, PlanReport, PlanSummary, SkippedItem};
     use crate::rules::RiskLevel;
@@ -412,5 +508,31 @@ mod tests {
         let report = execute_quarantine(&plan).expect("execution should succeed");
         assert_eq!(report.success_count, 1);
         assert_eq!(report.results[0].status, "moved");
+    }
+
+    #[test]
+    fn restore_from_index_supports_dry_run() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("restore-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 0,
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("restore-dir").display().to_string(),
+            }],
+        };
+
+        let execution = execute_quarantine(&plan).expect("execution should succeed");
+        let restore = restore_from_index(Path::new(&execution.index_path), true)
+            .expect("restore dry-run should succeed");
+
+        assert_eq!(restore.entry_count, 1);
+        assert_eq!(restore.success_count, 0);
+        assert_eq!(restore.results[0].status, "planned");
     }
 }

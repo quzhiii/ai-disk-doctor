@@ -72,6 +72,20 @@ enum Command {
         #[arg(long)]
         quarantine_root: Option<String>,
     },
+    Restore {
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        yes: bool,
+        #[arg(long)]
+        index: PathBuf,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -195,6 +209,29 @@ fn main() -> Result<()> {
                 let execution_report = cleaner::execute_quarantine(&quarantine_plan)?;
                 println!("{}", reporter::render_execution(&execution_report, effective_format)?);
             }
+        }
+        Command::Restore {
+            format,
+            json,
+            markdown,
+            dry_run,
+            yes,
+            index,
+        } => {
+            let effective_format = if json {
+                OutputFormat::Json
+            } else if markdown {
+                OutputFormat::Markdown
+            } else {
+                format
+            };
+
+            if !dry_run && !yes {
+                anyhow::bail!("restore execution requires --yes or use --dry-run");
+            }
+
+            let report = cleaner::restore_from_index(&index, dry_run)?;
+            println!("{}", reporter::render_restore(&report, effective_format)?);
         }
     }
 

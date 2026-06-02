@@ -172,16 +172,42 @@ fn render_plan_text(report: &PlanReport) -> String {
         format!("Generated At: {}", report.generated_at),
         format!("Mode: {}", report.mode),
         format!("Safe Only: {}", report.safe_only),
+        format!(
+            "Skip Modified Within Minutes: {}",
+            report.skip_modified_within_minutes
+        ),
         format!("Total Findings: {}", report.summary.total_findings),
         format!("Eligible Candidates: {}", report.summary.eligible_candidates),
         format!("Skipped Findings: {}", report.summary.skipped_findings),
+        format!(
+            "Blocked Sensitive Paths: {}",
+            report.summary.blocked_sensitive_paths
+        ),
+        format!(
+            "Skipped Recently Modified: {}",
+            report.summary.skipped_recently_modified
+        ),
         format!(
             "Reclaimable Bytes: {}",
             human_bytes(report.summary.reclaimable_bytes)
         ),
         String::new(),
-        "Candidates:".to_string(),
+        "Action Groups:".to_string(),
     ];
+
+    for group in &report.groups {
+        lines.push(format!(
+            "- {} | candidates={} | {}",
+            group.action,
+            group.candidate_count,
+            human_bytes(group.total_bytes)
+        ));
+    }
+
+    lines.extend([
+        String::new(),
+        "Candidates:".to_string(),
+    ]);
 
     for candidate in &report.candidates {
         lines.push(format!(
@@ -191,6 +217,14 @@ fn render_plan_text(report: &PlanReport) -> String {
             human_bytes(candidate.size_bytes),
             candidate.action
         ));
+    }
+
+    if !report.skipped.is_empty() {
+        lines.push(String::new());
+        lines.push("Skipped:".to_string());
+        for skipped in &report.skipped {
+            lines.push(format!("- {} | {}", skipped.path, skipped.reason));
+        }
     }
 
     lines.join("\n")
@@ -203,19 +237,48 @@ fn render_plan_markdown(report: &PlanReport) -> String {
         format!("- Generated At: {}", report.generated_at),
         format!("- Mode: {}", report.mode),
         format!("- Safe Only: {}", report.safe_only),
+        format!(
+            "- Skip Modified Within Minutes: {}",
+            report.skip_modified_within_minutes
+        ),
         format!("- Total Findings: {}", report.summary.total_findings),
         format!("- Eligible Candidates: {}", report.summary.eligible_candidates),
         format!("- Skipped Findings: {}", report.summary.skipped_findings),
         format!(
+            "- Blocked Sensitive Paths: {}",
+            report.summary.blocked_sensitive_paths
+        ),
+        format!(
+            "- Skipped Recently Modified: {}",
+            report.summary.skipped_recently_modified
+        ),
+        format!(
             "- Reclaimable Bytes: {}",
             human_bytes(report.summary.reclaimable_bytes)
         ),
+        String::new(),
+        "## Action Groups".to_string(),
+        String::new(),
+        "| Action | Candidates | Size |".to_string(),
+        "|---|---:|---:|".to_string(),
         String::new(),
         "## Candidates".to_string(),
         String::new(),
         "| Risk | Path | Size | Action |".to_string(),
         "|---|---|---:|---|".to_string(),
     ];
+
+    for group in &report.groups {
+        lines.insert(
+            16,
+            format!(
+                "| {} | {} | {} |",
+                group.action,
+                group.candidate_count,
+                human_bytes(group.total_bytes)
+            ),
+        );
+    }
 
     for candidate in &report.candidates {
         lines.push(format!(
@@ -225,6 +288,17 @@ fn render_plan_markdown(report: &PlanReport) -> String {
             human_bytes(candidate.size_bytes),
             candidate.action
         ));
+    }
+
+    if !report.skipped.is_empty() {
+        lines.push(String::new());
+        lines.push("## Skipped".to_string());
+        lines.push(String::new());
+        lines.push("| Path | Reason |".to_string());
+        lines.push("|---|---|".to_string());
+        for skipped in &report.skipped {
+            lines.push(format!("| `{}` | {} |", skipped.path, skipped.reason));
+        }
     }
 
     lines.join("\n")

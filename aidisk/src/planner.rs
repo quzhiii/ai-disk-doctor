@@ -1,5 +1,10 @@
-use chrono::{DateTime, Local};
+use std::fs;
+use std::path::Path;
+use std::time::SystemTime;
+
+use chrono::{DateTime, Duration, Local, Utc};
 use serde::Serialize;
+use walkdir::WalkDir;
 
 use crate::rules::RiskLevel;
 use crate::scanner::{Finding, ScanReport};
@@ -9,8 +14,11 @@ pub struct PlanReport {
     pub generated_at: DateTime<Local>,
     pub mode: String,
     pub safe_only: bool,
+    pub skip_modified_within_minutes: u64,
     pub summary: PlanSummary,
+    pub groups: Vec<ActionGroup>,
     pub candidates: Vec<PlanCandidate>,
+    pub skipped: Vec<SkippedItem>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -19,6 +27,8 @@ pub struct PlanSummary {
     pub eligible_candidates: usize,
     pub skipped_findings: usize,
     pub reclaimable_bytes: u64,
+    pub blocked_sensitive_paths: usize,
+    pub skipped_recently_modified: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -31,16 +41,49 @@ pub struct PlanCandidate {
     pub reason: String,
 }
 
-pub fn build_plan(scan_report: &ScanReport, safe_only: bool) -> PlanReport {
+#[derive(Debug, Serialize)]
+pub struct ActionGroup {
+    pub action: String,
+    pub candidate_count: usize,
+    pub total_bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SkippedItem {
+    pub id: String,
+    pub path: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PlanOptions {
+    pub safe_only: bool,
+    pub skip_modified_within_minutes: u64,
+}
+
+pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport {
     let mut candidates = Vec::new();
+    let mut skipped = Vec::new();
     let mut summary = PlanSummary {
         total_findings: scan_report.findings.len(),
         ..PlanSummary::default()
     };
 
     for finding in &scan_report.findings {
-        if !is_eligible(finding, safe_only) {
+        let skip_reason = skip_reason(finding, options);
+        if let Some(reason) = skip_reason {
             summary.skipped_findings += 1;
+            if reason.contains("sensitive") {
+                summary.blocked_sensitive_paths += 1;
+            }
+            if reason.contains("recently modified") {
+                summary.skipped_recently_modified += 1;
+            }
+            skipped.push(SkippedItem {
+                id: finding.id.clone(),
+                path: finding.path.clone(),
+                reason,
+            });
             continue;
         }
 
@@ -56,27 +99,134 @@ pub fn build_plan(scan_report: &ScanReport, safe_only: bool) -> PlanReport {
         });
     }
 
+    let groups = build_action_groups(&candidates);
+
     PlanReport {
         generated_at: Local::now(),
         mode: "dry-run".to_string(),
-        safe_only,
+        safe_only: options.safe_only,
+        skip_modified_within_minutes: options.skip_modified_within_minutes,
         summary,
+        groups,
         candidates,
+        skipped,
     }
 }
 
-fn is_eligible(finding: &Finding, safe_only: bool) -> bool {
-    finding.exists
-        && finding.size_bytes > 0
-        && matches!(finding.action.as_str(), "quarantine" | "report-only" | "guide")
-        && (!safe_only || finding.risk == RiskLevel::Safe)
+fn skip_reason(finding: &Finding, options: PlanOptions) -> Option<String> {
+    if !finding.exists {
+        return Some("path does not exist".to_string());
+    }
+    if finding.size_bytes == 0 {
+        return Some("path has no reclaimable size".to_string());
+    }
+    if !matches!(finding.action.as_str(), "quarantine" | "report-only" | "guide") {
+        return Some("action is not supported by planner".to_string());
+    }
+    if options.safe_only && finding.risk != RiskLevel::Safe {
+        return Some("filtered out by safe-only mode".to_string());
+    }
+    if is_sensitive_path(&finding.path) {
+        return Some("blocked because path looks sensitive".to_string());
+    }
+    if was_modified_recently(&finding.path, options.skip_modified_within_minutes) {
+        return Some(format!(
+            "skipped because path was recently modified within {} minutes",
+            options.skip_modified_within_minutes
+        ));
+    }
+
+    None
+}
+
+fn build_action_groups(candidates: &[PlanCandidate]) -> Vec<ActionGroup> {
+    let mut groups: Vec<ActionGroup> = Vec::new();
+
+    for candidate in candidates {
+        if let Some(group) = groups.iter_mut().find(|group| group.action == candidate.action) {
+            group.candidate_count += 1;
+            group.total_bytes = group.total_bytes.saturating_add(candidate.size_bytes);
+            continue;
+        }
+
+        groups.push(ActionGroup {
+            action: candidate.action.clone(),
+            candidate_count: 1,
+            total_bytes: candidate.size_bytes,
+        });
+    }
+
+    groups.sort_by(|a, b| b.total_bytes.cmp(&a.total_bytes).then_with(|| a.action.cmp(&b.action)));
+    groups
+}
+
+fn is_sensitive_path(path: &str) -> bool {
+    let normalized = path.to_ascii_lowercase();
+    let sensitive_markers = [
+        "token",
+        "credential",
+        "secret",
+        ".env",
+        "cookies",
+        "login data",
+        "auth.json",
+    ];
+
+    sensitive_markers
+        .iter()
+        .any(|marker| normalized.contains(marker))
+}
+
+fn was_modified_recently(path: &str, within_minutes: u64) -> bool {
+    if within_minutes == 0 {
+        return false;
+    }
+
+    let latest = latest_modified_time(Path::new(path));
+    let Some(latest) = latest else {
+        return false;
+    };
+
+    let modified_at_utc: DateTime<Utc> = latest.into();
+    let threshold = Utc::now() - Duration::minutes(within_minutes as i64);
+    modified_at_utc >= threshold
+}
+
+fn latest_modified_time(path: &Path) -> Option<SystemTime> {
+    let metadata = fs::metadata(path).ok()?;
+    if metadata.is_file() {
+        return metadata.modified().ok();
+    }
+
+    let mut latest = metadata.modified().ok();
+    for entry in WalkDir::new(path).follow_links(false) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        let modified = match metadata.modified() {
+            Ok(modified) => modified,
+            Err(_) => continue,
+        };
+
+        latest = match latest {
+            Some(current) if current >= modified => Some(current),
+            _ => Some(modified),
+        };
+    }
+
+    latest
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::Local;
 
-    use super::build_plan;
+    use super::{build_plan, is_sensitive_path, PlanOptions};
     use crate::rules::RiskLevel;
     use crate::scanner::{Finding, ScanReport, Summary, Volume};
 
@@ -114,7 +264,13 @@ mod tests {
             summary: Summary::default(),
         };
 
-        let plan = build_plan(&report, true);
+        let plan = build_plan(
+            &report,
+            PlanOptions {
+                safe_only: true,
+                skip_modified_within_minutes: 0,
+            },
+        );
 
         assert_eq!(plan.summary.eligible_candidates, 1);
         assert_eq!(plan.summary.skipped_findings, 1);
@@ -157,11 +313,25 @@ mod tests {
             summary: Summary::default(),
         };
 
-        let plan = build_plan(&report, false);
+        let plan = build_plan(
+            &report,
+            PlanOptions {
+                safe_only: false,
+                skip_modified_within_minutes: 0,
+            },
+        );
 
         assert_eq!(plan.summary.eligible_candidates, 1);
         assert_eq!(plan.summary.skipped_findings, 1);
         assert_eq!(plan.summary.reclaimable_bytes, 300);
         assert_eq!(plan.candidates[0].id, "system-guide");
+    }
+
+    #[test]
+    fn blocks_sensitive_paths() {
+        assert!(is_sensitive_path("C:\\Users\\demo\\cookies"));
+        assert!(is_sensitive_path("C:\\Users\\demo\\Login Data"));
+        assert!(is_sensitive_path("C:\\Users\\demo\\auth.json"));
+        assert!(!is_sensitive_path("C:\\Users\\demo\\Cache"));
     }
 }

@@ -39,6 +39,8 @@ enum Command {
         markdown: bool,
         #[arg(long)]
         safe_only: bool,
+        #[arg(long, default_value_t = 30)]
+        skip_modified_within_minutes: u64,
         #[arg(long)]
         category: Option<String>,
         #[arg(long)]
@@ -83,6 +85,7 @@ fn main() -> Result<()> {
             json,
             markdown,
             safe_only,
+            skip_modified_within_minutes,
             category,
             rules_dir,
         } => {
@@ -98,7 +101,13 @@ fn main() -> Result<()> {
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
             let scan_report = scanner::scan(&rules)?;
-            let plan_report = planner::build_plan(&scan_report, safe_only);
+            let plan_report = planner::build_plan(
+                &scan_report,
+                planner::PlanOptions {
+                    safe_only,
+                    skip_modified_within_minutes,
+                },
+            );
             println!("{}", reporter::render_plan(&plan_report, effective_format)?);
         }
     }

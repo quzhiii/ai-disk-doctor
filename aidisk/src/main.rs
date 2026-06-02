@@ -67,6 +67,8 @@ enum Command {
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         policy: Option<PathBuf>,
+        #[arg(long)]
+        quarantine_root: Option<String>,
     },
 }
 
@@ -145,6 +147,7 @@ fn main() -> Result<()> {
             category,
             rules_dir,
             policy,
+            quarantine_root,
         } => {
             let effective_format = if json {
                 OutputFormat::Json
@@ -175,6 +178,12 @@ fn main() -> Result<()> {
 
             let clean_report = cleaner::build_dry_run(&plan_report);
             println!("{}", reporter::render_clean(&clean_report, effective_format)?);
+
+            if let Some(quarantine_root) = quarantine_root {
+                let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                println!();
+                println!("{}", reporter::render_quarantine_plan(&quarantine_plan, effective_format)?);
+            }
         }
     }
 

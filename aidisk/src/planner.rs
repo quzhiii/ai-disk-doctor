@@ -42,14 +42,14 @@ pub struct PlanCandidate {
     pub reason: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ActionGroup {
     pub action: String,
     pub candidate_count: usize,
     pub total_bytes: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SkippedItem {
     pub id: String,
     pub path: String,

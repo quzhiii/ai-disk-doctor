@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cleaner::CleanReport;
+use crate::cleaner::{CleanReport, QuarantinePlan};
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
 use crate::OutputFormat;
@@ -30,6 +30,16 @@ pub fn render_clean(report: &CleanReport, format: OutputFormat) -> Result<String
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_clean_markdown(report),
         OutputFormat::Text => render_clean_text(report),
+    };
+
+    Ok(output)
+}
+
+pub fn render_quarantine_plan(report: &QuarantinePlan, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_quarantine_markdown(report),
+        OutputFormat::Text => render_quarantine_text(report),
     };
 
     Ok(output)
@@ -272,24 +282,22 @@ fn render_plan_markdown(report: &PlanReport) -> String {
         String::new(),
         "| Action | Candidates | Size |".to_string(),
         "|---|---:|---:|".to_string(),
-        String::new(),
-        "## Candidates".to_string(),
-        String::new(),
-        "| Risk | Path | Size | Action |".to_string(),
-        "|---|---|---:|---|".to_string(),
     ];
 
     for group in &report.groups {
-        lines.insert(
-            16,
-            format!(
-                "| {} | {} | {} |",
-                group.action,
-                group.candidate_count,
-                human_bytes(group.total_bytes)
-            ),
-        );
+        lines.push(format!(
+            "| {} | {} | {} |",
+            group.action,
+            group.candidate_count,
+            human_bytes(group.total_bytes)
+        ));
     }
+
+    lines.push(String::new());
+    lines.push("## Candidates".to_string());
+    lines.push(String::new());
+    lines.push("| Risk | Path | Size | Action |".to_string());
+    lines.push("|---|---|---:|---|".to_string());
 
     for candidate in &report.candidates {
         lines.push(format!(
@@ -323,8 +331,22 @@ fn render_clean_text(report: &CleanReport) -> String {
         format!("Candidate Count: {}", report.candidate_count),
         format!("Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
         String::new(),
-        "Actions:".to_string(),
+        "Action Groups:".to_string(),
     ];
+
+    for group in &report.groups {
+        lines.push(format!(
+            "- {} | candidates={} | {}",
+            group.action,
+            group.candidate_count,
+            human_bytes(group.total_bytes)
+        ));
+    }
+
+    lines.extend([
+        String::new(),
+        "Actions:".to_string(),
+    ]);
 
     for action in &report.actions {
         lines.push(format!(
@@ -333,6 +355,14 @@ fn render_clean_text(report: &CleanReport) -> String {
             action.action,
             human_bytes(action.size_bytes)
         ));
+    }
+
+    if !report.skipped.is_empty() {
+        lines.push(String::new());
+        lines.push("Skipped:".to_string());
+        for skipped in &report.skipped {
+            lines.push(format!("- {} | {}", skipped.path, skipped.reason));
+        }
     }
 
     lines.join("\n")
@@ -347,11 +377,26 @@ fn render_clean_markdown(report: &CleanReport) -> String {
         format!("- Candidate Count: {}", report.candidate_count),
         format!("- Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
         String::new(),
-        "## Actions".to_string(),
+        "## Action Groups".to_string(),
         String::new(),
-        "| Path | Action | Size |".to_string(),
-        "|---|---|---:|".to_string(),
+        "| Action | Candidates | Size |".to_string(),
+        "|---|---:|---:|".to_string(),
     ];
+
+    for group in &report.groups {
+        lines.push(format!(
+            "| {} | {} | {} |",
+            group.action,
+            group.candidate_count,
+            human_bytes(group.total_bytes)
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push("## Actions".to_string());
+    lines.push(String::new());
+    lines.push("| Path | Action | Size |".to_string());
+    lines.push("|---|---|---:|".to_string());
 
     for action in &report.actions {
         lines.push(format!(
@@ -360,6 +405,51 @@ fn render_clean_markdown(report: &CleanReport) -> String {
             action.action,
             human_bytes(action.size_bytes)
         ));
+    }
+
+    if !report.skipped.is_empty() {
+        lines.push(String::new());
+        lines.push("## Skipped".to_string());
+        lines.push(String::new());
+        lines.push("| Path | Reason |".to_string());
+        lines.push("|---|---|".to_string());
+        for skipped in &report.skipped {
+            lines.push(format!("| `{}` | {} |", skipped.path, skipped.reason));
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn render_quarantine_text(report: &QuarantinePlan) -> String {
+    let mut lines = vec![
+        "Windows AI Space Quarantine Plan".to_string(),
+        format!("Root: {}", report.root),
+        String::new(),
+        "Entries:".to_string(),
+    ];
+
+    for entry in &report.entries {
+        lines.push(format!("- {} => {}", entry.source_path, entry.destination_path));
+    }
+
+    lines.join("\n")
+}
+
+fn render_quarantine_markdown(report: &QuarantinePlan) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Quarantine Plan".to_string(),
+        String::new(),
+        format!("- Root: {}", report.root),
+        String::new(),
+        "## Entries".to_string(),
+        String::new(),
+        "| Source | Destination |".to_string(),
+        "|---|---|".to_string(),
+    ];
+
+    for entry in &report.entries {
+        lines.push(format!("| `{}` | `{}` |", entry.source_path, entry.destination_path));
     }
 
     lines.join("\n")

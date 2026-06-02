@@ -112,6 +112,14 @@
 
 - 每个子命令优先给出解释和官方建议，而不是直接删除建议
 
+当前已完成：
+
+- `doctor --docker`
+- `doctor --wsl`
+- `doctor --ollama`
+- 空结果与未命中路径解释
+- 结构化建议输出
+
 ## Phase 5: Skill Integration
 
 目标：
@@ -127,6 +135,6 @@
 ## Immediate Next Steps
 
 1. 引入更真实的集成测试 fixtures。
-2. 细化 locked-file / permission-denied 的判定与回报。
-3. 为 restore 增加恢复冲突处理和日志。
+2. 为 restore 增加恢复冲突处理和日志。
+3. 让 doctor 按主题补更多原生命令建议。
 4. 细化 WSL / Docker / Ollama 专项规则。

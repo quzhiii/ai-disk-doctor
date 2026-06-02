@@ -125,6 +125,19 @@ cargo run -- restore --dry-run --json --index "F:\archives\.aidisk\quarantine-in
 cargo run -- restore --yes --json --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 ```
 
+专项诊断：
+
+```powershell
+cargo run -- doctor --docker --json
+cargo run -- doctor --wsl --ollama --markdown
+```
+
+当前 `doctor` 输出包含：
+
+- 按主题汇总的专项发现
+- 空结果与未命中路径的解释
+- 贴近执行的建议清单
+
 ## 设计原则
 
 - 默认保守：未知路径只报告，不处理

@@ -112,15 +112,134 @@ where
         .map(|finding| finding.size_bytes)
         .sum::<u64>();
 
-    DoctorTopic {
-        name: name.to_string(),
-        summary: format!(
+    let summary = if findings.is_empty() {
+        format!(
+            "No {} rules matched the current scan set. Check whether the related rules are enabled.",
+            name
+        )
+    } else if existing_count == 0 {
+        format!(
+            "{} {} rules matched, but no existing paths were found on this machine right now.",
+            findings.len(), name
+        )
+    } else {
+        format!(
             "{} matching items, {} existing, total observed size {} bytes",
             findings.len(),
             existing_count,
             total_bytes
-        ),
+        )
+    };
+
+    DoctorTopic {
+        name: name.to_string(),
+        summary,
         findings,
-        recommendations,
+        recommendations: enrich_recommendations(name, existing_count, recommendations),
+    }
+}
+
+fn enrich_recommendations(
+    name: &str,
+    existing_count: usize,
+    mut recommendations: Vec<String>,
+) -> Vec<String> {
+    if existing_count == 0 {
+        recommendations.insert(
+            0,
+            format!(
+                "No active {} paths were detected. If usage is expected, re-run doctor after reproducing the workload.",
+                name
+            ),
+        );
+    }
+
+    match name {
+        "docker" => {
+            recommendations.push(
+                "If Docker Desktop is large, compare `aidisk doctor --docker` output with `docker system df` before pruning."
+                    .to_string(),
+            );
+        }
+        "wsl" => {
+            recommendations.push(
+                "If WSL growth is unexpected, inspect distro usage first, then plan export/compact instead of touching files directly."
+                    .to_string(),
+            );
+        }
+        "ollama" => {
+            recommendations.push(
+                "If model caches are intentional, prefer relocating them to a larger drive over repeated deletion."
+                    .to_string(),
+            );
+        }
+        _ => {}
+    }
+
+    recommendations
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Local;
+
+    use super::{build_doctor, DoctorOptions};
+    use crate::rules::RiskLevel;
+    use crate::scanner::{Finding, ScanReport, Summary, Volume};
+
+    fn empty_scan() -> ScanReport {
+        ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: Vec::<Finding>::new(),
+            summary: Summary::default(),
+        }
+    }
+
+    #[test]
+    fn doctor_explains_empty_topics() {
+        let report = build_doctor(
+            &empty_scan(),
+            DoctorOptions {
+                docker: true,
+                wsl: false,
+                ollama: false,
+            },
+        );
+
+        assert_eq!(report.topics.len(), 1);
+        assert!(report.topics[0].summary.contains("No docker rules matched"));
+    }
+
+    #[test]
+    fn doctor_explains_missing_paths() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "wsl-ext4-vhdx".to_string(),
+                name: "WSL ext4 virtual disk".to_string(),
+                category: "wsl".to_string(),
+                path: "C:\\Users\\demo\\AppData\\Local\\Packages\\X\\LocalState\\ext4.vhdx".to_string(),
+                exists: false,
+                size_bytes: 0,
+                risk: RiskLevel::System,
+                action: "guide".to_string(),
+                reason: "demo".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor(
+            &report,
+            DoctorOptions {
+                docker: false,
+                wsl: true,
+                ollama: false,
+            },
+        );
+
+        assert!(doctor.topics[0].summary.contains("no existing paths were found"));
     }
 }

@@ -594,6 +594,7 @@ fn render_doctor_text(report: &DoctorReport) -> String {
     let mut lines = vec![
         "Windows AI Space Doctor".to_string(),
         format!("Generated At: {}", report.generated_at),
+        format!("Policy: {}", report.policy_summary),
     ];
 
     for topic in &report.topics {
@@ -618,6 +619,7 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         "# Windows AI Space Doctor".to_string(),
         String::new(),
         format!("- Generated At: {}", report.generated_at),
+        format!("- Policy: {}", report.policy_summary),
     ];
 
     for topic in &report.topics {

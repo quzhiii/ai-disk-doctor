@@ -13,3 +13,4 @@ planner:
     - quarantine
     - report-only
     - guide
+  max_scan_depth: 20

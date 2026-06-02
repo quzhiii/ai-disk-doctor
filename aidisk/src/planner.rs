@@ -355,6 +355,7 @@ mod tests {
                     "report-only".to_string(),
                     "guide".to_string(),
                 ],
+                max_scan_depth: 20,
             },
         }
     }

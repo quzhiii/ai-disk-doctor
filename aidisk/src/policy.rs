@@ -14,6 +14,12 @@ pub struct Policy {
 pub struct PlannerPolicy {
     pub skip_modified_within_minutes: u64,
     pub allow_actions: Vec<String>,
+    #[serde(default = "default_max_scan_depth")]
+    pub max_scan_depth: usize,
+}
+
+fn default_max_scan_depth() -> usize {
+    20
 }
 
 pub fn load_policy(path: &Path) -> Result<Policy> {

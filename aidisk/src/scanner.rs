@@ -61,7 +61,7 @@ pub struct TopFinding {
     pub size_bytes: u64,
 }
 
-pub fn scan(rules: &[Rule]) -> Result<ScanReport> {
+pub fn scan(rules: &[Rule], max_scan_depth: usize) -> Result<ScanReport> {
     let mut findings = Vec::new();
     let volumes = collect_volumes();
     let mut summary = Summary {
@@ -92,7 +92,7 @@ pub fn scan(rules: &[Rule]) -> Result<ScanReport> {
 
             for matched_path in matched_paths {
                 let exists = matched_path.exists();
-                let size_bytes = if exists { compute_size(&matched_path)? } else { 0 };
+                let size_bytes = if exists { compute_size(&matched_path, max_scan_depth)? } else { 0 };
 
                 if exists {
                     summary.matched_paths += 1;
@@ -231,14 +231,14 @@ mod tests {
     }
 }
 
-fn compute_size(path: &Path) -> Result<u64> {
+fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
     let metadata = fs::metadata(path)?;
     if metadata.is_file() {
         return Ok(metadata.len());
     }
 
     let mut total = 0_u64;
-    for entry in WalkDir::new(path).follow_links(false) {
+    for entry in WalkDir::new(path).follow_links(false).max_depth(max_depth) {
         let entry = match entry {
             Ok(entry) => entry,
             Err(_) => continue,

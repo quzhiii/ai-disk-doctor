@@ -1,11 +1,13 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
+use crate::policy::Policy;
 use crate::scanner::{Finding, ScanReport};
 
 #[derive(Debug, Serialize)]
 pub struct DoctorReport {
     pub generated_at: DateTime<Local>,
+    pub policy_summary: String,
     pub topics: Vec<DoctorTopic>,
 }
 
@@ -37,8 +39,14 @@ pub struct DoctorOptions {
     pub huggingface: bool,
 }
 
-pub fn build_doctor(scan_report: &ScanReport, options: DoctorOptions) -> DoctorReport {
+pub fn build_doctor(scan_report: &ScanReport, options: DoctorOptions, policy: &Policy) -> DoctorReport {
     let mut topics = Vec::new();
+    let policy_summary = format!(
+        "sensitive markers: [{}]; planner actions: [{}]; skip modified within: {}min",
+        policy.sensitive_markers.join(", "),
+        policy.planner.allow_actions.join(", "),
+        policy.planner.skip_modified_within_minutes
+    );
 
     if options.docker {
         topics.push(build_topic(
@@ -103,6 +111,7 @@ pub fn build_doctor(scan_report: &ScanReport, options: DoctorOptions) -> DoctorR
 
     DoctorReport {
         generated_at: Local::now(),
+        policy_summary,
         topics,
     }
 }
@@ -222,6 +231,7 @@ mod tests {
     use chrono::Local;
 
     use super::{build_doctor, DoctorOptions};
+    use crate::policy::{PlannerPolicy, Policy};
     use crate::rules::RiskLevel;
     use crate::scanner::{Finding, ScanReport, Summary, Volume};
 
@@ -231,6 +241,17 @@ mod tests {
             volumes: Vec::<Volume>::new(),
             findings: Vec::<Finding>::new(),
             summary: Summary::default(),
+        }
+    }
+
+    fn test_policy() -> Policy {
+        Policy {
+            sensitive_markers: vec!["token".to_string(), ".env".to_string()],
+            planner: PlannerPolicy {
+                skip_modified_within_minutes: 30,
+                allow_actions: vec!["quarantine".to_string(), "report-only".to_string(), "guide".to_string()],
+                max_scan_depth: 20,
+            },
         }
     }
 
@@ -245,6 +266,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
             },
+            &test_policy(),
         );
 
         assert_eq!(report.topics.len(), 1);
@@ -280,6 +302,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
             },
+            &test_policy(),
         );
 
         assert!(doctor.topics[0].summary.contains("no existing paths were found"));
@@ -328,6 +351,7 @@ mod tests {
                 playwright: false,
                 huggingface: true,
             },
+            &test_policy(),
         );
 
         assert_eq!(doctor.topics.len(), 2);

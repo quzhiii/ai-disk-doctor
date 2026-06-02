@@ -106,6 +106,8 @@ enum Command {
         huggingface: bool,
         #[arg(long)]
         rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        policy: Option<PathBuf>,
     },
 }
 
@@ -138,7 +140,7 @@ fn main() -> Result<()> {
             let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let report = scanner::scan(&rules)?;
+            let report = scanner::scan(&rules, 20)?;
             println!("{}", reporter::render(&report, effective_format)?);
         }
         Command::Plan {
@@ -164,7 +166,7 @@ fn main() -> Result<()> {
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let scan_report = scanner::scan(&rules)?;
+            let scan_report = scanner::scan(&rules, policy.planner.max_scan_depth)?;
             let plan_report = planner::build_plan(
                 &scan_report,
                 planner::PlanOptions {
@@ -200,7 +202,7 @@ fn main() -> Result<()> {
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let scan_report = scanner::scan(&rules)?;
+            let scan_report = scanner::scan(&rules, policy.planner.max_scan_depth)?;
             let plan_report = planner::build_plan(
                 &scan_report,
                 planner::PlanOptions {
@@ -264,6 +266,7 @@ fn main() -> Result<()> {
             mut playwright,
             mut huggingface,
             rules_dir,
+            policy,
         } => {
             let effective_format = if json {
                 OutputFormat::Json
@@ -282,8 +285,10 @@ fn main() -> Result<()> {
             }
 
             let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let policy_path = policy.unwrap_or_else(default_policy_path);
+            let loaded_policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
-            let scan_report = scanner::scan(&rules)?;
+            let scan_report = scanner::scan(&rules, loaded_policy.planner.max_scan_depth)?;
             let doctor_report = doctor::build_doctor(
                 &scan_report,
                 doctor::DoctorOptions {
@@ -293,6 +298,7 @@ fn main() -> Result<()> {
                     playwright,
                     huggingface,
                 },
+                &loaded_policy,
             );
             println!("{}", reporter::render_doctor(&doctor_report, effective_format)?);
         }

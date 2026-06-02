@@ -1,0 +1,13 @@
+id: docker-build-cache
+name: Docker build cache root
+category: docker
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Docker\\build-cache"
+risk: review
+cleanup:
+  method: guide
+exclusions: []
+reason: "Docker build cache can consume significant space and should be cleaned with Docker-native prune commands."
+warnings:
+  - "Prefer `docker builder prune` over filesystem deletion."

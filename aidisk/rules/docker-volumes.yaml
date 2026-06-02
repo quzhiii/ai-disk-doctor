@@ -1,0 +1,13 @@
+id: docker-volumes-sample
+name: Docker volumes sample path
+category: docker
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Docker\\wsl\\disk\\docker_data.vhdx"
+risk: dangerous
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Docker volume and image storage may live inside virtual disk files and must never be deleted manually."
+warnings:
+  - "Use `docker system df` and targeted Docker prune commands instead of touching this file."

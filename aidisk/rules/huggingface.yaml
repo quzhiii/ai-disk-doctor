@@ -1,0 +1,13 @@
+id: huggingface-cache
+name: Hugging Face cache
+category: models
+platform: windows
+paths:
+  - "%USERPROFILE%\\.cache\\huggingface"
+risk: review
+cleanup:
+  method: guide
+exclusions: []
+reason: "Hugging Face cache may contain reusable model downloads and should be reviewed before cleanup."
+warnings:
+  - "Prefer cache-aware cleanup over direct deletion when shared across projects."

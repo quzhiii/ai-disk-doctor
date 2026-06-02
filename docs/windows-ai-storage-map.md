@@ -16,7 +16,7 @@
 
 后续会补充：
 
-- Docker build cache / volumes 解释路径
-- WSL `ext4.vhdx` 检测
+- Docker build cache / volumes 更精细解释与原生命令联动
+- WSL `ext4.vhdx` 检测后的 compact / relocate 指导
 - 同步盘高频项目识别
 - npm / uv / pip / cargo 开发缓存

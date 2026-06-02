@@ -4,10 +4,13 @@ category: ai-agent
 platform: windows
 paths:
   - "%USERPROFILE%\\.claude"
+  - "%USERPROFILE%\\.codex"
+  - "%USERPROFILE%\\.gemini"
+  - "%APPDATA%\\ai.opencode.desktop"
 risk: review
 cleanup:
   method: report-only
 exclusions: []
-reason: "Agent state may contain chat history, sessions, and settings."
+reason: "Agent state may contain chat history, sessions, settings, and cached tool state that should be reviewed before cleanup."
 warnings:
   - "Do not remove the root directory automatically."

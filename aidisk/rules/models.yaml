@@ -1,0 +1,13 @@
+id: ollama-models
+name: Ollama model store
+category: models
+platform: windows
+paths:
+  - "%USERPROFILE%\\.ollama\\models"
+risk: review
+cleanup:
+  method: guide
+exclusions: []
+reason: "Ollama models can occupy tens of GB and should be reviewed with model-aware commands before removal."
+warnings:
+  - "Prefer `ollama list` and model-specific removal workflows."

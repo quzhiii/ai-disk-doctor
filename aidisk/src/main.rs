@@ -1,4 +1,5 @@
 mod cleaner;
+mod doctor;
 mod planner;
 mod policy;
 mod reporter;
@@ -85,6 +86,22 @@ enum Command {
         yes: bool,
         #[arg(long)]
         index: PathBuf,
+    },
+    Doctor {
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+        #[arg(long)]
+        docker: bool,
+        #[arg(long)]
+        wsl: bool,
+        #[arg(long)]
+        ollama: bool,
+        #[arg(long)]
+        rules_dir: Option<PathBuf>,
     },
 }
 
@@ -232,6 +249,36 @@ fn main() -> Result<()> {
 
             let report = cleaner::restore_from_index(&index, dry_run)?;
             println!("{}", reporter::render_restore(&report, effective_format)?);
+        }
+        Command::Doctor {
+            format,
+            json,
+            markdown,
+            docker,
+            wsl,
+            ollama,
+            rules_dir,
+        } => {
+            let effective_format = if json {
+                OutputFormat::Json
+            } else if markdown {
+                OutputFormat::Markdown
+            } else {
+                format
+            };
+
+            let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let rules = rules::load_rules(&rules_dir)?;
+            let scan_report = scanner::scan(&rules)?;
+            let doctor_report = doctor::build_doctor(
+                &scan_report,
+                doctor::DoctorOptions {
+                    docker,
+                    wsl,
+                    ollama,
+                },
+            );
+            println!("{}", reporter::render_doctor(&doctor_report, effective_format)?);
         }
     }
 

@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::cleaner::{CleanReport, ExecutionReport, QuarantinePlan, RestoreReport};
+use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
 use crate::OutputFormat;
@@ -60,6 +61,16 @@ pub fn render_restore(report: &RestoreReport, format: OutputFormat) -> Result<St
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_restore_markdown(report),
         OutputFormat::Text => render_restore_text(report),
+    };
+
+    Ok(output)
+}
+
+pub fn render_doctor(report: &DoctorReport, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_doctor_markdown(report),
+        OutputFormat::Text => render_doctor_text(report),
     };
 
     Ok(output)
@@ -574,6 +585,64 @@ fn render_restore_markdown(report: &RestoreReport) -> String {
             "| `{}` | `{}` | {} | {} |",
             result.source_path, result.destination_path, result.status, result.message
         ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_doctor_text(report: &DoctorReport) -> String {
+    let mut lines = vec![
+        "Windows AI Space Doctor".to_string(),
+        format!("Generated At: {}", report.generated_at),
+    ];
+
+    for topic in &report.topics {
+        lines.push(String::new());
+        lines.push(format!("[{}] {}", topic.name.to_uppercase(), topic.summary));
+        for finding in &topic.findings {
+            lines.push(format!(
+                "- {} | exists={} | {} bytes | {}",
+                finding.path, finding.exists, finding.size_bytes, finding.reason
+            ));
+        }
+        for recommendation in &topic.recommendations {
+            lines.push(format!("- Recommendation: {}", recommendation));
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn render_doctor_markdown(report: &DoctorReport) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Doctor".to_string(),
+        String::new(),
+        format!("- Generated At: {}", report.generated_at),
+    ];
+
+    for topic in &report.topics {
+        lines.push(String::new());
+        lines.push(format!("## {}", topic.name));
+        lines.push(String::new());
+        lines.push(format!("- Summary: {}", topic.summary));
+        lines.push(String::new());
+        lines.push("| Path | Exists | Size | Risk | Action |".to_string());
+        lines.push("|---|---:|---:|---|---|".to_string());
+        for finding in &topic.findings {
+            lines.push(format!(
+                "| `{}` | {} | {} | {} | {} |",
+                finding.path,
+                finding.exists,
+                finding.size_bytes,
+                finding.risk,
+                finding.action
+            ));
+        }
+        lines.push(String::new());
+        lines.push("Recommendations:".to_string());
+        for recommendation in &topic.recommendations {
+            lines.push(format!("- {}", recommendation));
+        }
     }
 
     lines.join("\n")

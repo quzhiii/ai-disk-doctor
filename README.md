@@ -113,6 +113,18 @@ Playwright 项目级缓存规则现已支持 glob 路径，例如：`%USERPROFIL
 cargo run -- clean --yes --safe-only --quarantine-root "F:\archives"
 ```
 
+从 quarantine index 预演恢复：
+
+```powershell
+cargo run -- restore --dry-run --json --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+```
+
+执行恢复：
+
+```powershell
+cargo run -- restore --yes --json --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+```
+
 ## 设计原则
 
 - 默认保守：未知路径只报告，不处理

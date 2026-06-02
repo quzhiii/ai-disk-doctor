@@ -379,8 +379,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_dry_run, build_quarantine_plan, execute_quarantine, restore_from_index,
-        QuarantineEntry, QuarantinePlan,
+        build_dry_run, build_quarantine_plan, classify_execution_error, execute_quarantine,
+        restore_from_index, QuarantineEntry, QuarantinePlan,
     };
     use crate::planner::{ActionGroup, PlanCandidate, PlanReport, PlanSummary, SkippedItem};
     use crate::rules::RiskLevel;
@@ -534,5 +534,49 @@ mod tests {
         assert_eq!(restore.entry_count, 1);
         assert_eq!(restore.success_count, 0);
         assert_eq!(restore.results[0].status, "planned");
+    }
+
+    #[test]
+    fn restore_from_index_executes_restore() {
+        let temp = tempdir().expect("tempdir should exist");
+        let source = temp.path().join("restore-live-dir");
+        let destination_root = temp.path().join("archives");
+        std::fs::create_dir_all(&source).expect("source dir should be created");
+        std::fs::write(source.join("file.txt"), b"demo").expect("source file should be written");
+
+        let plan = QuarantinePlan {
+            root: destination_root.display().to_string(),
+            skip_modified_within_minutes: 0,
+            entries: vec![QuarantineEntry {
+                source_path: source.display().to_string(),
+                destination_path: destination_root.join("restore-live-dir").display().to_string(),
+            }],
+        };
+
+        let execution = execute_quarantine(&plan).expect("execution should succeed");
+        let quarantined_path = destination_root.join("restore-live-dir");
+        assert!(quarantined_path.exists());
+
+        let restore = restore_from_index(Path::new(&execution.index_path), false)
+            .expect("restore should succeed");
+
+        assert_eq!(restore.entry_count, 1);
+        assert_eq!(restore.success_count, 1);
+        assert_eq!(restore.results[0].status, "restored");
+        assert!(source.exists());
+        assert!(!quarantined_path.exists());
+    }
+
+    #[test]
+    fn permission_denied_is_classified_as_skipped_locked() {
+        let error = anyhow::Error::new(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "access denied",
+        ));
+
+        let (status, message) = classify_execution_error(&error);
+
+        assert_eq!(status, "skipped-locked");
+        assert!(message.contains("locked") || message.contains("permission denied"));
     }
 }

@@ -91,6 +91,7 @@
 - `clean --yes --quarantine` 执行骨架
 - 恢复索引与执行日志写入
 - active-file 保守跳过
+- `restore` 命令骨架
 
 验收标准：
 
@@ -127,5 +128,5 @@
 
 1. 引入更真实的集成测试 fixtures。
 2. 细化 locked-file / permission-denied 的判定与回报。
-3. 增加 restore 命令骨架，消费 quarantine index。
+3. 为 restore 增加恢复冲突处理和日志。
 4. 细化 WSL / Docker / Ollama 专项规则。

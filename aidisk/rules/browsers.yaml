@@ -1,0 +1,13 @@
+id: chrome-default-cache
+name: Chrome default cache
+category: browser-cache
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Cache"
+risk: safe
+cleanup:
+  method: quarantine
+exclusions: []
+reason: "Browser cache is rebuildable after the browser restarts."
+warnings:
+  - "Browser should be closed before any future cleanup step."

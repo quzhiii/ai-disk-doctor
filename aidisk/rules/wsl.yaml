@@ -1,0 +1,13 @@
+id: wsl-package-root
+name: WSL package root
+category: wsl
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Packages"
+risk: system
+cleanup:
+  method: guide
+exclusions: []
+reason: "WSL virtual disk files must be diagnosed carefully and never deleted blindly."
+warnings:
+  - "Future versions should identify ext4.vhdx precisely instead of only the package root."

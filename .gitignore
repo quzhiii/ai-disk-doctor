@@ -1,0 +1,7 @@
+/target/
+/.idea/
+/.vscode/
+*.log
+*.tmp
+Thumbs.db
+Desktop.ini

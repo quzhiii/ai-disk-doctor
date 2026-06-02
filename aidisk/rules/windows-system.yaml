@@ -1,0 +1,14 @@
+id: litesandbox-logs
+name: LiteSandbox audit logs
+category: ai-logs
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\LiteSandbox\\logs"
+risk: review
+cleanup:
+  method: quarantine
+exclusions:
+  - "*.lock"
+reason: "Sandbox audit logs can grow unexpectedly during high-frequency automation activity."
+warnings:
+  - "Skip active files in future cleanup phases."

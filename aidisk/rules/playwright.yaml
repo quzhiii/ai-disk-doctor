@@ -1,0 +1,13 @@
+id: playwright-project-browsers
+name: Playwright project browser cache
+category: browser
+platform: windows
+paths:
+  - "%USERPROFILE%\\projects\\**\\.playwright-browsers"
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Project-local Playwright browser downloads can consume significant space across multiple worktrees."
+warnings:
+  - "Prefer centralizing browser storage before removing project-local caches."

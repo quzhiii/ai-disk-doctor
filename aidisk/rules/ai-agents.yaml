@@ -1,0 +1,13 @@
+id: claude-home
+name: Claude home directory
+category: ai-agent
+platform: windows
+paths:
+  - "%USERPROFILE%\\.claude"
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Agent state may contain chat history, sessions, and settings."
+warnings:
+  - "Do not remove the root directory automatically."

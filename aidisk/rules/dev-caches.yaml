@@ -1,0 +1,13 @@
+id: npm-cache
+name: npm cache
+category: dev-cache
+platform: windows
+paths:
+  - "%APPDATA%\\npm-cache"
+  - "%LOCALAPPDATA%\\npm-cache"
+risk: safe
+cleanup:
+  method: quarantine
+exclusions: []
+reason: "Package manager cache is rebuildable."
+warnings: []

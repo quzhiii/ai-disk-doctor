@@ -1,0 +1,13 @@
+id: onedrive-root
+name: OneDrive root
+category: sync-drive
+platform: windows
+paths:
+  - "%USERPROFILE%\\OneDrive"
+risk: dangerous
+cleanup:
+  method: report-only
+exclusions: []
+reason: "High-frequency project files inside sync roots should be relocated, not deleted in place."
+warnings:
+  - "Future versions should detect risky child directories like node_modules and browser caches."

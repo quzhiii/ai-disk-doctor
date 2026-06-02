@@ -1,0 +1,13 @@
+id: docker-desktop-data
+name: Docker Desktop data root
+category: docker
+platform: windows
+paths:
+  - "%LOCALAPPDATA%\\Docker"
+risk: dangerous
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Docker data may contain images, volumes, and active build cache."
+warnings:
+  - "Use docker-native commands for cleanup instead of file deletion."

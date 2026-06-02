@@ -1,4 +1,5 @@
 /target/
+/aidisk/target/
 /.idea/
 /.vscode/
 *.log

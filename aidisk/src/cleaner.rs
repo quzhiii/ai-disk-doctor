@@ -176,8 +176,12 @@ pub fn execute_quarantine(plan: &QuarantinePlan) -> Result<ExecutionReport> {
 }
 
 pub fn restore_from_index(index_path: &Path, dry_run: bool) -> Result<RestoreReport> {
-    let content = fs::read_to_string(index_path)?;
-    let execution_report: ExecutionReport = serde_json::from_str(&content)?;
+    let content = fs::read_to_string(index_path)
+        .map_err(|e| anyhow::anyhow!("failed to read index file {}: {}", index_path.display(), e))?;
+    let execution_report: ExecutionReport = serde_json::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("failed to parse index file: {}", e))?;
+
+    validate_index(&execution_report)?;
     let mut results = Vec::new();
     let mut success_count = 0_usize;
     let mut failure_count = 0_usize;
@@ -236,6 +240,31 @@ pub fn restore_from_index(index_path: &Path, dry_run: bool) -> Result<RestoreRep
     })
 }
 
+fn validate_index(report: &ExecutionReport) -> Result<()> {
+    if report.root.is_empty() {
+        anyhow::bail!("index is invalid: root path is empty");
+    }
+    if report.results.is_empty() {
+        anyhow::bail!("index is invalid: no results found");
+    }
+
+    let allowed_statuses = ["moved", "failed", "skipped-active", "skipped-locked"];
+    for result in &report.results {
+        if !allowed_statuses.contains(&result.status.as_str()) {
+            anyhow::bail!(
+                "index is invalid: unknown status '{}' for path '{}'",
+                result.status,
+                result.source_path
+            );
+        }
+        if result.source_path.is_empty() || result.destination_path.is_empty() {
+            anyhow::bail!("index is invalid: empty source or destination path");
+        }
+    }
+
+    Ok(())
+}
+
 fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64) -> Result<String> {
     let source = Path::new(&entry.source_path);
     if !source.exists() {
@@ -254,9 +283,50 @@ fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64
         .parent()
         .ok_or_else(|| anyhow::anyhow!("destination parent is missing"))?;
     fs::create_dir_all(parent)?;
-    fs::rename(source, destination)?;
 
+    if is_cross_drive(source, destination) {
+        copy_recursive(source, destination)?;
+        remove_recursive(source)?;
+        return Ok("moved to quarantine (cross-drive copy+delete)".to_string());
+    }
+
+    fs::rename(source, destination)?;
     Ok("moved to quarantine".to_string())
+}
+
+fn is_cross_drive(a: &Path, b: &Path) -> bool {
+    drive_letter(a) != drive_letter(b)
+}
+
+fn drive_letter(path: &Path) -> Option<String> {
+    path.to_str()
+        .and_then(|s| s.chars().next())
+        .filter(|c| c.is_ascii_alphabetic())
+        .map(|c| c.to_ascii_uppercase().to_string())
+}
+
+fn copy_recursive(src: &Path, dst: &Path) -> Result<()> {
+    if src.is_dir() {
+        fs::create_dir_all(dst)?;
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let src_child = entry.path();
+            let dst_child = dst.join(entry.file_name());
+            copy_recursive(&src_child, &dst_child)?;
+        }
+    } else {
+        fs::copy(src, dst)?;
+    }
+    Ok(())
+}
+
+fn remove_recursive(path: &Path) -> Result<()> {
+    if path.is_dir() {
+        fs::remove_dir_all(path)?;
+    } else {
+        fs::remove_file(path)?;
+    }
+    Ok(())
 }
 
 fn restore_entry(source: &str, destination: &str) -> Result<String> {

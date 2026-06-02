@@ -131,13 +131,47 @@
 - wrapper scripts
 - reference docs 对接
 
+当前已完成：
+
+- SKILL.md 完整工作流与触发词
+- references 拆分为 workflow / risk-cheatsheet / category-map
+- 6 个可执行 PowerShell wrapper scripts
+
 验收标准：
 
 - skill 可从 scan 结果中稳定提炼 top findings 和风险说明
 
-## Immediate Next Steps
+## Phase 6: Hardening & Optimization
 
-1. 在 fixtures 上继续补更大的真实场景样本。
-2. 为 restore 增加恢复日志追加和冲突恢复策略扩展。
-3. 细化 WSL / Docker / Ollama / Playwright / Hugging Face 规则与建议。
-4. 开始 Phase 5 的 skill workflow 和 wrapper scripts。
+多视角审查（brainstorming / architecture / security）后加入的加固路线。
+
+### P0 — 安全与架构脆弱点
+
+| 条目 | 说明 | 优先级 |
+|---|---|---|
+| 跨盘 quarantine fallback | `fs::rename` 在 Windows 上跨盘会失败，须 fallback 到 `copy + delete` | P0 |
+| restore index 结构校验 | 防篡改 index 导致恢复越界或 OOM | P0 |
+
+### P1 — 防御性加固
+
+| 条目 | 说明 | 优先级 |
+|---|---|---|
+| doctor 输出当前 policy 可见性 | 让 agent 和用户知道当前生效的敏感关键字与允许动作 | P1 |
+| scan depth limit 与 partial 标记 | 防止 WalkDir 无限递归；超大目录超时标 partial | P1 |
+
+### P2 — 历史感知
+
+| 条目 | 说明 | 优先级 |
+|---|---|---|
+| `aidisk diff` 历史对比 | 基于 `.aidisk/reports/` 对比两次扫描，回答 "谁长大了" | P2 |
+
+### P3 — 生态扩展
+
+| 条目 | 说明 | 优先级 |
+|---|---|---|
+| 规则库远程拉取与社区贡献模型 | rules 单独成 repo，支持 `--rules-repo <url>` | P3 |
+
+### Immediate Next Steps
+
+1. 按 P0 → P1 → P2 顺序逐项实现。
+2. 每项完成后跑测试并本地提交。

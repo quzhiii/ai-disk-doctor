@@ -223,6 +223,16 @@ cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-12000
 - Community rules repository support
 - PowerShell agent wrappers
 
+See [CHANGELOG.md](./CHANGELOG.md) and [Release Notes v1.0.0](./docs/release-notes/v1.0.0.md) for full details.
+
+### Release Verification
+
+Verify your build with our non-destructive smoke test:
+
+```powershell
+pwsh -NoProfile -File "scripts/release-smoke.ps1"
+```
+
 ### v1.1 (Planned)
 - [ ] Real-time monitoring (if community demand exists)
 - [ ] Scheduled cleanup jobs

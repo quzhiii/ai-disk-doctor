@@ -164,6 +164,7 @@
 | 条目 | 说明 | 优先级 |
 |---|---|---|
 | `aidisk diff` 历史对比 | 基于 `.aidisk/reports/` 对比两次扫描，回答 "谁长大了" | Completed |
+| scan snapshot + `diff --latest` | `scan` 自动落盘，`diff --latest` 自动选最近两个 snapshot | Completed |
 
 ### P3 — 生态扩展
 

@@ -137,6 +137,20 @@ pwsh -File scripts/run-doctor.ps1 -Markdown
 当用户已经有两次 scan 输出，或者明确在问“最近谁涨了”，执行：
 
 ```powershell
+pwsh -File scripts/run-scan.ps1 -Json
+pwsh -File scripts/run-scan.ps1 -Json
+pwsh -File scripts/run-diff.ps1 -Latest -Markdown
+```
+
+如果用户指定了历史报告目录：
+
+```powershell
+pwsh -File scripts/run-diff.ps1 -Latest -ReportsDir ".aidisk\reports" -Markdown
+```
+
+如果要对比确定的两个 snapshot：
+
+```powershell
 pwsh -File scripts/run-diff.ps1 -Before "..\examples\diff-before.example.json" -After "..\examples\diff-after.example.json" -Markdown
 ```
 

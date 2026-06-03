@@ -149,12 +149,22 @@ cargo run -- doctor --markdown
 历史对比：
 
 ```powershell
+cargo run -- scan --json
+cargo run -- scan --json
+cargo run -- diff --latest --markdown
+```
+
+指定两个 snapshot 对比：
+
+```powershell
 cargo run -- diff --before ..\examples\diff-before.example.json --after ..\examples\diff-after.example.json --markdown
 ```
 
 当前 `diff` 输出包含：
 
 - 两次 scan snapshot 之间的 grew / shrunk / appeared / disappeared
+- `scan` 会自动保存 snapshot 到 `aidisk/.aidisk/reports/scan-*.json`
+- `diff --latest` 会自动对比最近两个 snapshot
 - `exists=false` 占位路径不会再被误报为新增
 - 可直接用于回答“最近是谁长大了”
 

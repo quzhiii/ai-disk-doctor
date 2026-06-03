@@ -73,6 +73,25 @@ fn workflow_references_diff_wrapper() {
 }
 
 #[test]
+fn skill_documents_diff_latest_workflow() {
+    let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
+    let run_diff = read_repo_file("skills/windows-ai-space-manager/scripts/run-diff.ps1");
+
+    assert!(
+        skill.contains("run-diff.ps1 -Latest"),
+        "SKILL.md should document the diff latest wrapper workflow"
+    );
+    assert!(
+        run_diff.contains("[switch]$Latest"),
+        "run-diff.ps1 should expose -Latest"
+    );
+    assert!(
+        run_diff.contains("[string]$ReportsDir"),
+        "run-diff.ps1 should expose -ReportsDir"
+    );
+}
+
+#[test]
 fn risk_cheatsheet_covers_execution_and_restore_statuses() {
     let risk = read_repo_file("skills/windows-ai-space-manager/references/risk-cheatsheet.md");
     let expected_statuses = [

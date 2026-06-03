@@ -1,6 +1,7 @@
 mod cleaner;
 mod diff;
 mod doctor;
+mod history;
 mod planner;
 mod policy;
 mod reporter;
@@ -96,9 +97,13 @@ enum Command {
         #[arg(long)]
         markdown: bool,
         #[arg(long)]
-        before: PathBuf,
+        latest: bool,
         #[arg(long)]
-        after: PathBuf,
+        reports_dir: Option<PathBuf>,
+        #[arg(long)]
+        before: Option<PathBuf>,
+        #[arg(long)]
+        after: Option<PathBuf>,
     },
     Doctor {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -154,6 +159,7 @@ fn main() -> Result<()> {
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
             let report = scanner::scan(&rules, 20)?;
+            history::save_scan_snapshot(&report, &history::default_reports_dir())?;
             println!("{}", reporter::render(&report, effective_format)?);
         }
         Command::Plan {
@@ -273,6 +279,8 @@ fn main() -> Result<()> {
             format,
             json,
             markdown,
+            latest,
+            reports_dir,
             before,
             after,
         } => {
@@ -282,6 +290,15 @@ fn main() -> Result<()> {
                 OutputFormat::Markdown
             } else {
                 format
+            };
+
+            let (before, after) = if latest {
+                let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
+                history::latest_scan_pair(&reports_dir)?
+            } else {
+                let before = before.ok_or_else(|| anyhow::anyhow!("diff requires --before unless --latest is used"))?;
+                let after = after.ok_or_else(|| anyhow::anyhow!("diff requires --after unless --latest is used"))?;
+                (before, after)
             };
 
             let report = diff::build_diff(&before, &after)?;

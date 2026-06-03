@@ -1,5 +1,6 @@
 /target/
 /aidisk/target/
+/aidisk/.aidisk/
 /.idea/
 /.vscode/
 /.worktrees/

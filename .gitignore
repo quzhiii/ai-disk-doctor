@@ -2,6 +2,7 @@
 /aidisk/target/
 /.idea/
 /.vscode/
+/.worktrees/
 *.log
 *.tmp
 Thumbs.db

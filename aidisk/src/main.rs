@@ -6,6 +6,7 @@ mod planner;
 mod policy;
 mod reporter;
 mod rules;
+mod rules_repo;
 mod scanner;
 
 use std::path::PathBuf;
@@ -34,6 +35,8 @@ enum Command {
         category: Option<String>,
         #[arg(long)]
         rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        rules_repo: Option<String>,
     },
     Plan {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -50,6 +53,8 @@ enum Command {
         category: Option<String>,
         #[arg(long)]
         rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        rules_repo: Option<String>,
         #[arg(long)]
         policy: Option<PathBuf>,
     },
@@ -70,6 +75,8 @@ enum Command {
         category: Option<String>,
         #[arg(long)]
         rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        rules_repo: Option<String>,
         #[arg(long)]
         policy: Option<PathBuf>,
         #[arg(long)]
@@ -125,6 +132,8 @@ enum Command {
         #[arg(long)]
         rules_dir: Option<PathBuf>,
         #[arg(long)]
+        rules_repo: Option<String>,
+        #[arg(long)]
         policy: Option<PathBuf>,
     },
 }
@@ -146,6 +155,7 @@ fn main() -> Result<()> {
             markdown,
             category,
             rules_dir,
+            rules_repo,
         } => {
             let effective_format = if json {
                 OutputFormat::Json
@@ -155,7 +165,7 @@ fn main() -> Result<()> {
                 format
             };
 
-            let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
             let report = scanner::scan(&rules, 20)?;
@@ -170,6 +180,7 @@ fn main() -> Result<()> {
             skip_modified_within_minutes,
             category,
             rules_dir,
+            rules_repo,
             policy,
         } => {
             let effective_format = if json {
@@ -180,7 +191,7 @@ fn main() -> Result<()> {
                 format
             };
 
-            let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -205,6 +216,7 @@ fn main() -> Result<()> {
             safe_only,
             category,
             rules_dir,
+            rules_repo,
             policy,
             quarantine_root,
         } => {
@@ -216,7 +228,7 @@ fn main() -> Result<()> {
                 format
             };
 
-            let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -233,12 +245,19 @@ fn main() -> Result<()> {
 
             if dry_run {
                 let clean_report = cleaner::build_dry_run(&plan_report);
-                println!("{}", reporter::render_clean(&clean_report, effective_format)?);
+                println!(
+                    "{}",
+                    reporter::render_clean(&clean_report, effective_format)?
+                );
 
                 if let Some(quarantine_root) = quarantine_root {
-                    let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                    let quarantine_plan =
+                        cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
                     println!();
-                    println!("{}", reporter::render_quarantine_plan(&quarantine_plan, effective_format)?);
+                    println!(
+                        "{}",
+                        reporter::render_quarantine_plan(&quarantine_plan, effective_format)?
+                    );
                 }
             } else {
                 if !yes {
@@ -247,9 +266,13 @@ fn main() -> Result<()> {
 
                 let quarantine_root = quarantine_root
                     .ok_or_else(|| anyhow::anyhow!("clean execution requires --quarantine-root"))?;
-                let quarantine_plan = cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                let quarantine_plan =
+                    cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
                 let execution_report = cleaner::execute_quarantine(&quarantine_plan)?;
-                println!("{}", reporter::render_execution(&execution_report, effective_format)?);
+                println!(
+                    "{}",
+                    reporter::render_execution(&execution_report, effective_format)?
+                );
             }
         }
         Command::Restore {
@@ -296,8 +319,12 @@ fn main() -> Result<()> {
                 let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
                 history::latest_scan_pair(&reports_dir)?
             } else {
-                let before = before.ok_or_else(|| anyhow::anyhow!("diff requires --before unless --latest is used"))?;
-                let after = after.ok_or_else(|| anyhow::anyhow!("diff requires --after unless --latest is used"))?;
+                let before = before.ok_or_else(|| {
+                    anyhow::anyhow!("diff requires --before unless --latest is used")
+                })?;
+                let after = after.ok_or_else(|| {
+                    anyhow::anyhow!("diff requires --after unless --latest is used")
+                })?;
                 (before, after)
             };
 
@@ -314,6 +341,7 @@ fn main() -> Result<()> {
             mut playwright,
             mut huggingface,
             rules_dir,
+            rules_repo,
             policy,
         } => {
             let effective_format = if json {
@@ -332,7 +360,7 @@ fn main() -> Result<()> {
                 huggingface = true;
             }
 
-            let rules_dir = rules_dir.unwrap_or_else(default_rules_dir);
+            let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let loaded_policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -348,7 +376,10 @@ fn main() -> Result<()> {
                 },
                 &loaded_policy,
             );
-            println!("{}", reporter::render_doctor(&doctor_report, effective_format)?);
+            println!(
+                "{}",
+                reporter::render_doctor(&doctor_report, effective_format)?
+            );
         }
     }
 
@@ -357,6 +388,21 @@ fn main() -> Result<()> {
 
 fn default_rules_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("rules")
+}
+
+fn resolve_rules_dir(rules_dir: Option<PathBuf>, rules_repo: Option<String>) -> Result<PathBuf> {
+    if let Some(rules_dir) = rules_dir {
+        return Ok(rules_dir);
+    }
+
+    if let Some(rules_repo) = rules_repo {
+        return rules_repo::resolve_rules_repo(
+            &rules_repo,
+            &rules_repo::default_rules_repo_cache_root(),
+        );
+    }
+
+    Ok(default_rules_dir())
 }
 
 fn default_policy_path() -> PathBuf {

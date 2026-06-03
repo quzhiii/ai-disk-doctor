@@ -170,7 +170,7 @@
 
 | 条目 | 说明 | 优先级 |
 |---|---|---|
-| 规则库远程拉取与社区贡献模型 | rules 单独成 repo，支持 `--rules-repo <url>` | P3 |
+| 规则库远程拉取与社区贡献模型 | rules 单独成 repo，支持 `--rules-repo <url>` | Completed |
 
 ### Immediate Next Steps
 

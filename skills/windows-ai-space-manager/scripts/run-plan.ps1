@@ -1,6 +1,7 @@
 param(
     [switch]$SafeOnly,
     [string]$Category,
+    [string]$RulesRepo,
     [switch]$Json,
     [switch]$Markdown,
     [int]$SkipModifiedWithinMinutes = 30
@@ -16,6 +17,7 @@ elseif ($Markdown) { $args += "--markdown" }
 
 if ($SafeOnly) { $args += "--safe-only" }
 if ($Category) { $args += @("--category", $Category) }
+if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
 if ($SkipModifiedWithinMinutes -ge 0) {
     $args += @("--skip-modified-within-minutes", "$SkipModifiedWithinMinutes")
 }

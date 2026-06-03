@@ -16,6 +16,7 @@
 - 没有明确恢复意图时，不进入 `restore --yes`
 - `doctor` 用于专题解释，不替代 `scan`
 - `diff` 只比较两次 scan snapshot，不替代实时 `scan`
+- 社区规则库用 `--rules-repo` 或 wrapper 的 `-RulesRepo`，优先本地目录；远程只接受 HTTPS git URL
 
 常用 wrapper：
 
@@ -26,3 +27,10 @@
 - clean execute: `scripts/run-clean.ps1`
 - restore: `scripts/run-restore.ps1`
 - doctor: `scripts/run-doctor.ps1`
+
+社区规则示例：
+
+```powershell
+pwsh -File scripts/run-scan.ps1 -RulesRepo "tests/fixtures/community-rules" -Json
+pwsh -File scripts/run-plan.ps1 -RulesRepo "tests/fixtures/community-rules" -SafeOnly -Json
+```

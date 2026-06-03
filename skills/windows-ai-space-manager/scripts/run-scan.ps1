@@ -1,5 +1,6 @@
 param(
     [string]$Category,
+    [string]$RulesRepo,
     [switch]$Json,
     [switch]$Markdown
 )
@@ -14,6 +15,9 @@ elseif ($Markdown) { $args += "--markdown" }
 
 if ($Category) {
     $args += @("--category", $Category)
+}
+if ($RulesRepo) {
+    $args += @("--rules-repo", $RulesRepo)
 }
 
 Push-Location $AidiskDir

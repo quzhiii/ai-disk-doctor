@@ -1,6 +1,7 @@
 param(
     [switch]$SafeOnly,
     [string]$Category,
+    [string]$RulesRepo,
     [string]$QuarantineRoot,
     [switch]$Json,
     [switch]$Markdown
@@ -16,6 +17,7 @@ elseif ($Markdown) { $args += "--markdown" }
 
 if ($SafeOnly) { $args += "--safe-only" }
 if ($Category) { $args += @("--category", $Category) }
+if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
 if ($QuarantineRoot) { $args += @("--quarantine-root", $QuarantineRoot) }
 
 Push-Location $AidiskDir

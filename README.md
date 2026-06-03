@@ -56,6 +56,13 @@ cargo run -- scan --markdown
 cargo run -- scan --category browser-cache --json
 ```
 
+使用本地或 HTTPS 社区规则库：
+
+```powershell
+cargo run -- scan --rules-repo "tests/fixtures/community-rules" --json
+cargo run -- scan --rules-repo "https://github.com/example/windows-ai-space-rules.git" --json
+```
+
 生成只读 dry-run 计划：
 
 ```powershell
@@ -176,3 +183,4 @@ cargo run -- diff --before ..\examples\diff-before.example.json --after ..\examp
 - 默认安全：清理能力后续只以 dry-run 和 quarantine 形式开放
 - 规则驱动：路径识别、风险等级、策略建议均来自规则库
 - Agent 友好：输出同时兼顾人类阅读和机器解析
+- 社区规则：`--rules-repo` 仅接受本地目录或 HTTPS git URL；远程仓库会缓存到 `aidisk/.aidisk/rules-repos`

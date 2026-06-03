@@ -12,6 +12,7 @@
 - 用户想做安全的 quarantine 清理，而不是直接删除
 - 用户想从 quarantine index 预演或执行恢复
 - 用户想比较两次 scan 之间是谁变大了
+- 用户想加载本地或社区维护的规则库
 
 ## Core Principles
 
@@ -32,6 +33,7 @@
 - "先做清理预演" / "先别删" / "先 dry-run"
 - "隔离清理" / "恢复隔离文件"
 - "最近谁变大了" / "对比两次扫描" / "diff scan"
+- "社区规则库" / "rules repo" / "--rules-repo"
 
 ## Workflow
 
@@ -48,6 +50,13 @@ pwsh -File scripts/run-scan.ps1 -Json
 ```powershell
 pwsh -File scripts/run-scan.ps1 -Category docker -Json
 pwsh -File scripts/run-scan.ps1 -Category models -Json
+```
+
+如果用户提供本地或 HTTPS 社区规则库：
+
+```powershell
+pwsh -File scripts/run-scan.ps1 -RulesRepo "tests/fixtures/community-rules" -Json
+pwsh -File scripts/run-scan.ps1 -RulesRepo "https://github.com/example/windows-ai-space-rules.git" -Json
 ```
 
 输出后先解释：
@@ -184,3 +193,10 @@ pwsh -File scripts/run-diff.ps1 -Before "..\examples\diff-before.example.json" -
 - `scripts/run-restore.ps1`
 - `scripts/run-doctor.ps1`
 - `scripts/run-diff.ps1`
+
+## Community Rules
+
+- `--rules-repo` 支持本地目录和 HTTPS git URL
+- 本地目录优先用于测试和私有规则集
+- 远程 URL 会先做基本安全校验，拒绝 `http://`、`file://`、localhost、私有网段和 metadata 风险地址
+- 规则目录解析顺序：优先 `<repo>/rules`，不存在时使用 repo 根目录

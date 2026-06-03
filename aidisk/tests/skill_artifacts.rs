@@ -92,6 +92,37 @@ fn skill_documents_diff_latest_workflow() {
 }
 
 #[test]
+fn skill_and_wrappers_document_rules_repo() {
+    let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
+    let wrapper_names = [
+        "run-scan.ps1",
+        "run-plan.ps1",
+        "run-clean-dry-run.ps1",
+        "run-clean.ps1",
+        "run-doctor.ps1",
+    ];
+
+    assert!(
+        skill.contains("--rules-repo") && skill.contains("-RulesRepo"),
+        "SKILL.md should document rules repo usage"
+    );
+
+    for wrapper_name in wrapper_names {
+        let wrapper = read_repo_file(&format!(
+            "skills/windows-ai-space-manager/scripts/{wrapper_name}"
+        ));
+        assert!(
+            wrapper.contains("[string]$RulesRepo"),
+            "{wrapper_name} should expose -RulesRepo"
+        );
+        assert!(
+            wrapper.contains("--rules-repo"),
+            "{wrapper_name} should pass --rules-repo"
+        );
+    }
+}
+
+#[test]
 fn risk_cheatsheet_covers_execution_and_restore_statuses() {
     let risk = read_repo_file("skills/windows-ai-space-manager/references/risk-cheatsheet.md");
     let expected_statuses = [

@@ -1,0 +1,11 @@
+id: community-cache
+name: Community cache fixture
+category: community
+platform: windows
+paths:
+  - "%USERPROFILE%\\community-cache-fixture"
+risk: safe
+cleanup:
+  method: quarantine
+reason: Community rule fixture used to validate --rules-repo loading.
+warnings: []

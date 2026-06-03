@@ -11,6 +11,7 @@
 - 用户想先看诊断报告，再决定是否清理
 - 用户想做安全的 quarantine 清理，而不是直接删除
 - 用户想从 quarantine index 预演或执行恢复
+- 用户想比较两次 scan 之间是谁变大了
 
 ## Core Principles
 
@@ -130,6 +131,20 @@ pwsh -File scripts/run-doctor.ps1 -Playwright -HuggingFace -Markdown
 pwsh -File scripts/run-doctor.ps1 -Markdown
 ```
 
+### 7. Diff Between Two Scans
+
+当用户已经有两次 scan 输出，或者明确在问“最近谁涨了”，执行：
+
+```powershell
+pwsh -File scripts/run-diff.ps1 -Before "..\examples\diff-before.example.json" -After "..\examples\diff-after.example.json" -Markdown
+```
+
+解释时重点说清：
+
+- `appeared` 是新出现的真实占用路径，不包含 `exists=false` 的占位规则路径
+- `grew` / `shrunk` 只针对两次都真实存在的路径
+- `disappeared` 表示上次存在、这次不存在
+
 ## Response Style
 
 在对话中优先按这个顺序反馈：
@@ -153,3 +168,4 @@ pwsh -File scripts/run-doctor.ps1 -Markdown
 - `scripts/run-clean.ps1`
 - `scripts/run-restore.ps1`
 - `scripts/run-doctor.ps1`
+- `scripts/run-diff.ps1`

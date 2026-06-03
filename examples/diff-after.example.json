@@ -1,0 +1,24 @@
+{
+  "findings": [
+    {
+      "path": "C:\\Users\\demo\\AppData\\Local\\Docker\\build-cache",
+      "exists": true,
+      "size_bytes": 1610612736
+    },
+    {
+      "path": "C:\\Users\\demo\\.ollama\\models",
+      "exists": true,
+      "size_bytes": 2147483648
+    },
+    {
+      "path": "C:\\Users\\demo\\AppData\\Local\\npm-cache",
+      "exists": true,
+      "size_bytes": 268435456
+    },
+    {
+      "path": "C:\\Users\\demo\\AppData\\Local\\Packages\\DistroA\\LocalState\\ext4.vhdx",
+      "exists": false,
+      "size_bytes": 0
+    }
+  ]
+}

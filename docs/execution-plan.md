@@ -177,3 +177,12 @@
 1. 按 P0 → P1 → P2 顺序逐项实现。
 2. 每项完成后跑测试并本地提交。
 3. 下一批聚焦 Phase 5 skill 端到端示例与 Phase 6 后续优化。
+
+## Release Readiness
+
+当前已完成：
+
+- `CHANGELOG.md`
+- `docs/release-notes/v1.0.0.md`
+- `scripts/release-smoke.ps1`
+- `aidisk` crate version `1.0.0`

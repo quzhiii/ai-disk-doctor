@@ -37,6 +37,18 @@
 
 - Rust 1.78+
 
+Release artifacts:
+
+- `CHANGELOG.md`
+- `docs/release-notes/v1.0.0.md`
+- `scripts/release-smoke.ps1`
+
+非破坏性发布冒烟验证：
+
+```powershell
+pwsh -NoProfile -File "scripts/release-smoke.ps1"
+```
+
 运行：
 
 ```powershell

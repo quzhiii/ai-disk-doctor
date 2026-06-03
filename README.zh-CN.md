@@ -330,6 +330,11 @@ rustup update stable
 
 ---
 
+## 致谢
+
+- README 视觉风格（居中标题、`for-the-badge` 徽章、紧凑导航）参考了 [khazix-skills](https://github.com/KKKKhazix/khazix-skills) — 感谢数字生命卡兹克优秀的开源展示模式。
+- 使用 Rust 构建。特别感谢 Rust 社区的 `clap`、`walkdir`、`serde`、`sysinfo` 等优秀 crate。
+
 ## 许可证
 
 本项目采用双许可证：

@@ -328,6 +328,11 @@ Contributions of every kind are welcome — bug reports, new rules, documentatio
 
 ---
 
+## Acknowledgments
+
+- README visual style (centered header, `for-the-badge` badges, compact navigation) inspired by [khazix-skills](https://github.com/KKKKhazix/khazix-skills) — thanks to 数字生命卡兹克 for the excellent open-source presentation pattern.
+- Built with Rust. Special thanks to the Rust community for crates like `clap`, `walkdir`, `serde`, and `sysinfo`.
+
 ## License
 
 This project is dual-licensed under:

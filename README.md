@@ -330,7 +330,6 @@ Contributions of every kind are welcome — bug reports, new rules, documentatio
 
 ## Acknowledgments
 
-- **Architecture inspiration** from [khazix-skills](https://github.com/KKKKhazix/khazix-skills) — the rule-driven risk classification (`safe`/`careful`/`dangerous`), safety-first execution model (dry-run → quarantine → never direct delete), and Agent skill wrapper pattern are inspired by 数字生命卡兹克's storage-analyzer design philosophy.
 - Built with Rust. Special thanks to the Rust community for crates like `clap`, `walkdir`, `serde`, and `sysinfo`.
 
 ## License

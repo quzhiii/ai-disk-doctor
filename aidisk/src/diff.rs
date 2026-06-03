@@ -1,5 +1,5 @@
-use std::fs;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -62,9 +62,13 @@ pub fn build_diff(before_path: &Path, after_path: &Path) -> Result<DiffReport> {
         summary.total_paths += 1;
         let before_finding = before.get(&path);
         let after_finding = after.get(&path);
-        let before_exists = before_finding.map(|finding| finding.exists).unwrap_or(false);
+        let before_exists = before_finding
+            .map(|finding| finding.exists)
+            .unwrap_or(false);
         let after_exists = after_finding.map(|finding| finding.exists).unwrap_or(false);
-        let before_bytes = before_finding.map(|finding| finding.size_bytes).unwrap_or(0);
+        let before_bytes = before_finding
+            .map(|finding| finding.size_bytes)
+            .unwrap_or(0);
         let after_bytes = after_finding.map(|finding| finding.size_bytes).unwrap_or(0);
 
         match (before_exists, after_exists) {

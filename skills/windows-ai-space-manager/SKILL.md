@@ -31,6 +31,7 @@
 - "Playwright / Docker / WSL / Ollama 占空间"
 - "先做清理预演" / "先别删" / "先 dry-run"
 - "隔离清理" / "恢复隔离文件"
+- "最近谁变大了" / "对比两次扫描" / "diff scan"
 
 ## Workflow
 
@@ -151,7 +152,7 @@ pwsh -File scripts/run-diff.ps1 -Before "..\examples\diff-before.example.json" -
 
 1. 结论先行：最大占用是什么
 2. 风险分层：哪些能动，哪些不能动
-3. 下一步建议：scan / plan / clean / restore / doctor 里的一个
+3. 下一步建议：scan / plan / clean / restore / doctor / diff 里的一个
 4. 如果做了执行：明确写出 index / log 路径
 
 ## References

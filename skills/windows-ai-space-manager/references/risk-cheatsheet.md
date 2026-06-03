@@ -13,5 +13,18 @@
 - `blocked because path looks sensitive`
 - `skipped because path was recently modified`
 - `path does not exist`
+- `skipped-active`
 - `skipped-conflict`
 - `skipped-locked`
+
+执行与恢复状态：
+
+| Status | Meaning |
+|---|---|
+| `moved` | 已从源路径隔离移动到 quarantine 目标 |
+| `planned` | restore dry-run 预演项，尚未执行 |
+| `restored` | 已从 quarantine 恢复到原目标 |
+| `skipped-active` | 源路径最近仍在变化，保守跳过 |
+| `skipped-conflict` | 恢复目标已存在，不覆盖现有路径 |
+| `skipped-locked` | 文件被占用或权限不足，未移动/恢复 |
+| `failed` | 执行失败，需要查看 message / log |

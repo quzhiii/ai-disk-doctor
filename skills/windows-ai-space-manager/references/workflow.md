@@ -3,7 +3,7 @@
 建议执行顺序：
 
 1. `scan`
-2. `diff`（当需要对比两次 scan 时）
+2. `diff`（当需要对比两次 scan 时，使用 `scripts/run-diff.ps1`）
 3. `plan`
 4. `clean --dry-run`
 5. `clean --yes --quarantine`
@@ -16,3 +16,13 @@
 - 没有明确恢复意图时，不进入 `restore --yes`
 - `doctor` 用于专题解释，不替代 `scan`
 - `diff` 只比较两次 scan snapshot，不替代实时 `scan`
+
+常用 wrapper：
+
+- scan: `scripts/run-scan.ps1`
+- diff: `scripts/run-diff.ps1`
+- plan: `scripts/run-plan.ps1`
+- clean dry-run: `scripts/run-clean-dry-run.ps1`
+- clean execute: `scripts/run-clean.ps1`
+- restore: `scripts/run-restore.ps1`
+- doctor: `scripts/run-doctor.ps1`

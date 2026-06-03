@@ -1,39 +1,49 @@
-﻿# AI Disk Doctor
+﻿<div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Rust](https://img.shields.io/badge/rust-1.78%2B-orange)
-![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
+# AI Disk Doctor
+
+[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
 
 [中文](./README.zh-CN.md) · [Changelog](./CHANGELOG.md) · [Contributing](./CONTRIBUTING.md)
 
-> **AI-era disk space diagnostics and governance for Windows.**
->
-> Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, and development environments—without guessing what's safe to delete.
+**AI-era disk space diagnostics and governance for Windows.**
+
+Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, and development environments—without guessing what's safe to delete.
+
+</div>
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [What's New](#whats-new)
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Command Reference](#command-reference)
-- [Safety First](#safety-first)
-- [Architecture](#architecture)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+[Motivation](#motivation) · [Overview](#overview) · [What's New](#whats-new) · [Key Features](#key-features) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+
+---
+
+## Motivation
+
+AI tools have become essential to modern development, but they come with a hidden cost: **massive disk space consumption**.
+
+- **Ollama** models weigh 4–70 GB each
+- **Hugging Face** caches accumulate silently in `%USERPROFILE%\.cache`
+- **Docker Desktop** images and **WSL** distros eat tens of gigabytes
+- **Playwright** browser binaries install per-project
+- **Browser caches** and **dev tool artifacts** pile up over months
+
+Existing disk cleaners treat all files the same. They either delete too aggressively or leave AI-specific bloat untouched. **AI Disk Doctor** was born from a simple observation: *AI-era storage bloat has different patterns, different risks, and deserves a different tool.*
+
+We believe cleanup should be **transparent** (you see exactly what will happen), **reversible** (quarantine, not delete), and **rule-driven** (no hardcoded magic paths). Every path is evaluated against YAML rules with explicit risk levels—so you never have to guess what's safe.
 
 ---
 
 ## Overview
 
-AI Disk Doctor is a rule-driven, safety-first disk space diagnostic tool built for the AI era. It discovers space hogs across AI model caches, browser data, Docker images, WSL distros, and development artifacts—then helps you clean up with confidence.
+AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool built for the AI era. It discovers space hogs across AI model caches, browser data, Docker images, WSL distros, and development artifacts—then helps you clean up with confidence.
 
-Unlike generic disk cleaners, AI Disk Doctor is **rule-driven**: every path is evaluated against YAML rules with explicit risk levels (`safe`, `careful`, `dangerous`). No hardcoded magic paths, no guessing. The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly.
+The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
 **Current release:** v1.0.0
 
@@ -76,41 +86,49 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 
 ## Installation
 
-### Prerequisites
+### Option 1: Pre-built Binary (Recommended — No Rust Required)
+
+Download the latest release binary from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases). Extract `aidisk.exe` and place it on your PATH.
+
+### Option 2: Build from Source (Rust Required)
+
+**Prerequisites:**
 
 | Requirement | Version |
 |------------|---------|
 | Windows | 10/11 |
 | Rust | 1.78+ |
 
-Install Rust via [rustup](https://rustup.rs/) if you don't have it.
-
-### From Source
+Install Rust via [rustup](https://rustup.rs/) if needed.
 
 ```bash
-# Clone the repository
 git clone https://github.com/quzhiii/ai-disk-doctor.git
 cd ai-disk-doctor/aidisk
-
-# Build release binary
 cargo build --release
+# Binary: target/release/aidisk.exe
+```
 
-# The binary will be at target/release/aidisk.exe
+### Option 3: PowerShell Skill Wrappers (Agent Integration)
+
+No Rust or compilation needed. The `skills/windows-ai-space-manager/scripts/` directory contains standalone PowerShell wrappers that call the CLI. If you have the pre-built binary on PATH, these work immediately:
+
+```powershell
+# Scan via PowerShell wrapper
+.\skills\windows-ai-space-manager\scripts\scan.ps1
+
+# Run doctor
+.\skills\windows-ai-space-manager\scripts\doctor.ps1
 ```
 
 ### Development Setup
 
 ```bash
 cd ai-disk-doctor/aidisk
-
-# Build and test
 cargo build
 cargo test
 ```
 
-### Verify Your Build
-
-Run the non-destructive smoke test to verify everything works:
+Verify your build with the non-destructive smoke test:
 
 ```powershell
 pwsh -NoProfile -File "scripts/release-smoke.ps1"
@@ -124,65 +142,65 @@ pwsh -NoProfile -File "scripts/release-smoke.ps1"
 
 ```powershell
 # Scan everything and output JSON
-cargo run -- scan --json
+aidisk scan --json
 
 # Generate Markdown report
-cargo run -- scan --markdown
+aidisk scan --markdown
 
 # Scan specific category
-cargo run -- scan --category browser-cache --json
+aidisk scan --category browser-cache --json
 ```
 
 ### 2. Generate a Cleanup Plan
 
 ```powershell
 # Safe items only, dry-run
-cargo run -- plan --safe-only --json
+aidisk plan --safe-only --json
 
 # Include careful items, skip recently modified
-cargo run -- plan --json --skip-modified-within-minutes 30
+aidisk plan --json --skip-modified-within-minutes 30
 ```
 
 ### 3. Execute Safe Cleanup (Quarantine)
 
 ```powershell
 # Preview quarantine plan
-cargo run -- clean --dry-run --safe-only --quarantine-root "F:\archives"
+aidisk clean --dry-run --safe-only --quarantine-root "F:\archives"
 
 # Execute quarantine (requires --yes)
-cargo run -- clean --yes --safe-only --quarantine-root "F:\archives"
+aidisk clean --yes --safe-only --quarantine-root "F:\archives"
 ```
 
 ### 4. Restore if Needed
 
 ```powershell
 # Preview restore
-cargo run -- restore --dry-run --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+aidisk restore --dry-run --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 
 # Execute restore
-cargo run -- restore --yes --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+aidisk restore --yes --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 ```
 
 ### 5. Run Diagnostics
 
 ```powershell
 # Full system diagnosis
-cargo run -- doctor --markdown
+aidisk doctor --markdown
 
 # Specific topics
-cargo run -- doctor --docker --json
-cargo run -- doctor --wsl --ollama --markdown
-cargo run -- doctor --playwright --huggingface --markdown
+aidisk doctor --docker --json
+aidisk doctor --wsl --ollama --markdown
+aidisk doctor --playwright --huggingface --markdown
 ```
 
 ### 6. Compare Snapshots
 
 ```powershell
 # Auto-compare last two scans
-cargo run -- diff --latest --markdown
+aidisk diff --latest --markdown
 
 # Compare specific snapshots
-cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
+aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
 ```
 
 ---
@@ -257,6 +275,22 @@ For detailed architecture documentation, see [`docs/architecture.md`](./docs/arc
 
 ## Troubleshooting
 
+### Where can I get a pre-built binary?
+
+Check the [Releases](https://github.com/quzhiii/ai-disk-doctor/releases) page. If no binary is available yet, building from source requires only Rust (installed via [rustup](https://rustup.rs/) in minutes).
+
+### Do I need Rust to use this?
+
+**No** — Download the pre-built `aidisk.exe` from Releases. Rust is only needed if you want to build from source or contribute code.
+
+### Can I use PowerShell without the Rust CLI?
+
+The PowerShell wrappers in `skills/` call the `aidisk` CLI under the hood. You need the binary, but no Rust toolchain.
+
+### Is there a Python version?
+
+Not yet. The core engine is Rust for performance and safety. A Python binding or native Python port may come if the community wants it. Contributions welcome!
+
 ### `cargo build` fails on Windows
 
 Ensure you have the latest stable Rust toolchain:
@@ -305,4 +339,8 @@ You may choose either license at your option.
 
 ---
 
+<div align="center">
+
 **Made with ❤️ for cleaner disks and clearer minds.**
+
+</div>

@@ -1,39 +1,49 @@
+<div align="center">
+
 # AI Disk Doctor
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Rust](https://img.shields.io/badge/rust-1.78%2B-orange)
-![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
 
 [English](./README.md) · [更新日志](./CHANGELOG.md) · [贡献指南](./CONTRIBUTING.md)
 
-> **面向 AI 时代的 Windows 磁盘空间诊断与治理工具。**
->
-> 识别、分析并安全回收被 AI 工具、浏览器和开发环境占用的存储空间——无需猜测哪些可以删除。
+**面向 AI 时代的 Windows 磁盘空间诊断与治理工具。**
+
+识别、分析并安全回收被 AI 工具、浏览器和开发环境占用的存储空间——无需猜测哪些可以删除。
+
+</div>
 
 ---
 
 ## 目录
 
-- [项目简介](#项目简介)
-- [最新动态](#最新动态)
-- [核心特性](#核心特性)
-- [安装](#安装)
-- [快速开始](#快速开始)
-- [命令参考](#命令参考)
-- [安全第一](#安全第一)
-- [架构设计](#架构设计)
-- [常见问题](#常见问题)
-- [贡献指南](#贡献指南)
-- [许可证](#许可证)
+[项目动机](#项目动机) · [项目简介](#项目简介) · [最新动态](#最新动态) · [核心特性](#核心特性) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
+
+---
+
+## 项目动机
+
+AI 工具已成为现代开发不可或缺的部分，但它们带来了一个隐性成本：**巨大的磁盘空间消耗**。
+
+- **Ollama** 模型每个重达 4–70 GB
+- **Hugging Face** 缓存悄无声息地累积在 `%USERPROFILE%\.cache`
+- **Docker Desktop** 镜像和 **WSL** 发行版吞噬数十 GB
+- **Playwright** 浏览器二进制文件按项目安装
+- **浏览器缓存**和**开发工具产物**数月堆积
+
+现有的磁盘清理工具对所有文件一视同仁。它们要么删除过于激进，要么对 AI 特定的膨胀视而不见。**AI Disk Doctor** 源于一个简单的观察：*AI 时代的存储膨胀有不同的模式、不同的风险，值得一个不同的工具。*
+
+我们相信清理应该是**透明的**（你清楚看到将要发生什么）、**可逆的**（隔离而非删除）、**规则驱动的**（没有硬编码的魔法路径）。每个路径都通过 YAML 规则进行评估，并赋予明确的风险等级——你无需猜测什么是安全的。
 
 ---
 
 ## 项目简介
 
-AI Disk Doctor 是一款面向 AI 时代的、规则驱动的、安全优先的 Windows 磁盘空间诊断工具。它能够发现 AI 模型缓存、浏览器数据、Docker 镜像、WSL 发行版和开发工具占用的空间，并帮助你安全地清理。
+AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工具，专为 AI 时代打造。它能够发现 AI 模型缓存、浏览器数据、Docker 镜像、WSL 发行版和开发工具占用的空间，并帮助你安全地清理。
 
-与通用磁盘清理工具不同，AI Disk Doctor 采用**规则驱动**方式：每个路径都通过 YAML 规则进行评估，并赋予明确的风险等级（`safe`、`careful`、`dangerous`）。没有硬编码的魔法路径，无需猜测。默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。
+默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。所有破坏性操作在执行前都会预览变更，真实执行需显式 `--yes`。
 
 **当前版本：** v1.0.0
 
@@ -76,7 +86,13 @@ AI Disk Doctor 是一款面向 AI 时代的、规则驱动的、安全优先的 
 
 ## 安装
 
-### 环境要求
+### 方式 1：预编译二进制文件（推荐 — 无需 Rust）
+
+从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载最新版本的 `aidisk.exe`，解压并放到 PATH 中即可使用。
+
+### 方式 2：从源码构建（需要 Rust）
+
+**环境要求：**
 
 | 要求 | 版本 |
 |------------|---------|
@@ -85,17 +101,23 @@ AI Disk Doctor 是一款面向 AI 时代的、规则驱动的、安全优先的 
 
 如果没有 Rust，通过 [rustup](https://rustup.rs/) 安装。
 
-### 从源码安装
-
 ```bash
-# 克隆仓库
 git clone https://github.com/quzhiii/ai-disk-doctor.git
 cd ai-disk-doctor/aidisk
-
-# 构建 release 二进制文件
 cargo build --release
-
 # 二进制文件位于 target/release/aidisk.exe
+```
+
+### 方式 3：PowerShell Skill 包装脚本（Agent 集成）
+
+无需 Rust 或编译。`skills/windows-ai-space-manager/scripts/` 目录包含独立的 PowerShell 包装脚本，调用 CLI 即可工作。只要预编译二进制文件在 PATH 中，这些脚本立即可用：
+
+```powershell
+# 通过 PowerShell 包装脚本扫描
+.\skills\windows-ai-space-manager\scripts\scan.ps1
+
+# 运行诊断
+.\skills\windows-ai-space-manager\scripts\doctor.ps1
 ```
 
 ### 开发环境
@@ -108,9 +130,7 @@ cargo build
 cargo test
 ```
 
-### 验证构建
-
-运行非破坏性冒烟测试，验证一切正常：
+验证构建：
 
 ```powershell
 pwsh -NoProfile -File "scripts/release-smoke.ps1"
@@ -124,65 +144,65 @@ pwsh -NoProfile -File "scripts/release-smoke.ps1"
 
 ```powershell
 # 扫描所有并输出 JSON
-cargo run -- scan --json
+aidisk scan --json
 
 # 生成 Markdown 报告
-cargo run -- scan --markdown
+aidisk scan --markdown
 
 # 扫描特定分类
-cargo run -- scan --category browser-cache --json
+aidisk scan --category browser-cache --json
 ```
 
 ### 2. 生成清理计划
 
 ```powershell
 # 仅安全项，dry-run
-cargo run -- plan --safe-only --json
+aidisk plan --safe-only --json
 
 # 包含谨慎项，跳过最近修改的
-cargo run -- plan --json --skip-modified-within-minutes 30
+aidisk plan --json --skip-modified-within-minutes 30
 ```
 
 ### 3. 执行安全清理（隔离）
 
 ```powershell
 # 预览隔离计划
-cargo run -- clean --dry-run --safe-only --quarantine-root "F:\archives"
+aidisk clean --dry-run --safe-only --quarantine-root "F:\archives"
 
 # 执行隔离（需要 --yes）
-cargo run -- clean --yes --safe-only --quarantine-root "F:\archives"
+aidisk clean --yes --safe-only --quarantine-root "F:\archives"
 ```
 
 ### 4. 如需恢复
 
 ```powershell
 # 预览恢复
-cargo run -- restore --dry-run --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+aidisk restore --dry-run --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 
 # 执行恢复
-cargo run -- restore --yes --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
+aidisk restore --yes --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 ```
 
 ### 5. 运行诊断
 
 ```powershell
 # 完整系统诊断
-cargo run -- doctor --markdown
+aidisk doctor --markdown
 
 # 特定主题
-cargo run -- doctor --docker --json
-cargo run -- doctor --wsl --ollama --markdown
-cargo run -- doctor --playwright --huggingface --markdown
+aidisk doctor --docker --json
+aidisk doctor --wsl --ollama --markdown
+aidisk doctor --playwright --huggingface --markdown
 ```
 
 ### 6. 对比快照
 
 ```powershell
 # 自动对比最近两次扫描
-cargo run -- diff --latest --markdown
+aidisk diff --latest --markdown
 
 # 对比特定快照
-cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
+aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
 ```
 
 ---
@@ -257,6 +277,22 @@ cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-12000
 
 ## 常见问题
 
+### 哪里可以获取预编译二进制文件？
+
+查看 [Releases](https://github.com/quzhiii/ai-disk-doctor/releases) 页面。如果暂时没有二进制文件，从源码构建只需安装 Rust（通过 [rustup](https://rustup.rs/) 几分钟即可完成）。
+
+### 需要使用 Rust 吗？
+
+**不需要** — 从 Releases 下载预编译的 `aidisk.exe` 即可。只有从源码构建或贡献代码时才需要 Rust。
+
+### 可以只用 PowerShell 不用 Rust CLI 吗？
+
+`skills/` 中的 PowerShell 包装脚本底层调用 `aidisk` CLI。你需要二进制文件，但不需要 Rust 工具链。
+
+### 有 Python 版本吗？
+
+目前尚无。核心引擎使用 Rust 以确保性能和安全性。如果社区有需求，未来可能提供 Python 绑定或原生 Python 移植。欢迎贡献！
+
 ### `cargo build` 在 Windows 上失败
 
 确保使用最新的稳定版 Rust 工具链：
@@ -305,4 +341,8 @@ rustup update stable
 
 ---
 
+<div align="center">
+
 **用 ❤️ 打造，让磁盘更清爽，让思路更清晰。**
+
+</div>

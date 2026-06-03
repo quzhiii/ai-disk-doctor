@@ -332,7 +332,7 @@ rustup update stable
 
 ## 致谢
 
-- README 视觉风格（居中标题、`for-the-badge` 徽章、紧凑导航）参考了 [khazix-skills](https://github.com/KKKKhazix/khazix-skills) — 感谢数字生命卡兹克优秀的开源展示模式。
+- **架构灵感**来自 [khazix-skills](https://github.com/KKKKhazix/khazix-skills) — 规则驱动的风险分级体系（`safe`/`careful`/`dangerous`）、安全优先的执行模型（dry-run → 隔离 → 绝不直接删除）以及 Agent Skill 包装脚本模式，均受到数字生命卡兹克的 storage-analyzer 设计理念启发。
 - 使用 Rust 构建。特别感谢 Rust 社区的 `clap`、`walkdir`、`serde`、`sysinfo` 等优秀 crate。
 
 ## 许可证

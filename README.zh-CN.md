@@ -223,6 +223,16 @@ cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-12000
 - 社区规则库支持
 - PowerShell Agent 包装脚本
 
+详见 [CHANGELOG.md](./CHANGELOG.md) 和 [Release Notes v1.0.0](./docs/release-notes/v1.0.0.md)。
+
+### 发布验证
+
+使用我们的非破坏性冒烟测试验证构建：
+
+```powershell
+pwsh -NoProfile -File "scripts/release-smoke.ps1"
+```
+
 ### v1.1（计划中）
 - [ ] 实时监控（如社区有需求）
 - [ ] 定时清理任务

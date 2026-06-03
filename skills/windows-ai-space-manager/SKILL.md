@@ -7,7 +7,7 @@
 适用场景：
 
 - 用户说 C 盘突然变小、磁盘满了、空间不够
-- 用户怀疑 Claude / Codex / Gemini / opencode / Playwright / Docker / WSL / Ollama 占空间
+- 用户怀疑 Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue / Playwright / Docker / WSL / Ollama 占空间
 - 用户想先看诊断报告，再决定是否清理
 - 用户想做安全的 quarantine 清理，而不是直接删除
 - 用户想从 quarantine index 预演或执行恢复
@@ -28,7 +28,7 @@
 
 - "看看 C 盘" / "C 盘怎么满了"
 - "帮我分析磁盘空间" / "看下存储占用"
-- "Claude / Codex / Gemini / opencode 占了多少"
+- "Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue 占了多少"
 - "Playwright / Docker / WSL / Ollama 占空间"
 - "先做清理预演" / "先别删" / "先 dry-run"
 - "隔离清理" / "恢复隔离文件"
@@ -138,8 +138,12 @@ pwsh -File scripts/run-restore.ps1 -Index "F:\archives\.aidisk\quarantine-index-
 pwsh -File scripts/run-doctor.ps1 -Docker -Json
 pwsh -File scripts/run-doctor.ps1 -Wsl -Ollama -Markdown
 pwsh -File scripts/run-doctor.ps1 -Playwright -HuggingFace -Markdown
+pwsh -File scripts/run-doctor.ps1 -Agents -Markdown
 pwsh -File scripts/run-doctor.ps1 -Markdown
 ```
+
+`-Agents` 用于钻取 Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue 等 agent、IDE、CLI、installed apps、缓存、installers、test artifacts，并输出 top child breakdown。无 topic 参数时，doctor 默认包含 agents。
+Markdown/Text 输出会聚焦 active findings，并把未命中的规则路径汇总为 `Not detected`；需要完整 missing paths 时使用 `-Json`。
 
 ### 7. Diff Between Two Scans
 

@@ -1,0 +1,22 @@
+id: ai-project-test-artifacts
+name: AI project test and evaluation artifacts
+category: ai-test-artifact
+platform: windows
+paths:
+  - '%USERPROFILE%\projects\**\playwright-report'
+  - '%USERPROFILE%\projects\**\test-results'
+  - '%USERPROFILE%\projects\**\.pytest_cache'
+  - '%USERPROFILE%\projects\**\.ruff_cache'
+  - '%USERPROFILE%\projects\**\.mypy_cache'
+  - '%USERPROFILE%\projects\**\.vitest'
+  - '%USERPROFILE%\projects\**\.nyc_output'
+  - '%USERPROFILE%\projects\**\coverage'
+  - '%USERPROFILE%\projects\**\.promptfoo'
+  - '%USERPROFILE%\projects\**\evals'
+risk: safe
+cleanup:
+  method: quarantine
+exclusions: []
+reason: "Generated test, coverage, and evaluation artifacts are normally reproducible from project test runs."
+warnings:
+  - "Do not quarantine artifacts from an actively running test job."

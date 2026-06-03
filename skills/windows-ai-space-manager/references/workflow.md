@@ -15,6 +15,7 @@
 - 没有明确清理意图时，不进入 `clean --yes`
 - 没有明确恢复意图时，不进入 `restore --yes`
 - `doctor` 用于专题解释，不替代 `scan`
+- `doctor --agents` 用于钻取 Claude / Codex / Gemini / opencode 等 agent 根目录，并输出 top child breakdown
 - `diff` 只比较两次 scan snapshot，不替代实时 `scan`
 - 社区规则库用 `--rules-repo` 或 wrapper 的 `-RulesRepo`，优先本地目录；远程只接受 HTTPS git URL
 

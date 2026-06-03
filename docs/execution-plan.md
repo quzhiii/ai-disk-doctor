@@ -123,6 +123,26 @@
 - 结构化建议输出
 - 无参数时运行完整诊断集合
 
+下一步：Doctor V2。
+
+当前 doctor 已经能安全解释专项 topic，但它仍然主要复用 scan 结果并追加静态建议。真实机器测试显示，Docker/WSL/Ollama/Playwright/HuggingFace 不是主要空间来源，实际大户是 `.gemini`、`.claude`、`opencode`、`.codex` 等 AI Agent 目录。因此 Phase 4 的下一轮目标是让 doctor 从“专项摘要”升级为“会钻进去分析的诊断层”。
+
+Doctor V2 roadmap：
+
+| 优先级 | 方向 | 验收标准 |
+|---|---|---|
+| P0 | `doctor --agents` | 默认诊断包含 AI Agent topic，并能覆盖 `.gemini`、`.claude`、`.codex`、`opencode` 等实际大户 |
+| P0 | AI 工具覆盖扩展 | 规则覆盖新安装的 AI agent / IDE / CLI / installed app / runtime cache / installer / test artifact |
+| P0 | 子目录分解 | 对大型 existing finding 输出 top child breakdown，说明空间主要在 cache/session/log/model/browser/runtime 哪类目录里 |
+| P1 | 数据驱动建议 | 根据 `exists`、size、risk、action、breakdown 生成建议；空目录或 1 字节占位应提示 no action needed |
+| P1 | 工具检测 | Docker/WSL/Ollama/Playwright 未安装或未运行时明确标记 not detected/skip，而不是只输出泛化建议 |
+| P1 | 输出降噪 | Markdown/Text 只展开 active findings，missing paths 汇总为 Not detected 计数；JSON 保留完整 findings |
+| P2 | 外部命令探测 | 可选调用 `docker system df`、`wsl --list`、`ollama list`，用于补充而不是替代文件系统诊断 |
+| P2 | 增长率诊断 | 结合 `.aidisk/reports` 和 `diff --latest` 回答哪些目录最近增长最快 |
+| P3 | 动态 topic registry | 从 rules category 和 topic metadata 生成 doctor topics，减少硬编码开关 |
+
+详细执行计划：`docs/plans/2026-06-03-doctor-v2-roadmap.md`。
+
 ## Phase 5: Skill Integration
 
 目标：
@@ -174,9 +194,10 @@
 
 ### Immediate Next Steps
 
-1. 按 P0 → P1 → P2 顺序逐项实现。
-2. 每项完成后跑测试并本地提交。
-3. 下一批聚焦 Phase 5 skill 端到端示例与 Phase 6 后续优化。
+1. 优先实现 Doctor V2 的 P0：`doctor --agents` 和大型目录子目录分解。
+2. 然后补 P1：数据驱动建议、工具存在性检测和输出降噪。
+3. 最后再做 P2：外部命令探测与增长率诊断。
+4. 每项完成后跑测试并本地提交。
 
 ## Release Readiness
 

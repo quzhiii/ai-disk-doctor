@@ -36,6 +36,29 @@ fn loads_expanded_platform_rule_yamls() {
 }
 
 #[test]
+fn loads_expanded_ai_tooling_rule_yamls() {
+    let ide = fs::read_to_string("rules/ai-ides.yaml").expect("ai ide rule should exist");
+    let cli = fs::read_to_string("rules/ai-clis.yaml").expect("ai cli rule should exist");
+    let cache = fs::read_to_string("rules/ai-caches.yaml").expect("ai cache rule should exist");
+    let installers = fs::read_to_string("rules/ai-installers.yaml").expect("ai installer rule should exist");
+    let installed_apps = fs::read_to_string("rules/ai-installed-apps.yaml").expect("ai installed app rule should exist");
+    let test_artifacts = fs::read_to_string("rules/ai-test-artifacts.yaml").expect("ai test artifact rule should exist");
+
+    assert!(ide.contains("Cursor"));
+    assert!(ide.contains("Windsurf"));
+    assert!(ide.contains("Trae"));
+    assert!(cli.contains("aider"));
+    assert!(cli.contains("Continue"));
+    assert!(cache.contains("promptfoo"));
+    assert!(cache.contains("evals"));
+    assert!(installers.contains("Downloads"));
+    assert!(installed_apps.contains("Programs"));
+    assert!(installed_apps.contains("LM Studio"));
+    assert!(test_artifacts.contains("playwright-report"));
+    assert!(test_artifacts.contains("test-results"));
+}
+
+#[test]
 fn example_glob_fixture_can_be_created() {
     let temp = tempdir().expect("tempdir should exist");
     let fixture = temp

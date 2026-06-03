@@ -4,6 +4,7 @@ param(
     [switch]$Ollama,
     [switch]$Playwright,
     [switch]$HuggingFace,
+    [switch]$Agents,
     [string]$RulesRepo,
     [switch]$Json,
     [switch]$Markdown
@@ -22,6 +23,7 @@ if ($Wsl) { $args += "--wsl" }
 if ($Ollama) { $args += "--ollama" }
 if ($Playwright) { $args += "--playwright" }
 if ($HuggingFace) { $args += "--huggingface" }
+if ($Agents) { $args += "--agents" }
 if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
 
 Push-Location $AidiskDir

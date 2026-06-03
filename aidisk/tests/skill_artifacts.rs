@@ -92,6 +92,36 @@ fn skill_documents_diff_latest_workflow() {
 }
 
 #[test]
+fn skill_and_readme_document_agents_doctor_workflow() {
+    let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
+    let run_doctor = read_repo_file("skills/windows-ai-space-manager/scripts/run-doctor.ps1");
+    let readme = read_repo_file("README.md");
+
+    assert!(
+        skill.contains("run-doctor.ps1 -Agents"),
+        "SKILL.md should document the agents doctor wrapper workflow"
+    );
+    assert!(
+        run_doctor.contains("[switch]$Agents"),
+        "run-doctor.ps1 should expose -Agents"
+    );
+    assert!(
+        run_doctor.contains("--agents"),
+        "run-doctor.ps1 should pass --agents"
+    );
+    assert!(
+        readme.contains("--agents"),
+        "README.md should document doctor --agents"
+    );
+    for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
+        assert!(
+            skill.contains(term) || readme.contains(term),
+            "skill or README should document expanded AI tooling coverage term {term}"
+        );
+    }
+}
+
+#[test]
 fn skill_and_wrappers_document_rules_repo() {
     let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
     let wrapper_names = [

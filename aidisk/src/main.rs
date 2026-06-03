@@ -130,6 +130,8 @@ enum Command {
         #[arg(long)]
         huggingface: bool,
         #[arg(long)]
+        agents: bool,
+        #[arg(long)]
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
@@ -340,6 +342,7 @@ fn main() -> Result<()> {
             mut ollama,
             mut playwright,
             mut huggingface,
+            mut agents,
             rules_dir,
             rules_repo,
             policy,
@@ -352,12 +355,13 @@ fn main() -> Result<()> {
                 format
             };
 
-            if !(docker || wsl || ollama || playwright || huggingface) {
+            if !(docker || wsl || ollama || playwright || huggingface || agents) {
                 docker = true;
                 wsl = true;
                 ollama = true;
                 playwright = true;
                 huggingface = true;
+                agents = true;
             }
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
@@ -373,6 +377,7 @@ fn main() -> Result<()> {
                     ollama,
                     playwright,
                     huggingface,
+                    agents,
                 },
                 &loaded_policy,
             );

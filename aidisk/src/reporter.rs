@@ -601,11 +601,39 @@ fn render_doctor_text(report: &DoctorReport) -> String {
     for topic in &report.topics {
         lines.push(String::new());
         lines.push(format!("[{}] {}", topic.name.to_uppercase(), topic.summary));
-        for finding in &topic.findings {
+        let missing_count = topic
+            .findings
+            .iter()
+            .filter(|finding| !finding.exists)
+            .count();
+        if missing_count > 0 {
+            lines.push(format!("Not detected: {}", missing_count));
+        }
+
+        let existing_findings = topic
+            .findings
+            .iter()
+            .filter(|finding| finding.exists)
+            .collect::<Vec<_>>();
+        if existing_findings.is_empty() && !topic.findings.is_empty() {
+            lines.push("No active paths detected.".to_string());
+        }
+
+        for finding in existing_findings {
             lines.push(format!(
                 "- {} | exists={} | {} bytes | {}",
                 finding.path, finding.exists, finding.size_bytes, finding.reason
             ));
+            if !finding.breakdown.is_empty() {
+                lines.push("  Breakdown:".to_string());
+                for item in &finding.breakdown {
+                    lines.push(format!(
+                        "  - {} | {}",
+                        item.path,
+                        human_bytes(item.size_bytes)
+                    ));
+                }
+            }
         }
         for recommendation in &topic.recommendations {
             lines.push(format!("- Recommendation: {}", recommendation));
@@ -704,18 +732,59 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         lines.push(format!("## {}", topic.name));
         lines.push(String::new());
         lines.push(format!("- Summary: {}", topic.summary));
-        lines.push(String::new());
-        lines.push("| Path | Exists | Size | Risk | Action |".to_string());
-        lines.push("|---|---:|---:|---|---|".to_string());
-        for finding in &topic.findings {
-            lines.push(format!(
-                "| `{}` | {} | {} | {} | {} |",
-                finding.path,
-                finding.exists,
-                finding.size_bytes,
-                finding.risk,
-                finding.action
-            ));
+        let missing_count = topic
+            .findings
+            .iter()
+            .filter(|finding| !finding.exists)
+            .count();
+        if missing_count > 0 {
+            lines.push(format!("- Not detected: {}", missing_count));
+        }
+
+        let existing_findings = topic
+            .findings
+            .iter()
+            .filter(|finding| finding.exists)
+            .collect::<Vec<_>>();
+        if existing_findings.is_empty() && !topic.findings.is_empty() {
+            lines.push(String::new());
+            lines.push("No active paths detected.".to_string());
+        }
+
+        if !existing_findings.is_empty() {
+            lines.push(String::new());
+            lines.push("| Path | Exists | Size | Risk | Action |".to_string());
+            lines.push("|---|---:|---:|---|---|".to_string());
+            for finding in &existing_findings {
+                lines.push(format!(
+                    "| `{}` | {} | {} | {} | {} |",
+                    finding.path, finding.exists, finding.size_bytes, finding.risk, finding.action
+                ));
+            }
+        }
+        let breakdown_items = existing_findings
+            .iter()
+            .flat_map(|finding| {
+                finding
+                    .breakdown
+                    .iter()
+                    .map(move |item| (finding.path.as_str(), item.path.as_str(), item.size_bytes))
+            })
+            .collect::<Vec<_>>();
+        if !breakdown_items.is_empty() {
+            lines.push(String::new());
+            lines.push("### Breakdown".to_string());
+            lines.push(String::new());
+            lines.push("| Parent | Child | Size |".to_string());
+            lines.push("|---|---|---:|".to_string());
+            for (parent, child, size_bytes) in breakdown_items {
+                lines.push(format!(
+                    "| `{}` | `{}` | {} |",
+                    parent,
+                    child,
+                    human_bytes(size_bytes)
+                ));
+            }
         }
         lines.push(String::new());
         lines.push("Recommendations:".to_string());
@@ -758,5 +827,171 @@ fn human_bytes(bytes: u64) -> String {
         format!("{} {}", bytes, UNITS[unit])
     } else {
         format!("{value:.2} {}", UNITS[unit])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Local;
+
+    use super::render_doctor;
+    use crate::doctor::{DoctorBreakdownItem, DoctorFinding, DoctorReport, DoctorTopic};
+    use crate::OutputFormat;
+
+    #[test]
+    fn doctor_markdown_renders_breakdown_items() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            topics: vec![DoctorTopic {
+                name: "agents".to_string(),
+                status: "active".to_string(),
+                summary: "1 matching item".to_string(),
+                findings: vec![DoctorFinding {
+                    id: "claude-home".to_string(),
+                    path: "C:\\Users\\demo\\.claude".to_string(),
+                    exists: true,
+                    size_bytes: 1024,
+                    risk: "review".to_string(),
+                    action: "report-only".to_string(),
+                    reason: "agent state".to_string(),
+                    breakdown: vec![DoctorBreakdownItem {
+                        path: "C:\\Users\\demo\\.claude\\cache".to_string(),
+                        size_bytes: 512,
+                    }],
+                }],
+                recommendations: vec!["Review cache-like child first.".to_string()],
+            }],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown).expect("doctor should render");
+
+        assert!(output.contains("Breakdown"));
+        assert!(output.contains(".claude\\cache"));
+        assert!(output.contains("512 B"));
+    }
+
+    #[test]
+    fn doctor_markdown_summarizes_missing_findings() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            topics: vec![DoctorTopic {
+                name: "agents".to_string(),
+                status: "active".to_string(),
+                summary: "3 matching items".to_string(),
+                findings: vec![
+                    DoctorFinding {
+                        id: "existing".to_string(),
+                        path: "C:\\Users\\demo\\.claude".to_string(),
+                        exists: true,
+                        size_bytes: 1024,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "agent state".to_string(),
+                        breakdown: Vec::new(),
+                    },
+                    DoctorFinding {
+                        id: "missing-one".to_string(),
+                        path: "C:\\Users\\demo\\missing-one".to_string(),
+                        exists: false,
+                        size_bytes: 0,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "not installed".to_string(),
+                        breakdown: Vec::new(),
+                    },
+                    DoctorFinding {
+                        id: "missing-two".to_string(),
+                        path: "C:\\Users\\demo\\missing-two".to_string(),
+                        exists: false,
+                        size_bytes: 0,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "not installed".to_string(),
+                        breakdown: Vec::new(),
+                    },
+                ],
+                recommendations: Vec::new(),
+            }],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown).expect("doctor should render");
+
+        assert!(output.contains("Not detected: 2"));
+        assert!(output.contains(".claude"));
+        assert!(!output.contains("missing-one"));
+        assert!(!output.contains("missing-two"));
+    }
+
+    #[test]
+    fn doctor_text_summarizes_missing_findings() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            topics: vec![DoctorTopic {
+                name: "agents".to_string(),
+                status: "active".to_string(),
+                summary: "2 matching items".to_string(),
+                findings: vec![
+                    DoctorFinding {
+                        id: "existing".to_string(),
+                        path: "C:\\Users\\demo\\.codex".to_string(),
+                        exists: true,
+                        size_bytes: 512,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "agent state".to_string(),
+                        breakdown: Vec::new(),
+                    },
+                    DoctorFinding {
+                        id: "missing-cli".to_string(),
+                        path: "C:\\Users\\demo\\missing-cli".to_string(),
+                        exists: false,
+                        size_bytes: 0,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "not installed".to_string(),
+                        breakdown: Vec::new(),
+                    },
+                ],
+                recommendations: Vec::new(),
+            }],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Text).expect("doctor should render");
+
+        assert!(output.contains("Not detected: 1"));
+        assert!(output.contains(".codex"));
+        assert!(!output.contains("missing-cli"));
+    }
+
+    #[test]
+    fn doctor_json_preserves_missing_findings() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            topics: vec![DoctorTopic {
+                name: "agents".to_string(),
+                status: "not-detected".to_string(),
+                summary: "1 matching item".to_string(),
+                findings: vec![DoctorFinding {
+                    id: "missing-json".to_string(),
+                    path: "C:\\Users\\demo\\missing-json".to_string(),
+                    exists: false,
+                    size_bytes: 0,
+                    risk: "review".to_string(),
+                    action: "report-only".to_string(),
+                    reason: "not installed".to_string(),
+                    breakdown: Vec::new(),
+                }],
+                recommendations: Vec::new(),
+            }],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Json).expect("doctor should render");
+
+        assert!(output.contains("missing-json"));
+        assert!(output.contains("\"exists\": false"));
     }
 }

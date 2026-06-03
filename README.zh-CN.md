@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 
-[English](./README.md)
+[English](./README.md) · [更新日志](./CHANGELOG.md) · [贡献指南](./CONTRIBUTING.md)
 
 > **面向 AI 时代的 Windows 磁盘空间诊断与治理工具。**
 >
@@ -15,81 +15,77 @@
 
 ## 目录
 
-- [功能特性](#功能特性)
-- [架构设计](#架构设计)
-- [技术栈](#技术栈)
+- [项目简介](#项目简介)
+- [最新动态](#最新动态)
+- [核心特性](#核心特性)
+- [安装](#安装)
 - [快速开始](#快速开始)
 - [命令参考](#命令参考)
 - [安全第一](#安全第一)
-- [截图展示](#截图展示)
-- [路线图](#路线图)
+- [架构设计](#架构设计)
+- [常见问题](#常见问题)
 - [贡献指南](#贡献指南)
 - [许可证](#许可证)
 
 ---
 
-## 功能特性
+## 项目简介
 
-- **智能扫描** — 发现并分类 AI 模型（Ollama、Hugging Face）、浏览器、Docker、WSL、Playwright 及通用开发工具的空间占用
-- **规则驱动分类** — 每个路径都通过 YAML 规则评估风险等级：`safe`（安全）、`careful`（谨慎）、`dangerous`（危险）。无硬编码路径。
-- **默认仅预览** — 所有破坏性操作在执行前都会预览变更。绝不意外删除。
-- **隔离模式** — 将文件移动到指定归档文件夹而非直接删除。支持完整恢复，含冲突检测。
-- **专项诊断** — `doctor` 命令提供 Docker、WSL、Ollama、Playwright 和 Hugging Face 的针对性分析与可操作建议。
-- **历史对比** — 对比不同时间的扫描快照，回答"什么变大了？"并追踪清理效果。
-- **社区规则** — 通过 `--rules-repo` 加载自定义规则库（本地路径或 HTTPS Git 地址）。
-- **Agent 友好输出** — JSON 和 Markdown 输出兼顾人工阅读与 AI Agent 解析。
+AI Disk Doctor 是一款面向 AI 时代的、规则驱动的、安全优先的 Windows 磁盘空间诊断工具。它能够发现 AI 模型缓存、浏览器数据、Docker 镜像、WSL 发行版和开发工具占用的空间，并帮助你安全地清理。
 
----
+与通用磁盘清理工具不同，AI Disk Doctor 采用**规则驱动**方式：每个路径都通过 YAML 规则进行评估，并赋予明确的风险等级（`safe`、`careful`、`dangerous`）。没有硬编码的魔法路径，无需猜测。默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。
 
-## 架构设计
+**当前版本：** v1.0.0
 
-```text
-用户 / AI Agent
-       |
-       v
-  aidisk CLI
-       |
-       +-- 配置加载器 (policy.yaml)
-       +-- 规则引擎 (YAML 规则 + glob 展开)
-       +-- 扫描器 (WalkDir 带深度限制)
-       +-- 规划器 (风险过滤 + 敏感路径阻断)
-       +-- 清理器 (隔离/恢复，支持跨盘回退)
-       +-- 诊断器 (主题特定分析器)
-       +-- 对比引擎 (快照对比)
-       +-- 报告器 (JSON / Markdown 输出)
-```
-
-### 设计原则
-
-1. **默认保守** — 未知路径仅报告，绝不触碰。
-2. **安全优先执行** — 所有变更命令默认 dry-run。真实执行需显式 `--yes`。
-3. **隔离优于删除** — 文件移动到用户指定的归档目录，非直接删除。可通过索引恢复。
-4. **一切皆规则驱动** — 路径识别、风险分类和策略执行均来自外部 YAML 规则，非内置代码。
-5. **Agent 就绪接口** — 结构化输出格式支持与 AI Agent 和自动化工作流集成。
+详细的架构和设计决策，请参阅 [`docs/architecture.md`](./docs/architecture.md)。
 
 ---
 
-## 技术栈
+## 最新动态
 
-| 组件 | 技术 |
-|-----------|-----------|
-| CLI 框架 | Rust + `clap` v4 |
-| 配置 | YAML (`serde_yaml`) |
-| 文件系统 | `walkdir` + `sysinfo` |
-| 输出格式 | JSON (`serde_json`) + Markdown |
-| Agent 集成 | PowerShell 包装脚本 |
-| 测试 | Rust 内置测试框架 |
+### v1.0.0
+
+首个稳定版本，带来完整的本地工作流：
+
+- **完整的命令集** — `scan`、`plan`、`clean`、`restore`、`doctor` 和 `diff --latest`
+- **社区规则** — 通过 `--rules-repo` 加载自定义规则库（本地路径或 HTTPS git 地址）
+- **隔离模式** — 将文件移动到归档文件夹，支持完整恢复
+- **历史对比** — 对比扫描快照，追踪空间增长趋势
+- **Agent 友好输出** — JSON 和 Markdown 输出，兼顾人工阅读和 AI Agent 解析
+- **PowerShell 包装脚本** — `skills/` 目录下提供即用的 Agent Skill 脚本
+
+完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.0.0](./docs/release-notes/v1.0.0.md)。
 
 ---
 
-## 快速开始
+## 核心特性
+
+| 能力 | 说明 |
+|-----------|-------------|
+| **智能扫描** | 发现 AI 模型（Ollama、Hugging Face）、浏览器、Docker、WSL、Playwright 及开发工具的空间占用 |
+| **规则驱动分类** | 每个路径通过 YAML 规则评估风险等级：`safe`、`careful`、`dangerous`。无硬编码路径。 |
+| **默认仅预览** | 所有破坏性操作执行前预览变更。真实执行需显式 `--yes`。 |
+| **隔离模式** | 将文件移动到指定归档文件夹而非直接删除。支持完整恢复，含冲突检测。 |
+| **专项诊断** | `doctor` 命令提供 Docker、WSL、Ollama、Playwright 和 Hugging Face 的针对性分析 |
+| **历史对比** | 对比扫描快照，回答"什么变大了？"并追踪清理效果 |
+| **社区规则** | 通过 `--rules-repo` 加载自定义规则库（本地目录或 HTTPS git 地址） |
+| **Agent 友好输出** | JSON 和 Markdown 输出，兼顾人工阅读和 AI Agent 解析 |
+| **跨盘安全** | 隔离操作在跨盘时自动使用 copy+delete 回退（rename 跨盘会失败） |
+
+---
+
+## 安装
 
 ### 环境要求
 
-- Windows 10/11
-- Rust 1.78+ ([通过 rustup 安装](https://rustup.rs/))
+| 要求 | 版本 |
+|------------|---------|
+| Windows | 10/11 |
+| Rust | 1.78+ |
 
-### 安装
+如果没有 Rust，通过 [rustup](https://rustup.rs/) 安装。
+
+### 从源码安装
 
 ```bash
 # 克隆仓库
@@ -99,24 +95,45 @@ cd ai-disk-doctor/aidisk
 # 构建 release 二进制文件
 cargo build --release
 
-# 从 target 目录运行
-./target/release/aidisk.exe --help
+# 二进制文件位于 target/release/aidisk.exe
 ```
 
-### 首次扫描
+### 开发环境
+
+```bash
+cd ai-disk-doctor/aidisk
+
+# 构建并测试
+cargo build
+cargo test
+```
+
+### 验证构建
+
+运行非破坏性冒烟测试，验证一切正常：
+
+```powershell
+pwsh -NoProfile -File "scripts/release-smoke.ps1"
+```
+
+---
+
+## 快速开始
+
+### 1. 扫描系统
 
 ```powershell
 # 扫描所有并输出 JSON
 cargo run -- scan --json
 
-# 扫描特定分类
-cargo run -- scan --category browser-cache --json
-
 # 生成 Markdown 报告
 cargo run -- scan --markdown
+
+# 扫描特定分类
+cargo run -- scan --category browser-cache --json
 ```
 
-### 生成清理计划
+### 2. 生成清理计划
 
 ```powershell
 # 仅安全项，dry-run
@@ -126,7 +143,7 @@ cargo run -- plan --safe-only --json
 cargo run -- plan --json --skip-modified-within-minutes 30
 ```
 
-### 执行安全清理
+### 3. 执行安全清理（隔离）
 
 ```powershell
 # 预览隔离计划
@@ -136,7 +153,7 @@ cargo run -- clean --dry-run --safe-only --quarantine-root "F:\archives"
 cargo run -- clean --yes --safe-only --quarantine-root "F:\archives"
 ```
 
-### 从隔离恢复
+### 4. 如需恢复
 
 ```powershell
 # 预览恢复
@@ -146,7 +163,7 @@ cargo run -- restore --dry-run --index "F:\archives\.aidisk\quarantine-index-YYY
 cargo run -- restore --yes --index "F:\archives\.aidisk\quarantine-index-YYYYMMDD-HHMMSS.json"
 ```
 
-### 运行诊断
+### 5. 运行诊断
 
 ```powershell
 # 完整系统诊断
@@ -158,7 +175,7 @@ cargo run -- doctor --wsl --ollama --markdown
 cargo run -- doctor --playwright --huggingface --markdown
 ```
 
-### 对比快照
+### 6. 对比快照
 
 ```powershell
 # 自动对比最近两次扫描
@@ -208,49 +225,72 @@ cargo run -- diff --before scan-20260101-120000.json --after scan-20260102-12000
 
 ---
 
-## 截图展示
+## 架构设计
 
-*截图将在发布后添加。运行上方命令查看输出示例。*
+```text
+用户 / AI Agent
+       |
+       v
+  aidisk CLI
+       |
+       +-- 配置加载器 (policy.yaml)
+       +-- 规则引擎 (YAML 规则 + glob 展开)
+       +-- 扫描器 (WalkDir 带深度限制)
+       +-- 规划器 (风险过滤 + 敏感路径阻断)
+       +-- 清理器 (隔离/恢复，支持跨盘回退)
+       +-- 诊断器 (主题特定分析器)
+       +-- 对比引擎 (快照对比)
+       +-- 报告器 (JSON / Markdown 输出)
+```
+
+详细架构文档请参阅 [`docs/architecture.md`](./docs/architecture.md)。
+
+### 设计原则
+
+1. **默认保守** — 未知路径仅报告，绝不触碰
+2. **安全优先执行** — 所有变更命令默认 dry-run
+3. **隔离优于删除** — 文件移动而非删除；可通过索引恢复
+4. **一切皆规则驱动** — 路径识别、风险分类和策略执行均来自外部 YAML 规则
+5. **Agent 就绪接口** — 结构化输出格式支持与 AI Agent 集成
 
 ---
 
-## 路线图
+## 常见问题
 
-### v1.0 ✅ 当前版本
-- 核心 scan/plan/clean/restore/doctor/diff 命令
-- 规则驱动分类
-- 隔离模式与恢复
-- 社区规则库支持
-- PowerShell Agent 包装脚本
+### `cargo build` 在 Windows 上失败
 
-详见 [CHANGELOG.md](./CHANGELOG.md) 和 [Release Notes v1.0.0](./docs/release-notes/v1.0.0.md)。
+确保使用最新的稳定版 Rust 工具链：
 
-### 发布验证
-
-使用我们的非破坏性冒烟测试验证构建：
-
-```powershell
-pwsh -NoProfile -File "scripts/release-smoke.ps1"
+```bash
+rustup update stable
 ```
 
-### v1.1（计划中）
-- [ ] 实时监控（如社区有需求）
-- [ ] 定时清理任务
-- [ ] GUI 配套应用
-- [ ] 额外平台支持（macOS、Linux）
+如果看到链接器错误，请安装 Visual Studio Build Tools（包含 C++ 工作负载）。
 
-详见 [CHANGELOG.md](./CHANGELOG.md) 了解详细版本历史。
+### 扫描未找到任何路径
+
+检查环境变量（如 `%USERPROFILE%`）是否正确设置。AI Disk Doctor 会在规则模式中展开这些变量。
+
+### 隔离失败，提示"拒绝访问"
+
+某些目录被运行中的进程锁定。请在隔离操作前关闭浏览器、Docker Desktop 或 WSL。
+
+### 跨盘隔离速度很慢
+
+当跨驱动器隔离时（如 C: 到 F:），Windows 需要使用 copy+delete 而非快速的 rename。这是为了安全而设计的预期行为。
 
 ---
 
 ## 贡献指南
 
-欢迎贡献！请参阅我们的 [贡献指南](./CONTRIBUTING.md)（即将推出），了解：
+欢迎各种形式的贡献——Bug 报告、新规则、文档改进和核心功能开发。请参阅 [`CONTRIBUTING.md`](./CONTRIBUTING.md) 了解：
 
-- 报告问题
-- 建议新规则
-- 提交 Pull Request
-- 添加新诊断主题
+- 开发环境搭建
+- 代码规范
+- 添加新规则
+- Pull Request 流程
+
+[行为准则](./CODE_OF_CONDUCT.md) · [安全政策](./SECURITY.md) · [许可证](#许可证)
 
 ---
 
@@ -262,12 +302,6 @@ pwsh -NoProfile -File "scripts/release-smoke.ps1"
 - **Apache 许可证 2.0** — 详见 [LICENSE-APACHE](./LICENSE-APACHE)
 
 您可任选其一。
-
----
-
-## 致谢
-
-使用 Rust 构建，为 AI 时代设计。特别感谢 Rust 社区的优秀 crate：`clap`、`walkdir`、`serde`、`sysinfo`。
 
 ---
 

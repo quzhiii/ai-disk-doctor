@@ -607,6 +607,13 @@ fn render_doctor_text(report: &DoctorReport) -> String {
             "- Total Growth: {}",
             human_bytes_delta(latest_diff.summary.total_growth_bytes)
         ));
+        lines.push(format!(
+            "- Counts: grew={} shrunk={} appeared={} disappeared={}",
+            latest_diff.summary.grew,
+            latest_diff.summary.shrunk,
+            latest_diff.summary.appeared,
+            latest_diff.summary.disappeared
+        ));
         for change in &latest_diff.top_changes {
             lines.push(format!(
                 "- [{}] {} | before={} after={} delta={}",
@@ -769,6 +776,13 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
             "- Total Growth: {}",
             human_bytes_delta(latest_diff.summary.total_growth_bytes)
         ));
+        lines.push(format!(
+            "- Counts: `grew={}` `shrunk={}` `appeared={}` `disappeared={}`",
+            latest_diff.summary.grew,
+            latest_diff.summary.shrunk,
+            latest_diff.summary.appeared,
+            latest_diff.summary.disappeared
+        ));
         lines.push(String::new());
         lines.push("| Change | Path | Before | After | Delta |".to_string());
         lines.push("|---|---|---:|---:|---:|".to_string());
@@ -859,7 +873,11 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
                     "| {} | {} | `{}` | {} |",
                     probe.name, probe.status, probe.command, probe.summary
                 ));
-                lines.push(format!("| output |  |  | `{}` |", probe.output));
+                lines.push(String::new());
+                lines.push("Output: ".to_string());
+                lines.push("```text".to_string());
+                lines.push(probe.output.clone());
+                lines.push("```".to_string());
             }
         }
     }
@@ -1111,6 +1129,8 @@ mod tests {
         assert!(output.contains("docker-system-df"));
         assert!(output.contains("docker system df"));
         assert!(output.contains("RECLAIMABLE"));
+        assert!(output.contains("```text"));
+        assert!(!output.contains("| output |  |  |"));
     }
 
     #[test]
@@ -1145,6 +1165,44 @@ mod tests {
         assert!(output.contains("before.json"));
         assert!(output.contains("after.json"));
         assert!(output.contains("+120 B"));
+        assert!(output.contains("grew=1"));
+        assert!(output.contains("shrunk=0"));
+        assert!(output.contains("appeared=0"));
+        assert!(output.contains("disappeared=0"));
         assert!(output.contains("C:\\demo\\.claude"));
+    }
+
+    #[test]
+    fn doctor_text_renders_latest_diff_summary_counters() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: Some(crate::doctor::DoctorLatestDiff {
+                before: "before.json".to_string(),
+                after: "after.json".to_string(),
+                summary: crate::doctor::DoctorLatestDiffSummary {
+                    total_growth_bytes: 120,
+                    grew: 2,
+                    shrunk: 1,
+                    appeared: 3,
+                    disappeared: 4,
+                },
+                top_changes: vec![crate::doctor::DoctorLatestDiffEntry {
+                    path: "C:\\demo\\.claude".to_string(),
+                    change: "grew".to_string(),
+                    before_bytes: 100,
+                    after_bytes: 220,
+                    delta_bytes: 120,
+                }],
+            }),
+            topics: Vec::new(),
+        };
+
+        let output = render_doctor(&report, OutputFormat::Text).expect("doctor should render");
+
+        assert!(output.contains("grew=2"));
+        assert!(output.contains("shrunk=1"));
+        assert!(output.contains("appeared=3"));
+        assert!(output.contains("disappeared=4"));
     }
 }

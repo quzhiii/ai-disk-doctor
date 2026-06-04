@@ -149,6 +149,14 @@ fn skill_and_readme_document_agents_doctor_workflow() {
         readme.contains("--latest"),
         "README.md should document doctor --latest"
     );
+    assert!(
+        readme.contains("scripts\\run-scan.ps1"),
+        "README.md should reference the existing run-scan.ps1 wrapper"
+    );
+    assert!(
+        readme.contains("scripts\\run-doctor.ps1"),
+        "README.md should reference the existing run-doctor.ps1 wrapper"
+    );
     for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
         assert!(
             skill.contains(term) || readme.contains(term),

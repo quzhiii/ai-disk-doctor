@@ -114,10 +114,10 @@ No Rust or compilation needed. The `skills/windows-ai-space-manager/scripts/` di
 
 ```powershell
 # Scan via PowerShell wrapper
-.\skills\windows-ai-space-manager\scripts\scan.ps1
+.\skills\windows-ai-space-manager\scripts\run-scan.ps1
 
 # Run doctor
-.\skills\windows-ai-space-manager\scripts\doctor.ps1
+.\skills\windows-ai-space-manager\scripts\run-doctor.ps1
 ```
 
 ### Development Setup

@@ -638,6 +638,17 @@ fn render_doctor_text(report: &DoctorReport) -> String {
         for recommendation in &topic.recommendations {
             lines.push(format!("- Recommendation: {}", recommendation));
         }
+        if !topic.probes.is_empty() {
+            lines.push("Probes:".to_string());
+            for probe in &topic.probes {
+                lines.push(format!(
+                    "- {} | status={} | {}",
+                    probe.name, probe.status, probe.command
+                ));
+                lines.push(format!("  Summary: {}", probe.summary));
+                lines.push(format!("  Output: {}", probe.output));
+            }
+        }
     }
 
     lines.join("\n")
@@ -791,6 +802,20 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         for recommendation in &topic.recommendations {
             lines.push(format!("- {}", recommendation));
         }
+        if !topic.probes.is_empty() {
+            lines.push(String::new());
+            lines.push("### Probes".to_string());
+            lines.push(String::new());
+            lines.push("| Probe | Status | Command | Summary |".to_string());
+            lines.push("|---|---|---|---|".to_string());
+            for probe in &topic.probes {
+                lines.push(format!(
+                    "| {} | {} | `{}` | {} |",
+                    probe.name, probe.status, probe.command, probe.summary
+                ));
+                lines.push(format!("| output |  |  | `{}` |", probe.output));
+            }
+        }
     }
 
     lines.join("\n")
@@ -861,6 +886,7 @@ mod tests {
                     }],
                 }],
                 recommendations: vec!["Review cache-like child first.".to_string()],
+                probes: Vec::new(),
             }],
         };
 
@@ -913,6 +939,7 @@ mod tests {
                     },
                 ],
                 recommendations: Vec::new(),
+                probes: Vec::new(),
             }],
         };
 
@@ -956,6 +983,7 @@ mod tests {
                     },
                 ],
                 recommendations: Vec::new(),
+                probes: Vec::new(),
             }],
         };
 
@@ -986,6 +1014,7 @@ mod tests {
                     breakdown: Vec::new(),
                 }],
                 recommendations: Vec::new(),
+                probes: Vec::new(),
             }],
         };
 
@@ -993,5 +1022,43 @@ mod tests {
 
         assert!(output.contains("missing-json"));
         assert!(output.contains("\"exists\": false"));
+    }
+
+    #[test]
+    fn doctor_markdown_renders_probe_section() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            topics: vec![DoctorTopic {
+                name: "docker".to_string(),
+                status: "active".to_string(),
+                summary: "1 matching item".to_string(),
+                findings: vec![DoctorFinding {
+                    id: "docker-root".to_string(),
+                    path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
+                    exists: true,
+                    size_bytes: 2048,
+                    risk: "review".to_string(),
+                    action: "report-only".to_string(),
+                    reason: "docker state".to_string(),
+                    breakdown: Vec::new(),
+                }],
+                recommendations: vec!["Review docker usage first.".to_string()],
+                probes: vec![crate::doctor::DoctorProbe {
+                    name: "docker-system-df".to_string(),
+                    status: "ok".to_string(),
+                    command: "docker system df".to_string(),
+                    summary: "docker-system-df probe status: ok".to_string(),
+                    output: "TYPE TOTAL ACTIVE SIZE RECLAIMABLE".to_string(),
+                }],
+            }],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown).expect("doctor should render");
+
+        assert!(output.contains("### Probes"));
+        assert!(output.contains("docker-system-df"));
+        assert!(output.contains("docker system df"));
+        assert!(output.contains("RECLAIMABLE"));
     }
 }

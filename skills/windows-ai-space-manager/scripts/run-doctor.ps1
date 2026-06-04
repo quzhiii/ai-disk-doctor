@@ -5,6 +5,7 @@ param(
     [switch]$Playwright,
     [switch]$HuggingFace,
     [switch]$Agents,
+    [switch]$ProbeTools,
     [string]$RulesRepo,
     [switch]$Json,
     [switch]$Markdown
@@ -24,6 +25,7 @@ if ($Ollama) { $args += "--ollama" }
 if ($Playwright) { $args += "--playwright" }
 if ($HuggingFace) { $args += "--huggingface" }
 if ($Agents) { $args += "--agents" }
+if ($ProbeTools) { $args += "--probe-tools" }
 if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
 
 Push-Location $AidiskDir

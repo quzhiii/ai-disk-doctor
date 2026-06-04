@@ -137,7 +137,7 @@ Doctor V2 roadmap：
 | P1 | 数据驱动建议 | 根据 `exists`、size、risk、action、breakdown 生成建议；空目录或 1 字节占位应提示 no action needed |
 | P1 | 工具检测 | Docker/WSL/Ollama/Playwright 未安装或未运行时明确标记 not detected/skip，而不是只输出泛化建议 |
 | P1 | 输出降噪 | Markdown/Text 只展开 active findings，missing paths 汇总为 Not detected 计数；JSON 保留完整 findings |
-| P2 | 外部命令探测 | 可选调用 `docker system df`、`wsl --list`、`ollama list`，用于补充而不是替代文件系统诊断 |
+| P2 | 外部命令探测 | `--probe-tools` 可选调用 `docker system df`、`wsl --list --verbose`、`ollama list`，用于补充而不是替代文件系统诊断 |
 | P2 | 增长率诊断 | 结合 `.aidisk/reports` 和 `diff --latest` 回答哪些目录最近增长最快 |
 | P3 | 动态 topic registry | 从 rules category 和 topic metadata 生成 doctor topics，减少硬编码开关 |
 

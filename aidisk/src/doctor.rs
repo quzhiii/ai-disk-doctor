@@ -1,5 +1,7 @@
 use std::fs;
+use std::io::ErrorKind;
 use std::path::Path;
+use std::process::Command;
 
 use chrono::{DateTime, Local};
 use serde::Serialize;
@@ -22,6 +24,7 @@ pub struct DoctorTopic {
     pub summary: String,
     pub findings: Vec<DoctorFinding>,
     pub recommendations: Vec<String>,
+    pub probes: Vec<DoctorProbe>,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +45,21 @@ pub struct DoctorBreakdownItem {
     pub size_bytes: u64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DoctorProbe {
+    pub name: String,
+    pub status: String,
+    pub command: String,
+    pub summary: String,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProbeCommandResult {
+    pub status: String,
+    pub output: String,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct DoctorOptions {
     pub docker: bool,
@@ -50,6 +68,7 @@ pub struct DoctorOptions {
     pub playwright: bool,
     pub huggingface: bool,
     pub agents: bool,
+    pub probe_tools: bool,
 }
 
 pub fn build_doctor(
@@ -57,6 +76,18 @@ pub fn build_doctor(
     options: DoctorOptions,
     policy: &Policy,
 ) -> DoctorReport {
+    build_doctor_with_probe_runner(scan_report, options, policy, &default_probe_runner)
+}
+
+fn build_doctor_with_probe_runner<F>(
+    scan_report: &ScanReport,
+    options: DoctorOptions,
+    policy: &Policy,
+    probe_runner: &F,
+) -> DoctorReport
+where
+    F: Fn(&str, &[&str]) -> ProbeCommandResult,
+{
     let mut topics = Vec::new();
     let policy_summary = format!(
         "sensitive markers: [{}]; planner actions: [{}]; skip modified within: {}min",
@@ -66,7 +97,8 @@ pub fn build_doctor(
     );
 
     if options.docker {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "docker",
             scan_report,
             |finding| finding.category == "docker",
@@ -75,11 +107,15 @@ pub fn build_doctor(
                 "Prefer `docker builder prune` and targeted prune commands over filesystem deletion.".to_string(),
                 "Treat Docker virtual disk files and volume storage as report-only assets.".to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
     if options.wsl {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "wsl",
             scan_report,
             |finding| finding.category == "wsl",
@@ -87,11 +123,15 @@ pub fn build_doctor(
                 "Do not delete ext4.vhdx directly; use WSL export, compact, or relocation workflows.".to_string(),
                 "Check whether large distros should be exported and re-imported to another drive.".to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
     if options.ollama {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "ollama",
             scan_report,
             |finding| finding.id == "ollama-models",
@@ -99,11 +139,15 @@ pub fn build_doctor(
                 "Run `ollama list` before cleanup so model names and sizes are explicit.".to_string(),
                 "Remove unused models through model-aware commands instead of deleting blob paths directly.".to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
     if options.huggingface {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "huggingface",
             scan_report,
             |finding| finding.id == "huggingface-cache",
@@ -113,11 +157,15 @@ pub fn build_doctor(
                 "Prefer targeted cache cleanup or relocation over wiping the cache root blindly."
                     .to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
     if options.playwright {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "playwright",
             scan_report,
             |finding| finding.id == "playwright-project-browsers" || finding.path.contains("ms-playwright"),
@@ -125,11 +173,15 @@ pub fn build_doctor(
                 "Check whether browsers are being downloaded per project instead of via a shared cache.".to_string(),
                 "If browser downloads are repeated, centralize Playwright browser storage before deleting caches.".to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
     if options.agents {
-        topics.push(build_topic(
+        topics.push(with_topic_probes(
+            build_topic(
             "agents",
             scan_report,
             is_ai_tooling_finding,
@@ -137,6 +189,9 @@ pub fn build_doctor(
                 "Treat AI agent roots as review-only because they may contain chat history, sessions, settings, and cached tool state.".to_string(),
                 "Use the breakdown to identify cache-like children before planning cleanup; do not delete agent roots blindly.".to_string(),
             ],
+            ),
+            options.probe_tools,
+            probe_runner,
         ));
     }
 
@@ -219,7 +274,117 @@ where
         summary,
         findings,
         recommendations,
+        probes: Vec::new(),
     }
+}
+
+fn with_topic_probes<F>(
+    mut topic: DoctorTopic,
+    probe_tools: bool,
+    probe_runner: &F,
+) -> DoctorTopic
+where
+    F: Fn(&str, &[&str]) -> ProbeCommandResult,
+{
+    if probe_tools {
+        topic.probes = build_topic_probes(&topic, probe_runner);
+    }
+
+    topic
+}
+
+fn build_topic_probes<F>(topic: &DoctorTopic, probe_runner: &F) -> Vec<DoctorProbe>
+where
+    F: Fn(&str, &[&str]) -> ProbeCommandResult,
+{
+    if topic.status == "no-rules" {
+        return Vec::new();
+    }
+
+    let Some((name, program, args)) = topic_probe_command(&topic.name) else {
+        return Vec::new();
+    };
+
+    let result = probe_runner(program, args);
+    vec![DoctorProbe {
+        name: name.to_string(),
+        status: result.status.clone(),
+        command: format!("{} {}", program, args.join(" ")),
+        summary: format!("{} probe status: {}", name, result.status),
+        output: result.output,
+    }]
+}
+
+fn topic_probe_command(name: &str) -> Option<(&'static str, &'static str, &'static [&'static str])> {
+    match name {
+        "docker" => Some(("docker-system-df", "docker", &["system", "df"])),
+        "wsl" => Some(("wsl-list-verbose", "wsl", &["--list", "--verbose"])),
+        "ollama" => Some(("ollama-list", "ollama", &["list"])),
+        _ => None,
+    }
+}
+
+fn default_probe_runner(program: &str, args: &[&str]) -> ProbeCommandResult {
+    match Command::new(program).args(args).output() {
+        Ok(output) => {
+            let mut combined = decode_probe_output_bytes(&output.stdout);
+            let stderr = decode_probe_output_bytes(&output.stderr).trim().to_string();
+            if combined.trim().is_empty() && !stderr.is_empty() {
+                combined = stderr;
+            }
+
+            ProbeCommandResult {
+                status: if output.status.success() {
+                    "ok".to_string()
+                } else {
+                    "failed".to_string()
+                },
+                output: truncate_probe_output(&combined),
+            }
+        }
+        Err(error) if error.kind() == ErrorKind::NotFound => ProbeCommandResult {
+            status: "not-available".to_string(),
+            output: format!("{} command not found", program),
+        },
+        Err(error) => ProbeCommandResult {
+            status: "error".to_string(),
+            output: truncate_probe_output(&error.to_string()),
+        },
+    }
+}
+
+fn truncate_probe_output(output: &str) -> String {
+    let normalized = output.replace("\r\n", "\n").trim().to_string();
+    if normalized.is_empty() {
+        return "(no output)".to_string();
+    }
+
+    let max_chars = 2000;
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+
+    let truncated = normalized.chars().take(max_chars).collect::<String>();
+    format!("{}\n...(truncated)", truncated)
+}
+
+fn decode_probe_output_bytes(bytes: &[u8]) -> String {
+    if bytes.len() >= 2 && bytes.len() % 2 == 0 {
+        let utf16 = bytes
+            .chunks_exact(2)
+            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect::<Vec<_>>();
+        if utf16.first() == Some(&0xfeff)
+            || utf16.iter().skip(1).any(|unit| *unit == 0)
+            || utf16.iter().all(|unit| *unit <= 0x007f)
+        {
+            if let Ok(decoded) = String::from_utf16(&utf16) {
+                return decoded;
+            }
+        }
+    }
+
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 fn enrich_recommendations(
@@ -393,7 +558,10 @@ mod tests {
     use chrono::Local;
     use tempfile::tempdir;
 
-    use super::{build_breakdown, build_doctor, DoctorOptions};
+    use super::{
+        build_breakdown, build_doctor, build_doctor_with_probe_runner,
+        decode_probe_output_bytes, DoctorOptions, ProbeCommandResult,
+    };
     use crate::policy::{PlannerPolicy, Policy};
     use crate::rules::RiskLevel;
     use crate::scanner::{Finding, ScanReport, Summary, Volume};
@@ -433,6 +601,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -472,6 +641,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -511,6 +681,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -524,6 +695,153 @@ mod tests {
             .recommendations
             .iter()
             .any(|recommendation| recommendation.contains("docker system df")));
+    }
+
+    #[test]
+    fn doctor_does_not_probe_tools_by_default() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "docker-root".to_string(),
+                name: "Docker root".to_string(),
+                category: "docker".to_string(),
+                path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
+                exists: true,
+                size_bytes: 100,
+                risk: RiskLevel::Review,
+                action: "report-only".to_string(),
+                reason: "docker".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor_with_probe_runner(
+            &report,
+            DoctorOptions {
+                docker: true,
+                wsl: false,
+                ollama: false,
+                playwright: false,
+                huggingface: false,
+                agents: false,
+                probe_tools: false,
+            },
+            &test_policy(),
+            &|_, _| panic!("probe runner should not be called unless probe_tools is enabled"),
+        );
+
+        assert!(doctor.topics[0].probes.is_empty());
+    }
+
+    #[test]
+    fn doctor_runs_docker_probe_when_enabled() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "docker-root".to_string(),
+                name: "Docker root".to_string(),
+                category: "docker".to_string(),
+                path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
+                exists: true,
+                size_bytes: 100,
+                risk: RiskLevel::Review,
+                action: "report-only".to_string(),
+                reason: "docker".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor_with_probe_runner(
+            &report,
+            DoctorOptions {
+                docker: true,
+                wsl: false,
+                ollama: false,
+                playwright: false,
+                huggingface: false,
+                agents: false,
+                probe_tools: true,
+            },
+            &test_policy(),
+            &|program, args| {
+                assert_eq!(program, "docker");
+                assert_eq!(args, &["system", "df"]);
+                ProbeCommandResult {
+                    status: "ok".to_string(),
+                    output: "TYPE TOTAL ACTIVE SIZE RECLAIMABLE".to_string(),
+                }
+            },
+        );
+
+        assert_eq!(doctor.topics[0].probes.len(), 1);
+        assert_eq!(doctor.topics[0].probes[0].name, "docker-system-df");
+        assert_eq!(doctor.topics[0].probes[0].status, "ok");
+        assert!(doctor.topics[0].probes[0].command.contains("docker system df"));
+        assert!(doctor.topics[0].probes[0].output.contains("RECLAIMABLE"));
+    }
+
+    #[test]
+    fn doctor_records_probe_command_unavailable_without_failing() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "ollama-models".to_string(),
+                name: "Ollama model store".to_string(),
+                category: "models".to_string(),
+                path: "C:\\Users\\demo\\.ollama\\models".to_string(),
+                exists: false,
+                size_bytes: 0,
+                risk: RiskLevel::Review,
+                action: "guide".to_string(),
+                reason: "ollama".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor_with_probe_runner(
+            &report,
+            DoctorOptions {
+                docker: false,
+                wsl: false,
+                ollama: true,
+                playwright: false,
+                huggingface: false,
+                agents: false,
+                probe_tools: true,
+            },
+            &test_policy(),
+            &|program, args| {
+                assert_eq!(program, "ollama");
+                assert_eq!(args, &["list"]);
+                ProbeCommandResult {
+                    status: "not-available".to_string(),
+                    output: "ollama command not found".to_string(),
+                }
+            },
+        );
+
+        assert_eq!(doctor.topics[0].probes.len(), 1);
+        assert_eq!(doctor.topics[0].probes[0].status, "not-available");
+        assert!(doctor.topics[0].probes[0]
+            .summary
+            .contains("not-available"));
+    }
+
+    #[test]
+    fn decode_probe_output_bytes_handles_utf16le_console_output() {
+        let bytes = "NAME\r\nUbuntu".encode_utf16().flat_map(|unit| unit.to_le_bytes()).collect::<Vec<_>>();
+
+        let decoded = decode_probe_output_bytes(&bytes);
+
+        assert!(decoded.contains("NAME"));
+        assert!(decoded.contains("Ubuntu"));
+        assert!(!decoded.contains('\0'));
     }
 
 
@@ -570,6 +888,7 @@ mod tests {
                 playwright: false,
                 huggingface: true,
                 agents: false,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -617,6 +936,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -670,6 +990,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -737,6 +1058,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -779,6 +1101,7 @@ mod tests {
                 playwright: false,
                 huggingface: true,
                 agents: false,
+                probe_tools: false,
             },
             &test_policy(),
         );
@@ -823,6 +1146,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                probe_tools: false,
             },
             &test_policy(),
         );

@@ -106,12 +106,24 @@ fn skill_and_readme_document_agents_doctor_workflow() {
         "run-doctor.ps1 should expose -Agents"
     );
     assert!(
+        run_doctor.contains("[switch]$ProbeTools"),
+        "run-doctor.ps1 should expose -ProbeTools"
+    );
+    assert!(
         run_doctor.contains("--agents"),
         "run-doctor.ps1 should pass --agents"
     );
     assert!(
+        run_doctor.contains("--probe-tools"),
+        "run-doctor.ps1 should pass --probe-tools"
+    );
+    assert!(
         readme.contains("--agents"),
         "README.md should document doctor --agents"
+    );
+    assert!(
+        readme.contains("--probe-tools"),
+        "README.md should document doctor --probe-tools"
     );
     for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
         assert!(

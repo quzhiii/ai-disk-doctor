@@ -132,6 +132,8 @@ enum Command {
         #[arg(long)]
         agents: bool,
         #[arg(long)]
+        probe_tools: bool,
+        #[arg(long)]
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
@@ -343,6 +345,7 @@ fn main() -> Result<()> {
             mut playwright,
             mut huggingface,
             mut agents,
+            probe_tools,
             rules_dir,
             rules_repo,
             policy,
@@ -378,6 +381,7 @@ fn main() -> Result<()> {
                     playwright,
                     huggingface,
                     agents,
+                    probe_tools,
                 },
                 &loaded_policy,
             );

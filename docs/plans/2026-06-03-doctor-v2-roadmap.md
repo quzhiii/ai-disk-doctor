@@ -31,7 +31,7 @@ Doctor V2 should therefore optimize for incremental value over `scan`:
 | P0 | Bounded Subdirectory Breakdown | For existing large findings, show top child directories/files by size | This is the core diagnostic gap: users need to know what is inside `.gemini` or `.claude` |
 | P1 | Data-Driven Recommendations | Tailor advice based on `exists`, size, risk, action, and top children | Avoid unhelpful advice such as recommending cache cleanup for a 1-byte placeholder |
 | P1 | Tool Presence Detection | Detect whether Docker, WSL, Ollama, and Playwright are installed or active | Missing tools should be reported as skipped/not detected, not as ambiguous empty findings |
-| P2 | Optional External Probes | Add opt-in probes such as `docker system df`, `wsl --list`, and `ollama list` | External command data is valuable but should not block the local filesystem-first MVP |
+| P2 | Optional External Probes | Add opt-in probes such as `docker system df`, `wsl --list --verbose`, and `ollama list` behind `--probe-tools` | External command data is valuable but should not block the local filesystem-first MVP |
 | P2 | Growth-Aware Doctor | Use `.aidisk/reports` and `diff --latest` to highlight fast-growing findings | Doctor should answer both "what is large" and "what is growing" |
 | P3 | Dynamic Topic Registry | Generate doctor topics from rule categories plus topic metadata | Community rules should not require hardcoded doctor switches for every category |
 

@@ -139,7 +139,7 @@ Doctor V2 roadmap：
 | P1 | 输出降噪 | Markdown/Text 只展开 active findings，missing paths 汇总为 Not detected 计数；JSON 保留完整 findings |
 | P2 | 外部命令探测 | `--probe-tools` 可选调用 `docker system df`、`wsl --list --verbose`、`ollama list`，用于补充而不是替代文件系统诊断 | Completed |
 | P2 | 增长率诊断 | 结合 `.aidisk/reports` 和 `diff --latest` 回答哪些目录最近增长最快 | Completed |
-| P3 | 动态 topic registry | 从 rules category 和 topic metadata 生成 doctor topics，减少硬编码开关 |
+| P3 | 动态 topic registry | 内置 `DoctorTopicSpec` registry 已集中 topic 名称、默认启用、matcher、建议和 probe metadata；外部化 topic metadata 仍是后续方向 | Completed |
 
 详细执行计划：`docs/plans/2026-06-03-doctor-v2-roadmap.md`。
 
@@ -194,9 +194,9 @@ Doctor V2 roadmap：
 
 ### Immediate Next Steps
 
-1. 下一步进入 Doctor V2 P3：从 rules metadata 派生动态 topic registry，减少硬编码开关。
-2. 在完成 P3 前，保持 `doctor` 默认只读和 `--probe-tools` 显式 opt-in。
-3. 继续为新增 doctor topic 保持 JSON 结构稳定、Markdown/Text 输出降噪。
+1. Doctor V2 P3 的最小代码内 registry slice 已完成：默认 topics 与显式 flags 现在来自同一份 registry metadata。
+2. 下一步可评估是否把 topic metadata 外部化；在此之前不新增公开 `--topic` CLI。
+3. 继续保持 `doctor` 默认只读、`--probe-tools` 显式 opt-in、JSON 结构稳定、Markdown/Text 输出降噪。
 4. 每项完成后跑测试并本地提交。
 
 ## Release Readiness

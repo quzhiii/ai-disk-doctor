@@ -33,7 +33,7 @@ Doctor V2 should therefore optimize for incremental value over `scan`:
 | P1 | Tool Presence Detection | Detect whether Docker, WSL, Ollama, and Playwright are installed or active | Missing tools should be reported as skipped/not detected, not as ambiguous empty findings |
 | P2 | Optional External Probes | Add opt-in probes such as `docker system df`, `wsl --list --verbose`, and `ollama list` behind `--probe-tools` | External command data is valuable but should not block the local filesystem-first MVP |
 | P2 | Growth-Aware Doctor | Use `.aidisk/reports` and `diff --latest` to highlight fast-growing findings | Doctor should answer both "what is large" and "what is growing" |
-| P3 | Dynamic Topic Registry | Generate doctor topics from rule categories plus topic metadata | Community rules should not require hardcoded doctor switches for every category |
+| P3 | Dynamic Topic Registry | Code-side `DoctorTopicSpec` registry now centralizes built-in topic metadata; external topic metadata remains a future extension | Community rules should not require hardcoded doctor switches for every category |
 
 ## Recommended Sequencing
 
@@ -204,3 +204,13 @@ P2 is complete with both planned slices shipped:
 Tool probes should come after the first Doctor V2 slice. Add them behind explicit flags such as `--probe-tools` so default doctor stays fast, deterministic, and safe.
 
 Growth-aware doctor can reuse `history::latest_scan_pair` and `diff::build_diff`, but it should be introduced as a separate task after the breakdown output is stable. The most useful UX is likely `doctor --agents --latest`, showing both top current consumers and recent growth.
+
+## P3 Completion Notes
+
+The first P3 slice is complete with a code-side dynamic topic registry:
+
+- `DoctorTopicSpec` now owns built-in topic name, default enablement, matcher, base recommendations, and optional probe metadata.
+- `build_doctor` builds selected topics by iterating the registry instead of maintaining per-topic builder branches.
+- Default doctor topic selection is derived from registry metadata in `doctor.rs`, while existing public flags remain unchanged.
+- `--probe-tools` remains opt-in, and probe commands are only attached to topics that define probe metadata.
+- Externalized topic metadata and a public `--topic` selector remain future work, not part of this slice.

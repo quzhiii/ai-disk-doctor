@@ -77,6 +77,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | **Dry-Run by Default** | All destructive operations preview changes before touching disk. Explicit `--yes` required for real action. |
 | **Quarantine Pattern** | Move files to designated archive folder instead of deleting. Full restore with conflict detection. |
 | **Specialized Diagnostics** | `doctor` command provides targeted analysis for AI agents, AI IDEs/CLIs, installers, test artifacts, Docker, WSL, Ollama, Playwright, and Hugging Face |
+| **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
@@ -200,6 +201,7 @@ aidisk doctor --latest --reports-dir .aidisk/reports --json
 ```
 
 `doctor --agents` covers Claude, Codex, Gemini, opencode, Cursor, Windsurf, Trae, aider, Continue, installed apps, AI runtime caches, installers, and test artifacts.
+Built-in doctor topics are assembled from an internal registry, so default runs and explicit topic flags use the same source of truth without changing the public CLI.
 Markdown/Text doctor output focuses on active paths and summarizes missing matches as `Not detected`; JSON keeps the complete finding list for automation.
 Use `--probe-tools` to opt into external command probes such as `docker system df`, `wsl --list --verbose`, and `ollama list`.
 Use `--latest` to append the most recent growth summary from the newest two scan snapshots in `.aidisk/reports`; override the snapshot location with `--reports-dir` when needed.
@@ -267,7 +269,7 @@ User / AI Agent
        +-- Scanner (WalkDir with depth limits)
        +-- Planner (risk filter + sensitive path blocking)
        +-- Cleaner (quarantine / restore with cross-disk fallback)
-       +-- Doctor (topic-specific analyzers)
+       +-- Doctor (registry-driven topic analyzers)
        +-- Diff Engine (snapshot comparison)
        +-- Reporter (JSON / Markdown output)
 ```

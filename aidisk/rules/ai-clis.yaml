@@ -1,0 +1,21 @@
+id: ai-cli-state
+name: Aider, Continue, and AI CLI state
+category: ai-cli
+platform: windows
+paths:
+  - '%USERPROFILE%\.aider*'
+  - '%USERPROFILE%\.continue'
+  - '%USERPROFILE%\.config\aider'
+  - '%USERPROFILE%\.config\continue'
+  - '%USERPROFILE%\.config\opencode'
+  - '%USERPROFILE%\.config\promptfoo'
+  - '%USERPROFILE%\.cache\aider'
+  - '%USERPROFILE%\.cache\continue'
+  - '%USERPROFILE%\.cache\opencode'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "AI CLI state from tools such as aider, Continue, and opencode can include conversation history, project indexes, logs, and cached tool state."
+warnings:
+  - "Review subdirectories before cleanup because CLI state may contain useful history or credentials-adjacent metadata."

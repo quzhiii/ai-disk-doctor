@@ -31,7 +31,7 @@ AI tools have become essential to modern development, but they come with a hidde
 - **Hugging Face** caches accumulate silently in `%USERPROFILE%\.cache`
 - **Docker Desktop** images and **WSL** distros eat tens of gigabytes
 - **Playwright** browser binaries install per-project
-- **Browser caches** and **dev tool artifacts** pile up over months
+- **AI IDE/CLI caches, installers, test reports, and dev tool artifacts** pile up over months
 
 Existing disk cleaners treat all files the same. They either delete too aggressively or leave AI-specific bloat untouched. **AI Disk Doctor** was born from a simple observation: *AI-era storage bloat has different patterns, different risks, and deserves a different tool.*
 
@@ -72,11 +72,12 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 
 | Capability | What it does |
 |-----------|-------------|
-| **Intelligent Scanning** | Discover space usage across AI models (Ollama, Hugging Face), browsers, Docker, WSL, Playwright, and dev artifacts |
+| **Intelligent Scanning** | Discover space usage across AI models (Ollama, Hugging Face), AI IDEs/CLIs, browsers, Docker, WSL, Playwright, installers, test artifacts, and dev artifacts |
 | **Rule-Driven Classification** | Every path evaluated against YAML rules with risk levels: `safe`, `careful`, `dangerous`. No hardcoded paths. |
 | **Dry-Run by Default** | All destructive operations preview changes before touching disk. Explicit `--yes` required for real action. |
 | **Quarantine Pattern** | Move files to designated archive folder instead of deleting. Full restore with conflict detection. |
-| **Specialized Diagnostics** | `doctor` command provides targeted analysis for Docker, WSL, Ollama, Playwright, and Hugging Face |
+| **Specialized Diagnostics** | `doctor` command provides targeted analysis for AI agents, AI IDEs/CLIs, installers, test artifacts, Docker, WSL, Ollama, Playwright, and Hugging Face |
+| **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
@@ -114,10 +115,10 @@ No Rust or compilation needed. The `skills/windows-ai-space-manager/scripts/` di
 
 ```powershell
 # Scan via PowerShell wrapper
-.\skills\windows-ai-space-manager\scripts\scan.ps1
+.\skills\windows-ai-space-manager\scripts\run-scan.ps1
 
 # Run doctor
-.\skills\windows-ai-space-manager\scripts\doctor.ps1
+.\skills\windows-ai-space-manager\scripts\run-doctor.ps1
 ```
 
 ### Development Setup
@@ -191,7 +192,19 @@ aidisk doctor --markdown
 aidisk doctor --docker --json
 aidisk doctor --wsl --ollama --markdown
 aidisk doctor --playwright --huggingface --markdown
+aidisk doctor --agents --markdown
+aidisk doctor --docker --probe-tools --markdown
+
+# Combine current diagnosis with latest snapshot growth
+aidisk doctor --agents --latest --markdown
+aidisk doctor --latest --reports-dir .aidisk/reports --json
 ```
+
+`doctor --agents` covers Claude, Codex, Gemini, opencode, Cursor, Windsurf, Trae, aider, Continue, installed apps, AI runtime caches, installers, and test artifacts.
+Built-in doctor topics are assembled from an internal registry, so default runs and explicit topic flags use the same source of truth without changing the public CLI.
+Markdown/Text doctor output focuses on active paths and summarizes missing matches as `Not detected`; JSON keeps the complete finding list for automation.
+Use `--probe-tools` to opt into external command probes such as `docker system df`, `wsl --list --verbose`, and `ollama list`.
+Use `--latest` to append the most recent growth summary from the newest two scan snapshots in `.aidisk/reports`; override the snapshot location with `--reports-dir` when needed.
 
 ### 6. Compare Snapshots
 
@@ -213,7 +226,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `plan` | Generate cleanup recommendations | `--safe-only`, `--skip-modified-within-minutes` |
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
-| `doctor` | Run targeted diagnostics | `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface` |
+| `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 
 ---
@@ -256,7 +269,7 @@ User / AI Agent
        +-- Scanner (WalkDir with depth limits)
        +-- Planner (risk filter + sensitive path blocking)
        +-- Cleaner (quarantine / restore with cross-disk fallback)
-       +-- Doctor (topic-specific analyzers)
+       +-- Doctor (registry-driven topic analyzers)
        +-- Diff Engine (snapshot comparison)
        +-- Reporter (JSON / Markdown output)
 ```

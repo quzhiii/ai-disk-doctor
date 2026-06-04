@@ -92,6 +92,80 @@ fn skill_documents_diff_latest_workflow() {
 }
 
 #[test]
+fn skill_and_readme_document_agents_doctor_workflow() {
+    let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
+    let run_doctor = read_repo_file("skills/windows-ai-space-manager/scripts/run-doctor.ps1");
+    let readme = read_repo_file("README.md");
+
+    assert!(
+        skill.contains("run-doctor.ps1 -Agents"),
+        "SKILL.md should document the agents doctor wrapper workflow"
+    );
+    assert!(
+        skill.contains("run-doctor.ps1 -Latest"),
+        "SKILL.md should document the doctor latest wrapper workflow"
+    );
+    assert!(
+        run_doctor.contains("[switch]$Agents"),
+        "run-doctor.ps1 should expose -Agents"
+    );
+    assert!(
+        run_doctor.contains("[switch]$ProbeTools"),
+        "run-doctor.ps1 should expose -ProbeTools"
+    );
+    assert!(
+        run_doctor.contains("[switch]$Latest"),
+        "run-doctor.ps1 should expose -Latest"
+    );
+    assert!(
+        run_doctor.contains("[string]$ReportsDir"),
+        "run-doctor.ps1 should expose -ReportsDir"
+    );
+    assert!(
+        run_doctor.contains("--agents"),
+        "run-doctor.ps1 should pass --agents"
+    );
+    assert!(
+        run_doctor.contains("--probe-tools"),
+        "run-doctor.ps1 should pass --probe-tools"
+    );
+    assert!(
+        run_doctor.contains("--latest"),
+        "run-doctor.ps1 should pass --latest"
+    );
+    assert!(
+        run_doctor.contains("--reports-dir"),
+        "run-doctor.ps1 should pass --reports-dir"
+    );
+    assert!(
+        readme.contains("--agents"),
+        "README.md should document doctor --agents"
+    );
+    assert!(
+        readme.contains("--probe-tools"),
+        "README.md should document doctor --probe-tools"
+    );
+    assert!(
+        readme.contains("--latest"),
+        "README.md should document doctor --latest"
+    );
+    assert!(
+        readme.contains("scripts\\run-scan.ps1"),
+        "README.md should reference the existing run-scan.ps1 wrapper"
+    );
+    assert!(
+        readme.contains("scripts\\run-doctor.ps1"),
+        "README.md should reference the existing run-doctor.ps1 wrapper"
+    );
+    for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
+        assert!(
+            skill.contains(term) || readme.contains(term),
+            "skill or README should document expanded AI tooling coverage term {term}"
+        );
+    }
+}
+
+#[test]
 fn skill_and_wrappers_document_rules_repo() {
     let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
     let wrapper_names = [

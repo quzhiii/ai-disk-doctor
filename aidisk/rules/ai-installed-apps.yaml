@@ -1,0 +1,20 @@
+id: ai-installed-app-roots
+name: Installed AI application roots
+category: ai-installed-app
+platform: windows
+paths:
+  - '%LOCALAPPDATA%\Programs\Cursor'
+  - '%LOCALAPPDATA%\Programs\Windsurf'
+  - '%LOCALAPPDATA%\Programs\Trae'
+  - '%LOCALAPPDATA%\Programs\Claude'
+  - '%LOCALAPPDATA%\Programs\Codeium'
+  - '%LOCALAPPDATA%\Programs\LM Studio'
+  - '%LOCALAPPDATA%\Programs\Ollama'
+  - '%LOCALAPPDATA%\Programs\Continue'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Installed AI application roots can be large, but should be managed through uninstallers or app settings rather than filesystem cleanup."
+warnings:
+  - "Do not quarantine installed application roots automatically; use this rule for diagnosis and relocation/uninstall decisions."

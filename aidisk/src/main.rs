@@ -130,6 +130,14 @@ enum Command {
         #[arg(long)]
         huggingface: bool,
         #[arg(long)]
+        agents: bool,
+        #[arg(long)]
+        probe_tools: bool,
+        #[arg(long)]
+        latest: bool,
+        #[arg(long)]
+        reports_dir: Option<PathBuf>,
+        #[arg(long)]
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
@@ -335,11 +343,15 @@ fn main() -> Result<()> {
             format,
             json,
             markdown,
-            mut docker,
-            mut wsl,
-            mut ollama,
-            mut playwright,
-            mut huggingface,
+            docker,
+            wsl,
+            ollama,
+            playwright,
+            huggingface,
+            agents,
+            probe_tools,
+            latest,
+            reports_dir,
             rules_dir,
             rules_repo,
             policy,
@@ -352,30 +364,40 @@ fn main() -> Result<()> {
                 format
             };
 
-            if !(docker || wsl || ollama || playwright || huggingface) {
-                docker = true;
-                wsl = true;
-                ollama = true;
-                playwright = true;
-                huggingface = true;
-            }
-
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let loaded_policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let scan_report = scanner::scan(&rules, loaded_policy.planner.max_scan_depth)?;
-            let doctor_report = doctor::build_doctor(
-                &scan_report,
-                doctor::DoctorOptions {
-                    docker,
-                    wsl,
-                    ollama,
-                    playwright,
-                    huggingface,
-                },
-                &loaded_policy,
-            );
+            let latest_diff = if latest {
+                let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
+                let (before, after) =
+                    history::latest_scan_pair_for_command(&reports_dir, "doctor --latest")?;
+                let diff_report = diff::build_diff(&before, &after)?;
+                Some(doctor::build_latest_diff_section(&diff_report, 10))
+            } else {
+                None
+            };
+            let mut doctor_options = doctor::DoctorOptions {
+                docker,
+                wsl,
+                ollama,
+                playwright,
+                huggingface,
+                agents,
+                probe_tools,
+            };
+            doctor::apply_default_topics_if_none_selected(&mut doctor_options);
+            let doctor_report = if let Some(latest_diff) = latest_diff {
+                doctor::build_doctor_with_latest_diff(
+                    &scan_report,
+                    doctor_options,
+                    &loaded_policy,
+                    Some(latest_diff),
+                )
+            } else {
+                doctor::build_doctor(&scan_report, doctor_options, &loaded_policy)
+            };
             println!(
                 "{}",
                 reporter::render_doctor(&doctor_report, effective_format)?

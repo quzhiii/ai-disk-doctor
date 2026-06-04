@@ -1,0 +1,23 @@
+id: ai-eval-and-runtime-caches
+name: AI evaluation and runtime caches
+category: ai-cache
+platform: windows
+paths:
+  - '%USERPROFILE%\.cache\promptfoo'
+  - '%USERPROFILE%\.promptfoo'
+  - '%USERPROFILE%\.cache\evals'
+  - '%USERPROFILE%\.cache\langchain'
+  - '%USERPROFILE%\.cache\llama_index'
+  - '%USERPROFILE%\.cache\litellm'
+  - '%USERPROFILE%\.cache\semantic-kernel'
+  - '%USERPROFILE%\.cache\transformers'
+  - '%USERPROFILE%\.cache\torch'
+  - '%USERPROFILE%\.cache\uv'
+  - '%LOCALAPPDATA%\pip\Cache'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "AI evaluation, package, and runtime caches may be rebuildable but can also be shared across projects."
+warnings:
+  - "Prefer targeted cleanup after checking which projects share the cache."

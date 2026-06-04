@@ -1,0 +1,24 @@
+id: ai-tool-installers
+name: AI tool installers in Downloads
+category: ai-installer
+platform: windows
+paths:
+  - '%USERPROFILE%\Downloads\*Cursor*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Cursor*.msi'
+  - '%USERPROFILE%\Downloads\*Windsurf*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Windsurf*.msi'
+  - '%USERPROFILE%\Downloads\*Trae*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Trae*.msi'
+  - '%USERPROFILE%\Downloads\*Claude*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Gemini*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Codeium*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*Continue*Setup*.exe'
+  - '%USERPROFILE%\Downloads\*LM Studio*.exe'
+  - '%USERPROFILE%\Downloads\*OllamaSetup*.exe'
+risk: safe
+cleanup:
+  method: quarantine
+exclusions: []
+reason: "Downloaded AI tool installers are usually recoverable after installation and are good quarantine candidates."
+warnings:
+  - "Confirm the installed app works before quarantining installer files."

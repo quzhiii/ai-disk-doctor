@@ -3,6 +3,7 @@
 /aidisk/.aidisk/
 /.idea/
 /.vscode/
+/.claude/
 /.worktrees/
 *.log
 *.tmp

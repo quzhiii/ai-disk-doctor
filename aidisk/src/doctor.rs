@@ -248,7 +248,6 @@ fn build_doctor_with_probe_runner<F>(
 where
     F: Fn(&str, &[&str]) -> ProbeCommandResult,
 {
-    let mut topics = Vec::new();
     let policy_summary = format!(
         "sensitive markers: [{}]; planner actions: [{}]; skip modified within: {}min",
         policy.sensitive_markers.join(", "),
@@ -256,104 +255,11 @@ where
         policy.planner.skip_modified_within_minutes
     );
 
-    if options.docker {
-        topics.push(with_topic_probes(
-            build_topic(
-            "docker",
-            scan_report,
-            |finding| finding.category == "docker",
-            vec![
-                "Use `docker system df` to inspect image, cache, and volume usage.".to_string(),
-                "Prefer `docker builder prune` and targeted prune commands over filesystem deletion.".to_string(),
-                "Treat Docker virtual disk files and volume storage as report-only assets.".to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
-
-    if options.wsl {
-        topics.push(with_topic_probes(
-            build_topic(
-            "wsl",
-            scan_report,
-            |finding| finding.category == "wsl",
-            vec![
-                "Do not delete ext4.vhdx directly; use WSL export, compact, or relocation workflows.".to_string(),
-                "Check whether large distros should be exported and re-imported to another drive.".to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
-
-    if options.ollama {
-        topics.push(with_topic_probes(
-            build_topic(
-            "ollama",
-            scan_report,
-            |finding| finding.id == "ollama-models",
-            vec![
-                "Run `ollama list` before cleanup so model names and sizes are explicit.".to_string(),
-                "Remove unused models through model-aware commands instead of deleting blob paths directly.".to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
-
-    if options.huggingface {
-        topics.push(with_topic_probes(
-            build_topic(
-            "huggingface",
-            scan_report,
-            |finding| finding.id == "huggingface-cache",
-            vec![
-                "Review which projects share this cache before deleting reusable downloads."
-                    .to_string(),
-                "Prefer targeted cache cleanup or relocation over wiping the cache root blindly."
-                    .to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
-
-    if options.playwright {
-        topics.push(with_topic_probes(
-            build_topic(
-            "playwright",
-            scan_report,
-            |finding| finding.id == "playwright-project-browsers" || finding.path.contains("ms-playwright"),
-            vec![
-                "Check whether browsers are being downloaded per project instead of via a shared cache.".to_string(),
-                "If browser downloads are repeated, centralize Playwright browser storage before deleting caches.".to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
-
-    if options.agents {
-        topics.push(with_topic_probes(
-            build_topic(
-            "agents",
-            scan_report,
-            is_ai_tooling_finding,
-            vec![
-                "Treat AI agent roots as review-only because they may contain chat history, sessions, settings, and cached tool state.".to_string(),
-                "Use the breakdown to identify cache-like children before planning cleanup; do not delete agent roots blindly.".to_string(),
-            ],
-            ),
-            options.probe_tools,
-            probe_runner,
-        ));
-    }
+    let topics = doctor_topic_specs()
+        .iter()
+        .filter(|spec| doctor_topic_enabled(options, spec.key))
+        .map(|spec| build_topic_from_spec(spec, scan_report, options.probe_tools, probe_runner))
+        .collect::<Vec<_>>();
 
     DoctorReport {
         generated_at: Local::now(),
@@ -465,22 +371,34 @@ where
     }
 }
 
-fn with_topic_probes<F>(
-    mut topic: DoctorTopic,
+fn build_topic_from_spec<F>(
+    spec: &DoctorTopicSpec,
+    scan_report: &ScanReport,
     probe_tools: bool,
     probe_runner: &F,
 ) -> DoctorTopic
 where
     F: Fn(&str, &[&str]) -> ProbeCommandResult,
 {
+    let recommendations = spec
+        .recommendations
+        .iter()
+        .map(|recommendation| (*recommendation).to_string())
+        .collect::<Vec<_>>();
+    let mut topic = build_topic(spec.name, scan_report, spec.matcher, recommendations);
+
     if probe_tools {
-        topic.probes = build_topic_probes(&topic, probe_runner);
+        topic.probes = build_topic_probes(&topic, spec.probe, probe_runner);
     }
 
     topic
 }
 
-fn build_topic_probes<F>(topic: &DoctorTopic, probe_runner: &F) -> Vec<DoctorProbe>
+fn build_topic_probes<F>(
+    topic: &DoctorTopic,
+    probe: Option<DoctorProbeSpec>,
+    probe_runner: &F,
+) -> Vec<DoctorProbe>
 where
     F: Fn(&str, &[&str]) -> ProbeCommandResult,
 {
@@ -488,27 +406,18 @@ where
         return Vec::new();
     }
 
-    let Some((name, program, args)) = topic_probe_command(&topic.name) else {
+    let Some(probe) = probe else {
         return Vec::new();
     };
 
-    let result = probe_runner(program, args);
+    let result = probe_runner(probe.program, probe.args);
     vec![DoctorProbe {
-        name: name.to_string(),
+        name: probe.name.to_string(),
         status: result.status.clone(),
-        command: format!("{} {}", program, args.join(" ")),
-        summary: format!("{} probe status: {}", name, result.status),
+        command: format!("{} {}", probe.program, probe.args.join(" ")),
+        summary: format!("{} probe status: {}", probe.name, result.status),
         output: result.output,
     }]
-}
-
-fn topic_probe_command(name: &str) -> Option<(&'static str, &'static str, &'static [&'static str])> {
-    match name {
-        "docker" => Some(("docker-system-df", "docker", &["system", "df"])),
-        "wsl" => Some(("wsl-list-verbose", "wsl", &["--list", "--verbose"])),
-        "ollama" => Some(("ollama-list", "ollama", &["list"])),
-        _ => None,
-    }
 }
 
 fn default_probe_runner(program: &str, args: &[&str]) -> ProbeCommandResult {
@@ -841,6 +750,59 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(enabled, vec!["docker", "huggingface"]);
+    }
+
+    #[test]
+    fn build_doctor_registry_spec_builder_attaches_probe_metadata() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "docker-root".to_string(),
+                name: "Docker root".to_string(),
+                category: "docker".to_string(),
+                path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
+                exists: true,
+                size_bytes: 100,
+                risk: RiskLevel::Review,
+                action: "report-only".to_string(),
+                reason: "docker".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+        let spec = super::doctor_topic_specs()
+            .iter()
+            .find(|spec| spec.name == "docker")
+            .expect("docker registry spec should exist");
+
+        let topic = super::build_topic_from_spec(spec, &report, true, &|program, args| {
+            assert_eq!(program, "docker");
+            assert_eq!(args, &["system", "df"]);
+            ProbeCommandResult {
+                status: "ok".to_string(),
+                output: "TYPE TOTAL ACTIVE SIZE RECLAIMABLE".to_string(),
+            }
+        });
+
+        assert_eq!(topic.name, "docker");
+        assert_eq!(topic.probes.len(), 1);
+        assert_eq!(topic.probes[0].name, "docker-system-df");
+    }
+
+    #[test]
+    fn build_doctor_registry_spec_builder_skips_topics_without_probe_metadata() {
+        let spec = super::doctor_topic_specs()
+            .iter()
+            .find(|spec| spec.name == "huggingface")
+            .expect("huggingface registry spec should exist");
+
+        let topic = super::build_topic_from_spec(spec, &empty_scan(), true, &|_, _| {
+            panic!("probe runner should not run for topics without probe metadata")
+        });
+
+        assert_eq!(topic.name, "huggingface");
+        assert!(topic.probes.is_empty());
     }
 
     #[test]

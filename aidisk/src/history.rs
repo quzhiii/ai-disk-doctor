@@ -29,6 +29,13 @@ pub fn save_scan_snapshot(report: &ScanReport, reports_dir: &Path) -> Result<Pat
 }
 
 pub fn latest_scan_pair(reports_dir: &Path) -> Result<(PathBuf, PathBuf)> {
+    latest_scan_pair_for_command(reports_dir, "diff --latest")
+}
+
+pub fn latest_scan_pair_for_command(
+    reports_dir: &Path,
+    command_name: &str,
+) -> Result<(PathBuf, PathBuf)> {
     let mut snapshots = Vec::new();
 
     if reports_dir.exists() {
@@ -46,7 +53,8 @@ pub fn latest_scan_pair(reports_dir: &Path) -> Result<(PathBuf, PathBuf)> {
 
     if snapshots.len() < 2 {
         anyhow::bail!(
-            "diff --latest requires at least two scan snapshots in {}",
+            "{} requires at least two scan snapshots in {}",
+            command_name,
             reports_dir.display()
         );
     }
@@ -63,7 +71,7 @@ mod tests {
     use chrono::Local;
     use tempfile::tempdir;
 
-    use super::{latest_scan_pair, save_scan_snapshot};
+    use super::{latest_scan_pair, latest_scan_pair_for_command, save_scan_snapshot};
     use crate::scanner::{ScanReport, Summary};
 
     fn sample_scan_report() -> ScanReport {
@@ -137,5 +145,17 @@ mod tests {
         let error = latest_scan_pair(temp.path()).expect_err("two snapshots should be required");
 
         assert!(error.to_string().contains("at least two"));
+    }
+
+    #[test]
+    fn latest_scan_pair_for_command_uses_caller_name_in_error() {
+        let temp = tempdir().expect("tempdir should exist");
+
+        let error = latest_scan_pair_for_command(temp.path(), "doctor --latest")
+            .expect_err("two snapshots should be required");
+
+        assert!(error
+            .to_string()
+            .contains("doctor --latest requires at least two scan snapshots in"));
     }
 }

@@ -162,3 +162,40 @@ fn doctor_latest_requires_two_snapshots_with_doctor_specific_message() {
     assert!(stderr.contains("doctor --latest requires at least two scan snapshots in"));
     assert!(!stderr.contains("diff --latest requires"));
 }
+
+#[test]
+fn doctor_latest_empty_reports_dir_uses_doctor_specific_message_in_text_mode() {
+    let temp = tempdir().expect("tempdir should exist");
+    let rules_dir = temp.path().join("rules");
+    let reports_dir = temp.path().join("reports");
+    let policy_path = temp.path().join("policy.yaml");
+    let agent_root = temp.path().join("agent-root");
+
+    fs::create_dir_all(&rules_dir).expect("rules dir should exist");
+    fs::create_dir_all(&reports_dir).expect("reports dir should exist");
+    fs::create_dir_all(&agent_root).expect("agent root should exist");
+
+    write_policy(&policy_path);
+    write_agent_rule(&rules_dir, &agent_root);
+
+    let output = Command::new(aidisk_bin())
+        .args([
+            "doctor",
+            "--agents",
+            "--latest",
+            "--reports-dir",
+            reports_dir.to_str().expect("reports dir should be utf-8"),
+            "--rules-dir",
+            rules_dir.to_str().expect("rules dir should be utf-8"),
+            "--policy",
+            policy_path.to_str().expect("policy path should be utf-8"),
+        ])
+        .output()
+        .expect("doctor command should run");
+
+    assert!(!output.status.success(), "doctor should fail with no snapshots");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("doctor --latest requires at least two scan snapshots in"));
+    assert!(!stderr.contains("diff --latest requires"));
+}

@@ -9,7 +9,7 @@ mod rules;
 mod rules_repo;
 mod scanner;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -380,7 +380,8 @@ fn main() -> Result<()> {
             let scan_report = scanner::scan(&rules, loaded_policy.planner.max_scan_depth)?;
             let latest_diff = if latest {
                 let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
-                let (before, after) = latest_scan_pair_for_doctor(&reports_dir)?;
+                let (before, after) =
+                    history::latest_scan_pair_for_command(&reports_dir, "doctor --latest")?;
                 let diff_report = diff::build_diff(&before, &after)?;
                 Some(doctor::build_latest_diff_section(&diff_report, 10))
             } else {
@@ -438,20 +439,4 @@ fn default_policy_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("config")
         .join("policy.yaml")
-}
-
-fn latest_scan_pair_for_doctor(reports_dir: &Path) -> Result<(PathBuf, PathBuf)> {
-    match history::latest_scan_pair(reports_dir) {
-        Ok(pair) => Ok(pair),
-        Err(error) => {
-            let message = error.to_string();
-            if message.starts_with("diff --latest requires at least two scan snapshots in ") {
-                anyhow::bail!(
-                    "doctor --latest requires at least two scan snapshots in {}",
-                    reports_dir.display()
-                );
-            }
-            Err(error)
-        }
-    }
 }

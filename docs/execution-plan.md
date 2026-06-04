@@ -137,8 +137,8 @@ Doctor V2 roadmap：
 | P1 | 数据驱动建议 | 根据 `exists`、size、risk、action、breakdown 生成建议；空目录或 1 字节占位应提示 no action needed |
 | P1 | 工具检测 | Docker/WSL/Ollama/Playwright 未安装或未运行时明确标记 not detected/skip，而不是只输出泛化建议 |
 | P1 | 输出降噪 | Markdown/Text 只展开 active findings，missing paths 汇总为 Not detected 计数；JSON 保留完整 findings |
-| P2 | 外部命令探测 | `--probe-tools` 可选调用 `docker system df`、`wsl --list --verbose`、`ollama list`，用于补充而不是替代文件系统诊断 |
-| P2 | 增长率诊断 | 结合 `.aidisk/reports` 和 `diff --latest` 回答哪些目录最近增长最快 |
+| P2 | 外部命令探测 | `--probe-tools` 可选调用 `docker system df`、`wsl --list --verbose`、`ollama list`，用于补充而不是替代文件系统诊断 | Completed |
+| P2 | 增长率诊断 | 结合 `.aidisk/reports` 和 `diff --latest` 回答哪些目录最近增长最快 | Completed |
 | P3 | 动态 topic registry | 从 rules category 和 topic metadata 生成 doctor topics，减少硬编码开关 |
 
 详细执行计划：`docs/plans/2026-06-03-doctor-v2-roadmap.md`。
@@ -194,9 +194,9 @@ Doctor V2 roadmap：
 
 ### Immediate Next Steps
 
-1. 优先实现 Doctor V2 的 P0：`doctor --agents` 和大型目录子目录分解。
-2. 然后补 P1：数据驱动建议、工具存在性检测和输出降噪。
-3. 最后再做 P2：外部命令探测与增长率诊断。
+1. 下一步进入 Doctor V2 P3：从 rules metadata 派生动态 topic registry，减少硬编码开关。
+2. 在完成 P3 前，保持 `doctor` 默认只读和 `--probe-tools` 显式 opt-in。
+3. 继续为新增 doctor topic 保持 JSON 结构稳定、Markdown/Text 输出降噪。
 4. 每项完成后跑测试并本地提交。
 
 ## Release Readiness

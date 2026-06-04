@@ -134,6 +134,10 @@ enum Command {
         #[arg(long)]
         probe_tools: bool,
         #[arg(long)]
+        latest: bool,
+        #[arg(long)]
+        reports_dir: Option<PathBuf>,
+        #[arg(long)]
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
@@ -346,6 +350,8 @@ fn main() -> Result<()> {
             mut huggingface,
             mut agents,
             probe_tools,
+            latest,
+            reports_dir,
             rules_dir,
             rules_repo,
             policy,
@@ -372,19 +378,33 @@ fn main() -> Result<()> {
             let loaded_policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let scan_report = scanner::scan(&rules, loaded_policy.planner.max_scan_depth)?;
-            let doctor_report = doctor::build_doctor(
-                &scan_report,
-                doctor::DoctorOptions {
-                    docker,
-                    wsl,
-                    ollama,
-                    playwright,
-                    huggingface,
-                    agents,
-                    probe_tools,
-                },
-                &loaded_policy,
-            );
+            let latest_diff = if latest {
+                let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
+                let (before, after) = history::latest_scan_pair(&reports_dir)?;
+                let diff_report = diff::build_diff(&before, &after)?;
+                Some(doctor::build_latest_diff_section(&diff_report, 10))
+            } else {
+                None
+            };
+            let doctor_options = doctor::DoctorOptions {
+                docker,
+                wsl,
+                ollama,
+                playwright,
+                huggingface,
+                agents,
+                probe_tools,
+            };
+            let doctor_report = if let Some(latest_diff) = latest_diff {
+                doctor::build_doctor_with_latest_diff(
+                    &scan_report,
+                    doctor_options,
+                    &loaded_policy,
+                    Some(latest_diff),
+                )
+            } else {
+                doctor::build_doctor(&scan_report, doctor_options, &loaded_policy)
+            };
             println!(
                 "{}",
                 reporter::render_doctor(&doctor_report, effective_format)?

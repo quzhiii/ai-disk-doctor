@@ -598,6 +598,27 @@ fn render_doctor_text(report: &DoctorReport) -> String {
         format!("Policy: {}", report.policy_summary),
     ];
 
+    if let Some(latest_diff) = &report.latest_diff {
+        lines.push(String::new());
+        lines.push("Latest Diff:".to_string());
+        lines.push(format!("- Before: {}", latest_diff.before));
+        lines.push(format!("- After: {}", latest_diff.after));
+        lines.push(format!(
+            "- Total Growth: {}",
+            human_bytes_delta(latest_diff.summary.total_growth_bytes)
+        ));
+        for change in &latest_diff.top_changes {
+            lines.push(format!(
+                "- [{}] {} | before={} after={} delta={}",
+                change.change,
+                change.path,
+                human_bytes(change.before_bytes),
+                human_bytes(change.after_bytes),
+                human_bytes_delta(change.delta_bytes)
+            ));
+        }
+    }
+
     for topic in &report.topics {
         lines.push(String::new());
         lines.push(format!("[{}] {}", topic.name.to_uppercase(), topic.summary));
@@ -738,6 +759,31 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         format!("- Policy: {}", report.policy_summary),
     ];
 
+    if let Some(latest_diff) = &report.latest_diff {
+        lines.push(String::new());
+        lines.push("## Latest Diff".to_string());
+        lines.push(String::new());
+        lines.push(format!("- Before: `{}`", latest_diff.before));
+        lines.push(format!("- After: `{}`", latest_diff.after));
+        lines.push(format!(
+            "- Total Growth: {}",
+            human_bytes_delta(latest_diff.summary.total_growth_bytes)
+        ));
+        lines.push(String::new());
+        lines.push("| Change | Path | Before | After | Delta |".to_string());
+        lines.push("|---|---|---:|---:|---:|".to_string());
+        for change in &latest_diff.top_changes {
+            lines.push(format!(
+                "| {} | `{}` | {} | {} | {} |",
+                change.change,
+                change.path,
+                human_bytes(change.before_bytes),
+                human_bytes(change.after_bytes),
+                human_bytes_delta(change.delta_bytes)
+            ));
+        }
+    }
+
     for topic in &report.topics {
         lines.push(String::new());
         lines.push(format!("## {}", topic.name));
@@ -868,6 +914,7 @@ mod tests {
         let report = DoctorReport {
             generated_at: Local::now(),
             policy_summary: "test policy".to_string(),
+            latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
                 status: "active".to_string(),
@@ -902,6 +949,7 @@ mod tests {
         let report = DoctorReport {
             generated_at: Local::now(),
             policy_summary: "test policy".to_string(),
+            latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
                 status: "active".to_string(),
@@ -956,6 +1004,7 @@ mod tests {
         let report = DoctorReport {
             generated_at: Local::now(),
             policy_summary: "test policy".to_string(),
+            latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
                 status: "active".to_string(),
@@ -999,6 +1048,7 @@ mod tests {
         let report = DoctorReport {
             generated_at: Local::now(),
             policy_summary: "test policy".to_string(),
+            latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
                 status: "not-detected".to_string(),
@@ -1029,6 +1079,7 @@ mod tests {
         let report = DoctorReport {
             generated_at: Local::now(),
             policy_summary: "test policy".to_string(),
+            latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "docker".to_string(),
                 status: "active".to_string(),
@@ -1060,5 +1111,40 @@ mod tests {
         assert!(output.contains("docker-system-df"));
         assert!(output.contains("docker system df"));
         assert!(output.contains("RECLAIMABLE"));
+    }
+
+    #[test]
+    fn doctor_markdown_renders_latest_diff_section() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: Some(crate::doctor::DoctorLatestDiff {
+                before: "before.json".to_string(),
+                after: "after.json".to_string(),
+                summary: crate::doctor::DoctorLatestDiffSummary {
+                    total_growth_bytes: 120,
+                    grew: 1,
+                    shrunk: 0,
+                    appeared: 0,
+                    disappeared: 0,
+                },
+                top_changes: vec![crate::doctor::DoctorLatestDiffEntry {
+                    path: "C:\\demo\\.claude".to_string(),
+                    change: "grew".to_string(),
+                    before_bytes: 100,
+                    after_bytes: 220,
+                    delta_bytes: 120,
+                }],
+            }),
+            topics: Vec::new(),
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown).expect("doctor should render");
+
+        assert!(output.contains("## Latest Diff"));
+        assert!(output.contains("before.json"));
+        assert!(output.contains("after.json"));
+        assert!(output.contains("+120 B"));
+        assert!(output.contains("C:\\demo\\.claude"));
     }
 }

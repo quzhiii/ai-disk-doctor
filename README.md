@@ -193,11 +193,16 @@ aidisk doctor --wsl --ollama --markdown
 aidisk doctor --playwright --huggingface --markdown
 aidisk doctor --agents --markdown
 aidisk doctor --docker --probe-tools --markdown
+
+# Combine current diagnosis with latest snapshot growth
+aidisk doctor --agents --latest --markdown
+aidisk doctor --latest --reports-dir .aidisk/reports --json
 ```
 
 `doctor --agents` covers Claude, Codex, Gemini, opencode, Cursor, Windsurf, Trae, aider, Continue, installed apps, AI runtime caches, installers, and test artifacts.
 Markdown/Text doctor output focuses on active paths and summarizes missing matches as `Not detected`; JSON keeps the complete finding list for automation.
 Use `--probe-tools` to opt into external command probes such as `docker system df`, `wsl --list --verbose`, and `ollama list`.
+Use `--latest` to append the most recent growth summary from the newest two scan snapshots in `.aidisk/reports`; override the snapshot location with `--reports-dir` when needed.
 
 ### 6. Compare Snapshots
 
@@ -219,7 +224,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `plan` | Generate cleanup recommendations | `--safe-only`, `--skip-modified-within-minutes` |
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
-| `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools` |
+| `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 
 ---

@@ -17,6 +17,7 @@
 - `doctor` 用于专题解释，不替代 `scan`
 - `doctor --agents` 用于钻取 Claude / Codex / Gemini / opencode 等 agent 根目录，并输出 top child breakdown
 - `doctor --probe-tools` 只在用户明确要求更深探测时启用；默认不调用外部命令
+- `doctor --latest` 用于把最近两次 scan snapshot 的增长信息拼到当前 doctor 诊断里；需要指定历史目录时用 `scripts/run-doctor.ps1 -Latest -ReportsDir <dir>`
 - `diff` 只比较两次 scan snapshot，不替代实时 `scan`
 - 社区规则库用 `--rules-repo` 或 wrapper 的 `-RulesRepo`，优先本地目录；远程只接受 HTTPS git URL
 

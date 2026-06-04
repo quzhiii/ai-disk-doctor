@@ -14,7 +14,34 @@ use crate::scanner::{Finding, ScanReport};
 pub struct DoctorReport {
     pub generated_at: DateTime<Local>,
     pub policy_summary: String,
+    pub latest_diff: Option<DoctorLatestDiff>,
     pub topics: Vec<DoctorTopic>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DoctorLatestDiff {
+    pub before: String,
+    pub after: String,
+    pub summary: DoctorLatestDiffSummary,
+    pub top_changes: Vec<DoctorLatestDiffEntry>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DoctorLatestDiffSummary {
+    pub total_growth_bytes: i64,
+    pub grew: usize,
+    pub shrunk: usize,
+    pub appeared: usize,
+    pub disappeared: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DoctorLatestDiffEntry {
+    pub path: String,
+    pub change: String,
+    pub before_bytes: u64,
+    pub after_bytes: u64,
+    pub delta_bytes: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,13 +103,23 @@ pub fn build_doctor(
     options: DoctorOptions,
     policy: &Policy,
 ) -> DoctorReport {
-    build_doctor_with_probe_runner(scan_report, options, policy, &default_probe_runner)
+    build_doctor_with_latest_diff(scan_report, options, policy, None)
+}
+
+pub fn build_doctor_with_latest_diff(
+    scan_report: &ScanReport,
+    options: DoctorOptions,
+    policy: &Policy,
+    latest_diff: Option<DoctorLatestDiff>,
+) -> DoctorReport {
+    build_doctor_with_probe_runner(scan_report, options, policy, latest_diff, &default_probe_runner)
 }
 
 fn build_doctor_with_probe_runner<F>(
     scan_report: &ScanReport,
     options: DoctorOptions,
     policy: &Policy,
+    latest_diff: Option<DoctorLatestDiff>,
     probe_runner: &F,
 ) -> DoctorReport
 where
@@ -198,7 +235,34 @@ where
     DoctorReport {
         generated_at: Local::now(),
         policy_summary,
+        latest_diff,
         topics,
+    }
+}
+
+pub fn build_latest_diff_section(report: &crate::diff::DiffReport, max_changes: usize) -> DoctorLatestDiff {
+    DoctorLatestDiff {
+        before: report.before.clone(),
+        after: report.after.clone(),
+        summary: DoctorLatestDiffSummary {
+            total_growth_bytes: report.summary.total_growth_bytes,
+            grew: report.summary.grew,
+            shrunk: report.summary.shrunk,
+            appeared: report.summary.appeared,
+            disappeared: report.summary.disappeared,
+        },
+        top_changes: report
+            .changes
+            .iter()
+            .take(max_changes)
+            .map(|change| DoctorLatestDiffEntry {
+                path: change.path.clone(),
+                change: change.change.clone(),
+                before_bytes: change.before_bytes,
+                after_bytes: change.after_bytes,
+                delta_bytes: change.delta_bytes,
+            })
+            .collect(),
     }
 }
 
@@ -559,7 +623,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_breakdown, build_doctor, build_doctor_with_probe_runner,
+        build_breakdown, build_doctor, build_doctor_with_latest_diff,
+        build_doctor_with_probe_runner, build_latest_diff_section,
         decode_probe_output_bytes, DoctorOptions, ProbeCommandResult,
     };
     use crate::policy::{PlannerPolicy, Policy};
@@ -729,6 +794,7 @@ mod tests {
                 probe_tools: false,
             },
             &test_policy(),
+            None,
             &|_, _| panic!("probe runner should not be called unless probe_tools is enabled"),
         );
 
@@ -767,6 +833,7 @@ mod tests {
                 probe_tools: true,
             },
             &test_policy(),
+            None,
             &|program, args| {
                 assert_eq!(program, "docker");
                 assert_eq!(args, &["system", "df"]);
@@ -816,6 +883,7 @@ mod tests {
                 probe_tools: true,
             },
             &test_policy(),
+            None,
             &|program, args| {
                 assert_eq!(program, "ollama");
                 assert_eq!(args, &["list"]);
@@ -1159,5 +1227,107 @@ mod tests {
             .recommendations
             .iter()
             .any(|recommendation| recommendation.contains("diff --latest")));
+    }
+
+    #[test]
+    fn latest_diff_section_keeps_top_growth_entries() {
+        let report = crate::diff::DiffReport {
+            generated_at: Local::now(),
+            before: "before.json".to_string(),
+            after: "after.json".to_string(),
+            summary: crate::diff::DiffSummary {
+                total_paths: 3,
+                grew: 1,
+                shrunk: 1,
+                appeared: 1,
+                disappeared: 0,
+                total_growth_bytes: 120,
+            },
+            changes: vec![
+                crate::diff::DiffEntry {
+                    path: "C:\\demo\\big".to_string(),
+                    before_bytes: 10,
+                    after_bytes: 210,
+                    delta_bytes: 200,
+                    change: "grew".to_string(),
+                },
+                crate::diff::DiffEntry {
+                    path: "C:\\demo\\small".to_string(),
+                    before_bytes: 100,
+                    after_bytes: 20,
+                    delta_bytes: -80,
+                    change: "shrunk".to_string(),
+                },
+            ],
+        };
+
+        let latest = build_latest_diff_section(&report, 1);
+
+        assert_eq!(latest.before, "before.json");
+        assert_eq!(latest.after, "after.json");
+        assert_eq!(latest.summary.total_growth_bytes, 120);
+        assert_eq!(latest.top_changes.len(), 1);
+        assert_eq!(latest.top_changes[0].path, "C:\\demo\\big");
+        assert_eq!(latest.top_changes[0].delta_bytes, 200);
+    }
+
+    #[test]
+    fn doctor_report_can_include_latest_diff_section() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "claude-home".to_string(),
+                name: "AI agent state".to_string(),
+                category: "ai-agent".to_string(),
+                path: "C:\\Users\\demo\\.claude".to_string(),
+                exists: true,
+                size_bytes: 200,
+                risk: RiskLevel::Review,
+                action: "report-only".to_string(),
+                reason: "agent state".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+        let diff = crate::diff::DiffReport {
+            generated_at: Local::now(),
+            before: "before.json".to_string(),
+            after: "after.json".to_string(),
+            summary: crate::diff::DiffSummary {
+                total_paths: 1,
+                grew: 1,
+                shrunk: 0,
+                appeared: 0,
+                disappeared: 0,
+                total_growth_bytes: 100,
+            },
+            changes: vec![crate::diff::DiffEntry {
+                path: "C:\\Users\\demo\\.claude".to_string(),
+                before_bytes: 100,
+                after_bytes: 200,
+                delta_bytes: 100,
+                change: "grew".to_string(),
+            }],
+        };
+
+        let doctor = build_doctor_with_latest_diff(
+            &report,
+            DoctorOptions {
+                docker: false,
+                wsl: false,
+                ollama: false,
+                playwright: false,
+                huggingface: false,
+                agents: true,
+                probe_tools: false,
+            },
+            &test_policy(),
+            Some(build_latest_diff_section(&diff, 5)),
+        );
+
+        assert!(doctor.latest_diff.is_some());
+        assert_eq!(doctor.latest_diff.as_ref().unwrap().top_changes.len(), 1);
+        assert_eq!(doctor.latest_diff.as_ref().unwrap().summary.grew, 1);
     }
 }

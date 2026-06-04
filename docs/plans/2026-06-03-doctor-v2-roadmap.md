@@ -190,6 +190,15 @@ Run: `cargo test doctor::tests reporter::tests -- --nocapture`
 
 Expected: status and output compression tests pass.
 
+## P2 Completion Notes
+
+P2 is complete with both planned slices shipped:
+
+- `doctor --probe-tools` now opt-in probes Docker, WSL, and Ollama using bounded command execution and explicit probe status reporting.
+- `doctor --latest` now reuses `.aidisk/reports`, `history::latest_scan_pair`, and `diff::build_diff` to append recent growth context alongside current doctor findings.
+- Markdown/Text render a compact latest-diff summary, while JSON preserves the full structured payload.
+- The PowerShell wrapper and skill docs now expose `-Latest` and `-ReportsDir` so agent workflows can request history-aware doctor runs directly.
+
 ## Future Tracks
 
 Tool probes should come after the first Doctor V2 slice. Add them behind explicit flags such as `--probe-tools` so default doctor stays fast, deterministic, and safe.

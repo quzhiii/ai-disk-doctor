@@ -102,12 +102,24 @@ fn skill_and_readme_document_agents_doctor_workflow() {
         "SKILL.md should document the agents doctor wrapper workflow"
     );
     assert!(
+        skill.contains("run-doctor.ps1 -Latest"),
+        "SKILL.md should document the doctor latest wrapper workflow"
+    );
+    assert!(
         run_doctor.contains("[switch]$Agents"),
         "run-doctor.ps1 should expose -Agents"
     );
     assert!(
         run_doctor.contains("[switch]$ProbeTools"),
         "run-doctor.ps1 should expose -ProbeTools"
+    );
+    assert!(
+        run_doctor.contains("[switch]$Latest"),
+        "run-doctor.ps1 should expose -Latest"
+    );
+    assert!(
+        run_doctor.contains("[string]$ReportsDir"),
+        "run-doctor.ps1 should expose -ReportsDir"
     );
     assert!(
         run_doctor.contains("--agents"),
@@ -118,12 +130,24 @@ fn skill_and_readme_document_agents_doctor_workflow() {
         "run-doctor.ps1 should pass --probe-tools"
     );
     assert!(
+        run_doctor.contains("--latest"),
+        "run-doctor.ps1 should pass --latest"
+    );
+    assert!(
+        run_doctor.contains("--reports-dir"),
+        "run-doctor.ps1 should pass --reports-dir"
+    );
+    assert!(
         readme.contains("--agents"),
         "README.md should document doctor --agents"
     );
     assert!(
         readme.contains("--probe-tools"),
         "README.md should document doctor --probe-tools"
+    );
+    assert!(
+        readme.contains("--latest"),
+        "README.md should document doctor --latest"
     );
     for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
         assert!(

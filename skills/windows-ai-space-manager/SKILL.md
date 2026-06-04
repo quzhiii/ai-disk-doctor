@@ -140,12 +140,15 @@ pwsh -File scripts/run-doctor.ps1 -Wsl -Ollama -Markdown
 pwsh -File scripts/run-doctor.ps1 -Playwright -HuggingFace -Markdown
 pwsh -File scripts/run-doctor.ps1 -Agents -Markdown
 pwsh -File scripts/run-doctor.ps1 -Docker -ProbeTools -Markdown
+pwsh -File scripts/run-doctor.ps1 -Agents -Latest -Markdown
+pwsh -File scripts/run-doctor.ps1 -Latest -ReportsDir ".aidisk\reports" -Json
 pwsh -File scripts/run-doctor.ps1 -Markdown
 ```
 
 `-Agents` 用于钻取 Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue 等 agent、IDE、CLI、installed apps、缓存、installers、test artifacts，并输出 top child breakdown。无 topic 参数时，doctor 默认包含 agents。
 Markdown/Text 输出会聚焦 active findings，并把未命中的规则路径汇总为 `Not detected`；需要完整 missing paths 时使用 `-Json`。
 `-ProbeTools` 用于显式开启外部命令探测；默认 doctor 不调用 Docker / WSL / Ollama CLI。
+`-Latest` 用于在 doctor 输出中追加最近两次 scan snapshot 的增长摘要；默认读取 `aidisk/.aidisk/reports`，需要覆盖时使用 `-ReportsDir`。
 
 ### 7. Diff Between Two Scans
 

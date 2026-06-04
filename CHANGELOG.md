@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.0
+
+Doctor V2 release for AI tooling diagnostics and growth-aware topic analysis.
+
+Included:
+
+- `doctor --agents` for Claude, Codex, Gemini, opencode, AI IDE/CLI state, installed app roots, runtime caches, installers, and test artifacts.
+- Bounded child breakdowns for active doctor findings so large AI roots show the biggest direct children.
+- Data-driven doctor recommendations that account for missing paths, tiny placeholders, large roots, and cache-like children.
+- `doctor --probe-tools` for opt-in Docker, WSL, and Ollama external probes without changing default read-only behavior.
+- `doctor --latest` and `--reports-dir` for appending recent scan snapshot growth context to doctor output.
+- Internal `DoctorTopicSpec` topic registry that centralizes built-in doctor topic names, defaults, matchers, recommendations, and probe metadata while keeping existing public flags unchanged.
+
+Safety boundaries:
+
+- Doctor remains read-only and never performs cleanup.
+- External probes only run when `--probe-tools` is explicitly provided.
+- `doctor --latest` only reads existing scan snapshots and keeps JSON output structured.
+- The topic registry is code-side only in this release; no public `--topic` selector or external topic metadata format is introduced.
+
 ## 1.0.0
 
 Initial v1 release-ready build for Windows AI Space Manager.

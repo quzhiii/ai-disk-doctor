@@ -343,12 +343,12 @@ fn main() -> Result<()> {
             format,
             json,
             markdown,
-            mut docker,
-            mut wsl,
-            mut ollama,
-            mut playwright,
-            mut huggingface,
-            mut agents,
+            docker,
+            wsl,
+            ollama,
+            playwright,
+            huggingface,
+            agents,
             probe_tools,
             latest,
             reports_dir,
@@ -364,15 +364,6 @@ fn main() -> Result<()> {
                 format
             };
 
-            if !(docker || wsl || ollama || playwright || huggingface || agents) {
-                docker = true;
-                wsl = true;
-                ollama = true;
-                playwright = true;
-                huggingface = true;
-                agents = true;
-            }
-
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let loaded_policy = policy::load_policy(&policy_path)?;
@@ -387,7 +378,7 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            let doctor_options = doctor::DoctorOptions {
+            let mut doctor_options = doctor::DoctorOptions {
                 docker,
                 wsl,
                 ollama,
@@ -396,6 +387,7 @@ fn main() -> Result<()> {
                 agents,
                 probe_tools,
             };
+            doctor::apply_default_topics_if_none_selected(&mut doctor_options);
             let doctor_report = if let Some(latest_diff) = latest_diff {
                 doctor::build_doctor_with_latest_diff(
                     &scan_report,

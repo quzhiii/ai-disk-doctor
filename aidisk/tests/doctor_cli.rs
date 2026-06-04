@@ -124,6 +124,53 @@ fn doctor_latest_reports_dir_emits_latest_diff_json() {
 }
 
 #[test]
+fn doctor_without_topic_flags_uses_registry_defaults() {
+    let temp = tempdir().expect("tempdir should exist");
+    let rules_dir = temp.path().join("rules");
+    let policy_path = temp.path().join("policy.yaml");
+    let agent_root = temp.path().join("agent-root");
+
+    fs::create_dir_all(&rules_dir).expect("rules dir should exist");
+    fs::create_dir_all(&agent_root).expect("agent root should exist");
+    fs::write(agent_root.join("session.log"), vec![1_u8; 220]).expect("agent file should exist");
+
+    write_policy(&policy_path);
+    write_agent_rule(&rules_dir, &agent_root);
+
+    let output = Command::new(aidisk_bin())
+        .args([
+            "doctor",
+            "--rules-dir",
+            rules_dir.to_str().expect("rules dir should be utf-8"),
+            "--policy",
+            policy_path.to_str().expect("policy path should be utf-8"),
+            "--json",
+        ])
+        .output()
+        .expect("doctor command should run");
+
+    assert!(
+        output.status.success(),
+        "doctor should succeed, stderr was: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("doctor json output should parse");
+    let names = parsed["topics"]
+        .as_array()
+        .expect("topics should be an array")
+        .iter()
+        .map(|topic| topic["name"].as_str().expect("topic name should be string"))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        names,
+        vec!["docker", "wsl", "ollama", "huggingface", "playwright", "agents"]
+    );
+}
+
+#[test]
 fn doctor_latest_requires_two_snapshots_with_doctor_specific_message() {
     let temp = tempdir().expect("tempdir should exist");
     let rules_dir = temp.path().join("rules");

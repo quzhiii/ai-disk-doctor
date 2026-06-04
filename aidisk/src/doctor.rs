@@ -98,6 +98,21 @@ pub struct DoctorOptions {
     pub probe_tools: bool,
 }
 
+impl DoctorOptions {
+    #[cfg(test)]
+    fn default_disabled() -> Self {
+        Self {
+            docker: false,
+            wsl: false,
+            ollama: false,
+            playwright: false,
+            huggingface: false,
+            agents: false,
+            probe_tools: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DoctorTopicKey {
     Docker,
@@ -218,6 +233,33 @@ fn doctor_topic_enabled(options: DoctorOptions, key: DoctorTopicKey) -> bool {
         DoctorTopicKey::HuggingFace => options.huggingface,
         DoctorTopicKey::Playwright => options.playwright,
         DoctorTopicKey::Agents => options.agents,
+    }
+}
+
+fn set_doctor_topic_enabled(options: &mut DoctorOptions, key: DoctorTopicKey) {
+    match key {
+        DoctorTopicKey::Docker => options.docker = true,
+        DoctorTopicKey::Wsl => options.wsl = true,
+        DoctorTopicKey::Ollama => options.ollama = true,
+        DoctorTopicKey::HuggingFace => options.huggingface = true,
+        DoctorTopicKey::Playwright => options.playwright = true,
+        DoctorTopicKey::Agents => options.agents = true,
+    }
+}
+
+pub fn apply_default_topics_if_none_selected(options: &mut DoctorOptions) {
+    let has_selected_topic = doctor_topic_specs()
+        .iter()
+        .any(|spec| doctor_topic_enabled(*options, spec.key));
+    if has_selected_topic {
+        return;
+    }
+
+    for spec in doctor_topic_specs()
+        .iter()
+        .filter(|spec| spec.default_enabled)
+    {
+        set_doctor_topic_enabled(options, spec.key);
     }
 }
 
@@ -803,6 +845,46 @@ mod tests {
 
         assert_eq!(topic.name, "huggingface");
         assert!(topic.probes.is_empty());
+    }
+
+    #[test]
+    fn apply_default_topics_uses_registry_metadata() {
+        let mut options = DoctorOptions::default_disabled();
+
+        super::apply_default_topics_if_none_selected(&mut options);
+
+        let enabled = super::doctor_topic_specs()
+            .iter()
+            .filter(|spec| super::doctor_topic_enabled(options, spec.key))
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>();
+        let defaults = super::doctor_topic_specs()
+            .iter()
+            .filter(|spec| spec.default_enabled)
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>();
+        assert_eq!(enabled, defaults);
+        assert!(options.docker);
+        assert!(options.agents);
+    }
+
+    #[test]
+    fn apply_default_topics_preserves_explicit_selection() {
+        let mut options = DoctorOptions {
+            docker: false,
+            wsl: false,
+            ollama: false,
+            playwright: false,
+            huggingface: false,
+            agents: true,
+            probe_tools: true,
+        };
+
+        super::apply_default_topics_if_none_selected(&mut options);
+
+        assert!(!options.docker);
+        assert!(options.agents);
+        assert!(options.probe_tools);
     }
 
     #[test]

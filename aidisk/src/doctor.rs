@@ -98,6 +98,129 @@ pub struct DoctorOptions {
     pub probe_tools: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DoctorTopicKey {
+    Docker,
+    Wsl,
+    Ollama,
+    HuggingFace,
+    Playwright,
+    Agents,
+}
+
+struct DoctorTopicSpec {
+    key: DoctorTopicKey,
+    name: &'static str,
+    default_enabled: bool,
+    matcher: fn(&Finding) -> bool,
+    recommendations: &'static [&'static str],
+    probe: Option<DoctorProbeSpec>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DoctorProbeSpec {
+    name: &'static str,
+    program: &'static str,
+    args: &'static [&'static str],
+}
+
+const DOCTOR_TOPIC_SPECS: &[DoctorTopicSpec] = &[
+    DoctorTopicSpec {
+        key: DoctorTopicKey::Docker,
+        name: "docker",
+        default_enabled: true,
+        matcher: is_docker_finding,
+        recommendations: &[
+            "Use `docker system df` to inspect image, cache, and volume usage.",
+            "Prefer `docker builder prune` and targeted prune commands over filesystem deletion.",
+            "Treat Docker virtual disk files and volume storage as report-only assets.",
+        ],
+        probe: Some(DoctorProbeSpec {
+            name: "docker-system-df",
+            program: "docker",
+            args: &["system", "df"],
+        }),
+    },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::Wsl,
+        name: "wsl",
+        default_enabled: true,
+        matcher: is_wsl_finding,
+        recommendations: &[
+            "Do not delete ext4.vhdx directly; use WSL export, compact, or relocation workflows.",
+            "Check whether large distros should be exported and re-imported to another drive.",
+        ],
+        probe: Some(DoctorProbeSpec {
+            name: "wsl-list-verbose",
+            program: "wsl",
+            args: &["--list", "--verbose"],
+        }),
+    },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::Ollama,
+        name: "ollama",
+        default_enabled: true,
+        matcher: is_ollama_finding,
+        recommendations: &[
+            "Run `ollama list` before cleanup so model names and sizes are explicit.",
+            "Remove unused models through model-aware commands instead of deleting blob paths directly.",
+        ],
+        probe: Some(DoctorProbeSpec {
+            name: "ollama-list",
+            program: "ollama",
+            args: &["list"],
+        }),
+    },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::HuggingFace,
+        name: "huggingface",
+        default_enabled: true,
+        matcher: is_huggingface_finding,
+        recommendations: &[
+            "Review which projects share this cache before deleting reusable downloads.",
+            "Prefer targeted cache cleanup or relocation over wiping the cache root blindly.",
+        ],
+        probe: None,
+    },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::Playwright,
+        name: "playwright",
+        default_enabled: true,
+        matcher: is_playwright_finding,
+        recommendations: &[
+            "Check whether browsers are being downloaded per project instead of via a shared cache.",
+            "If browser downloads are repeated, centralize Playwright browser storage before deleting caches.",
+        ],
+        probe: None,
+    },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::Agents,
+        name: "agents",
+        default_enabled: true,
+        matcher: is_ai_tooling_finding,
+        recommendations: &[
+            "Treat AI agent roots as review-only because they may contain chat history, sessions, settings, and cached tool state.",
+            "Use the breakdown to identify cache-like children before planning cleanup; do not delete agent roots blindly.",
+        ],
+        probe: None,
+    },
+];
+
+fn doctor_topic_specs() -> &'static [DoctorTopicSpec] {
+    DOCTOR_TOPIC_SPECS
+}
+
+fn doctor_topic_enabled(options: DoctorOptions, key: DoctorTopicKey) -> bool {
+    match key {
+        DoctorTopicKey::Docker => options.docker,
+        DoctorTopicKey::Wsl => options.wsl,
+        DoctorTopicKey::Ollama => options.ollama,
+        DoctorTopicKey::HuggingFace => options.huggingface,
+        DoctorTopicKey::Playwright => options.playwright,
+        DoctorTopicKey::Agents => options.agents,
+    }
+}
+
 pub fn build_doctor(
     scan_report: &ScanReport,
     options: DoctorOptions,
@@ -531,6 +654,26 @@ fn enrich_recommendations(
     recommendations
 }
 
+fn is_docker_finding(finding: &Finding) -> bool {
+    finding.category == "docker"
+}
+
+fn is_wsl_finding(finding: &Finding) -> bool {
+    finding.category == "wsl"
+}
+
+fn is_ollama_finding(finding: &Finding) -> bool {
+    finding.id == "ollama-models"
+}
+
+fn is_huggingface_finding(finding: &Finding) -> bool {
+    finding.id == "huggingface-cache"
+}
+
+fn is_playwright_finding(finding: &Finding) -> bool {
+    finding.id == "playwright-project-browsers" || finding.path.contains("ms-playwright")
+}
+
 fn is_ai_tooling_finding(finding: &Finding) -> bool {
     matches!(
         finding.category.as_str(),
@@ -653,6 +796,51 @@ mod tests {
                 max_scan_depth: 20,
             },
         }
+    }
+
+    #[test]
+    fn topic_registry_includes_existing_builtin_topics() {
+        let names = super::doctor_topic_specs()
+            .iter()
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            names,
+            vec!["docker", "wsl", "ollama", "huggingface", "playwright", "agents"]
+        );
+    }
+
+    #[test]
+    fn topic_registry_marks_default_topics() {
+        let defaults = super::doctor_topic_specs()
+            .iter()
+            .filter(|spec| spec.default_enabled)
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>();
+
+        assert!(defaults.contains(&"agents"));
+        assert!(defaults.contains(&"docker"));
+    }
+
+    #[test]
+    fn topic_registry_selection_uses_existing_option_flags() {
+        let options = DoctorOptions {
+            docker: true,
+            wsl: false,
+            ollama: false,
+            playwright: false,
+            huggingface: true,
+            agents: false,
+            probe_tools: false,
+        };
+        let enabled = super::doctor_topic_specs()
+            .iter()
+            .filter(|spec| super::doctor_topic_enabled(options, spec.key))
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(enabled, vec!["docker", "huggingface"]);
     }
 
     #[test]

@@ -118,6 +118,19 @@ fn cargo_toml_defines_release_profile_for_distributable_binary() {
 }
 
 #[test]
+fn github_actions_run_tests_and_build_windows_release_artifact() {
+    let ci = read_repo_file(".github/workflows/ci.yml");
+    let release = read_repo_file(".github/workflows/release-artifacts.yml");
+
+    assert!(ci.contains("cargo test"));
+    assert!(ci.contains("working-directory: aidisk"));
+    assert!(release.contains("cargo build --release"));
+    assert!(release.contains("windows-latest"));
+    assert!(release.contains("aidisk.exe"));
+    assert!(release.contains("actions/upload-artifact"));
+}
+
+#[test]
 fn repository_uses_dual_license_files_without_duplicate_root_license() {
     let root = repo_root();
 

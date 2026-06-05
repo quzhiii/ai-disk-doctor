@@ -241,6 +241,22 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 
+### JSON Error Contract
+
+When `--json` or `--format json` is selected and a command fails, `aidisk` writes one JSON error object to stderr and leaves stdout empty. Successful JSON reports are still written to stdout.
+
+```json
+{
+  "ok": false,
+  "error": {
+    "type": "usage",
+    "message": "restore execution requires --yes or use --dry-run",
+    "command": "restore",
+    "details": []
+  }
+}
+```
+
 ---
 
 ## Safety First

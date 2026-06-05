@@ -255,19 +255,33 @@ fn run(cli: Cli) -> Result<()> {
 
             if dry_run {
                 let clean_report = cleaner::build_dry_run(&plan_report);
-                println!(
-                    "{}",
-                    reporter::render_clean(&clean_report, effective_format)?
-                );
-
-                if let Some(quarantine_root) = quarantine_root {
-                    let quarantine_plan =
-                        cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
-                    println!();
+                if effective_format == OutputFormat::Json {
+                    let quarantine_plan = quarantine_root
+                        .as_deref()
+                        .map(|root| cleaner::build_quarantine_plan(&plan_report, root));
+                    let output = cleaner::CleanDryRunOutput {
+                        clean: clean_report,
+                        quarantine_plan,
+                    };
                     println!(
                         "{}",
-                        reporter::render_quarantine_plan(&quarantine_plan, effective_format)?
+                        reporter::render_clean_dry_run_output(&output, effective_format)?
                     );
+                } else {
+                    println!(
+                        "{}",
+                        reporter::render_clean(&clean_report, effective_format)?
+                    );
+
+                    if let Some(quarantine_root) = quarantine_root {
+                        let quarantine_plan =
+                            cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                        println!();
+                        println!(
+                            "{}",
+                            reporter::render_quarantine_plan(&quarantine_plan, effective_format)?
+                        );
+                    }
                 }
             } else {
                 if !yes {

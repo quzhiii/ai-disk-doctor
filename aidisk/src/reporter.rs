@@ -92,10 +92,27 @@ fn render_text(report: &ScanReport) -> String {
             "Reclaimable Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
-        String::new(),
-        "Top Findings:".to_string(),
     ];
 
+    lines.push(String::new());
+    lines.extend(render_scan_executive_summary_lines(report, false));
+
+    if !report.volumes.is_empty() {
+        lines.push(String::new());
+        lines.push("Volumes:".to_string());
+        for volume in &report.volumes {
+            lines.push(format!(
+                "- {} ({}) | free={} | total={}",
+                display_volume_name(volume),
+                volume.mount_point,
+                human_bytes(volume.available_bytes),
+                human_bytes(volume.total_bytes)
+            ));
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("Top Findings:".to_string());
     for finding in &report.summary.top_findings {
         lines.push(format!(
             "- [{}] {} | {}",
@@ -107,25 +124,6 @@ fn render_text(report: &ScanReport) -> String {
 
     lines.push(String::new());
     lines.push("Findings:".to_string());
-
-    if !report.volumes.is_empty() {
-        lines.splice(11..11, [String::new(), "Volumes:".to_string()]);
-        let insert_at = 13;
-        for (index, volume) in report.volumes.iter().enumerate() {
-            lines.insert(
-                insert_at + index,
-                format!(
-                    "- {} ({}) | free={} | total={}",
-                    display_volume_name(volume),
-                    volume.mount_point,
-                    human_bytes(volume.available_bytes),
-                    human_bytes(volume.total_bytes)
-                ),
-            );
-        }
-        lines.push("Volumes:".to_string());
-    }
-
     for finding in &report.findings {
         lines.push(format!(
             "- [{}] {} | exists={} | {} | {}",
@@ -156,55 +154,47 @@ fn render_markdown(report: &ScanReport) -> String {
             "- Reclaimable Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
-        String::new(),
-        "## Top Findings".to_string(),
-        String::new(),
-        "| Risk | Path | Size |".to_string(),
-        "|---|---|---:|".to_string(),
-        String::new(),
-        "## Findings".to_string(),
-        String::new(),
-        "| Risk | Path | Exists | Size | Action |".to_string(),
-        "|---|---|---:|---:|---|".to_string(),
     ];
 
-    for finding in &report.summary.top_findings {
-        lines.insert(
-            15,
-            format!(
-                "| {} | `{}` | {} |",
-                risk_label(&finding.risk),
-                finding.path,
-                human_bytes(finding.size_bytes)
-            ),
-        );
-    }
+    lines.push(String::new());
+    lines.extend(render_scan_executive_summary_lines(report, true));
 
     if !report.volumes.is_empty() {
-        lines.splice(
-            12..12,
-            [
-                "## Volumes".to_string(),
-                String::new(),
-                "| Name | Mount | Free | Total |".to_string(),
-                "|---|---|---:|---:|".to_string(),
-            ],
-        );
-
+        lines.push(String::new());
+        lines.push("## Volumes".to_string());
+        lines.push(String::new());
+        lines.push("| Name | Mount | Free | Total |".to_string());
+        lines.push("|---|---|---:|---:|".to_string());
         for volume in &report.volumes {
-            lines.insert(
-                16,
-                format!(
-                    "| {} | `{}` | {} | {} |",
-                    display_volume_name(volume),
-                    volume.mount_point,
-                    human_bytes(volume.available_bytes),
-                    human_bytes(volume.total_bytes)
-                ),
-            );
+            lines.push(format!(
+                "| {} | `{}` | {} | {} |",
+                display_volume_name(volume),
+                volume.mount_point,
+                human_bytes(volume.available_bytes),
+                human_bytes(volume.total_bytes)
+            ));
         }
     }
 
+    lines.push(String::new());
+    lines.push("## Top Findings".to_string());
+    lines.push(String::new());
+    lines.push("| Risk | Path | Size |".to_string());
+    lines.push("|---|---|---:|".to_string());
+    for finding in &report.summary.top_findings {
+        lines.push(format!(
+            "| {} | `{}` | {} |",
+            risk_label(&finding.risk),
+            finding.path,
+            human_bytes(finding.size_bytes)
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push("## Findings".to_string());
+    lines.push(String::new());
+    lines.push("| Risk | Path | Exists | Size | Action |".to_string());
+    lines.push("|---|---|---:|---:|---|".to_string());
     for finding in &report.findings {
         lines.push(format!(
             "| {} | `{}` | {} | {} | {} |",
@@ -598,6 +588,9 @@ fn render_doctor_text(report: &DoctorReport) -> String {
         format!("Policy: {}", report.policy_summary),
     ];
 
+    lines.push(String::new());
+    lines.extend(render_doctor_executive_summary_lines(report, false));
+
     if let Some(latest_diff) = &report.latest_diff {
         lines.push(String::new());
         lines.push("Latest Diff:".to_string());
@@ -766,6 +759,9 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         format!("- Policy: {}", report.policy_summary),
     ];
 
+    lines.push(String::new());
+    lines.extend(render_doctor_executive_summary_lines(report, true));
+
     if let Some(latest_diff) = &report.latest_diff {
         lines.push(String::new());
         lines.push("## Latest Diff".to_string());
@@ -917,6 +913,131 @@ fn human_bytes(bytes: u64) -> String {
     } else {
         format!("{value:.2} {}", UNITS[unit])
     }
+}
+
+fn render_scan_executive_summary_lines(report: &ScanReport, markdown: bool) -> Vec<String> {
+    let protected_bytes = report
+        .summary
+        .dangerous_bytes
+        .saturating_add(report.summary.system_bytes);
+    let total = report.summary.total_size_bytes;
+    let prefix = if markdown { "- " } else { "" };
+    let mut lines = vec![
+        if markdown {
+            "## Executive Summary".to_string()
+        } else {
+            "Executive Summary:".to_string()
+        },
+        String::new(),
+        format!(
+            "{prefix}Reclaimable now: {}",
+            human_bytes(report.summary.reclaimable_safe_bytes)
+        ),
+        format!(
+            "{prefix}Needs review: {}",
+            human_bytes(report.summary.review_bytes)
+        ),
+        format!(
+            "{prefix}High risk/system protected: {}",
+            human_bytes(protected_bytes)
+        ),
+        String::new(),
+        if markdown {
+            "### Risk Distribution".to_string()
+        } else {
+            "Risk Distribution:".to_string()
+        },
+    ];
+
+    for (label, bytes) in [
+        ("SAFE", report.summary.safe_bytes),
+        ("REVIEW", report.summary.review_bytes),
+        ("DANGEROUS", report.summary.dangerous_bytes),
+        ("SYSTEM", report.summary.system_bytes),
+    ] {
+        lines.push(format!(
+            "{label}: {} {}",
+            risk_bar(bytes, total, 12),
+            human_bytes(bytes)
+        ));
+    }
+
+    lines
+}
+
+fn render_doctor_executive_summary_lines(report: &DoctorReport, markdown: bool) -> Vec<String> {
+    let active_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "active")
+        .count();
+    let not_detected_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "not-detected")
+        .count();
+    let no_rules_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "no-rules")
+        .count();
+    let topic_sizes = report
+        .topics
+        .iter()
+        .map(|topic| {
+            let observed_bytes = topic
+                .findings
+                .iter()
+                .filter(|finding| finding.exists)
+                .map(|finding| finding.size_bytes)
+                .sum::<u64>();
+            (topic.name.as_str(), observed_bytes)
+        })
+        .collect::<Vec<_>>();
+    let total = topic_sizes
+        .iter()
+        .map(|(_, observed_bytes)| *observed_bytes)
+        .sum::<u64>();
+    let prefix = if markdown { "- " } else { "" };
+    let mut lines = vec![
+        if markdown {
+            "## Executive Summary".to_string()
+        } else {
+            "Executive Summary:".to_string()
+        },
+        String::new(),
+        format!("{prefix}Active topics: {active_topics}"),
+        format!("{prefix}Not detected topics: {not_detected_topics}"),
+        format!("{prefix}No-rules topics: {no_rules_topics}"),
+        String::new(),
+        if markdown {
+            "### Topic Size Distribution".to_string()
+        } else {
+            "Topic Size Distribution:".to_string()
+        },
+    ];
+
+    for (name, observed_bytes) in topic_sizes {
+        lines.push(format!(
+            "{name}: {} {}",
+            risk_bar(observed_bytes, total, 12),
+            human_bytes(observed_bytes)
+        ));
+    }
+
+    lines
+}
+
+fn risk_bar(value: u64, total: u64, width: usize) -> String {
+    if width == 0 {
+        return String::new();
+    }
+    if total == 0 || value == 0 {
+        return "░".repeat(width);
+    }
+
+    let filled = (((value as f64 / total as f64) * width as f64).round() as usize).clamp(1, width);
+    format!("{}{}", "█".repeat(filled), "░".repeat(width - filled))
 }
 
 #[cfg(test)]
@@ -1204,5 +1325,112 @@ mod tests {
         assert!(output.contains("shrunk=1"));
         assert!(output.contains("appeared=3"));
         assert!(output.contains("disappeared=4"));
+    }
+
+    #[test]
+    fn scan_markdown_renders_executive_summary_and_unicode_risk_bars() {
+        let report = crate::scanner::ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::new(),
+            findings: Vec::new(),
+            summary: crate::scanner::Summary {
+                total_rules: 3,
+                matched_paths: 2,
+                total_size_bytes: 10,
+                safe_bytes: 6,
+                review_bytes: 3,
+                dangerous_bytes: 1,
+                system_bytes: 0,
+                top_findings: Vec::new(),
+                reclaimable_safe_bytes: 6,
+            },
+        };
+
+        let output = super::render(&report, OutputFormat::Markdown)
+            .expect("scan markdown should render");
+
+        assert!(output.contains("## Executive Summary"));
+        assert!(output.contains("Reclaimable now: 6 B"));
+        assert!(output.contains("Risk Distribution"));
+        assert!(output.contains("SAFE"));
+        assert!(output.contains("REVIEW"));
+        assert!(output.contains("DANGEROUS"));
+        assert!(output.contains('█'));
+    }
+
+    #[test]
+    fn scan_json_does_not_gain_executive_summary_text() {
+        let report = crate::scanner::ScanReport {
+            scan_time: Local::now(),
+            volumes: Vec::new(),
+            findings: Vec::new(),
+            summary: crate::scanner::Summary::default(),
+        };
+
+        let output = super::render(&report, OutputFormat::Json).expect("scan json should render");
+
+        assert!(!output.contains("Executive Summary"));
+        assert!(!output.contains('█'));
+    }
+
+    #[test]
+    fn doctor_markdown_renders_executive_summary_and_topic_bars() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: None,
+            topics: vec![
+                DoctorTopic {
+                    name: "agents".to_string(),
+                    status: "active".to_string(),
+                    summary: "2 matching items".to_string(),
+                    findings: vec![DoctorFinding {
+                        id: "agent".to_string(),
+                        path: "C:\\Users\\demo\\.claude".to_string(),
+                        exists: true,
+                        size_bytes: 6,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "agent state".to_string(),
+                        breakdown: Vec::new(),
+                    }],
+                    recommendations: Vec::new(),
+                    probes: Vec::new(),
+                },
+                DoctorTopic {
+                    name: "docker".to_string(),
+                    status: "not-detected".to_string(),
+                    summary: "not found".to_string(),
+                    findings: Vec::new(),
+                    recommendations: Vec::new(),
+                    probes: Vec::new(),
+                },
+            ],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown)
+            .expect("doctor markdown should render");
+
+        assert!(output.contains("## Executive Summary"));
+        assert!(output.contains("Active topics: 1"));
+        assert!(output.contains("Not detected topics: 1"));
+        assert!(output.contains("Topic Size Distribution"));
+        assert!(output.contains("agents"));
+        assert!(output.contains('█'));
+    }
+
+    #[test]
+    fn doctor_json_does_not_gain_executive_summary_text() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: None,
+            topics: Vec::new(),
+        };
+
+        let output = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
+
+        assert!(!output.contains("Executive Summary"));
+        assert!(!output.contains('█'));
     }
 }

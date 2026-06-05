@@ -1,0 +1,24 @@
+name: Release Artifacts
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: aidisk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release
+      - name: Upload aidisk.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: aidisk-windows-x86_64
+          path: aidisk/target/release/aidisk.exe

@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Parser, Debug)]
 #[command(name = "aidisk")]
@@ -176,7 +177,7 @@ fn main() -> Result<()> {
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let report = scanner::scan(&rules, 20)?;
+            let report = scan_with_optional_progress(&rules, 20, effective_format)?;
             history::save_scan_snapshot(&report, &history::default_reports_dir())?;
             println!("{}", reporter::render(&report, effective_format)?);
         }
@@ -204,7 +205,11 @@ fn main() -> Result<()> {
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let scan_report = scanner::scan(&rules, policy.planner.max_scan_depth)?;
+            let scan_report = scan_with_optional_progress(
+                &rules,
+                policy.planner.max_scan_depth,
+                effective_format,
+            )?;
             let plan_report = planner::build_plan(
                 &scan_report,
                 planner::PlanOptions {
@@ -241,7 +246,11 @@ fn main() -> Result<()> {
             let policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let scan_report = scanner::scan(&rules, policy.planner.max_scan_depth)?;
+            let scan_report = scan_with_optional_progress(
+                &rules,
+                policy.planner.max_scan_depth,
+                effective_format,
+            )?;
             let plan_report = planner::build_plan(
                 &scan_report,
                 planner::PlanOptions {
@@ -368,7 +377,11 @@ fn main() -> Result<()> {
             let policy_path = policy.unwrap_or_else(default_policy_path);
             let loaded_policy = policy::load_policy(&policy_path)?;
             let rules = rules::load_rules(&rules_dir)?;
-            let scan_report = scanner::scan(&rules, loaded_policy.planner.max_scan_depth)?;
+            let scan_report = scan_with_optional_progress(
+                &rules,
+                loaded_policy.planner.max_scan_depth,
+                effective_format,
+            )?;
             let latest_diff = if latest {
                 let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
                 let (before, after) =
@@ -427,8 +440,60 @@ fn resolve_rules_dir(rules_dir: Option<PathBuf>, rules_repo: Option<String>) -> 
     Ok(default_rules_dir())
 }
 
+fn scan_with_optional_progress(
+    rules: &[rules::Rule],
+    max_scan_depth: usize,
+    format: OutputFormat,
+) -> Result<scanner::ScanReport> {
+    if !progress_enabled(format) {
+        return scanner::scan(rules, max_scan_depth);
+    }
+
+    let progress = ProgressBar::new(rules.len() as u64);
+    let style = ProgressStyle::with_template(
+        "{spinner:.green} scanning [{bar:20.cyan/blue}] {pos}/{len} {msg}",
+    )
+    .unwrap_or_else(|_| ProgressStyle::default_bar())
+    .progress_chars("=> ");
+    progress.set_style(style);
+
+    let result = scanner::scan_with_progress(rules, max_scan_depth, |event| {
+        progress.set_length(event.total as u64);
+        progress.set_position(event.current as u64);
+        progress.set_message(event.rule_id.to_string());
+    });
+    progress.finish_and_clear();
+    result
+}
+
+fn progress_enabled(format: OutputFormat) -> bool {
+    progress_enabled_for(
+        format,
+        std::env::var_os("CI").is_some(),
+        console::Term::stderr().is_term(),
+    )
+}
+
+fn progress_enabled_for(format: OutputFormat, ci_present: bool, stderr_is_term: bool) -> bool {
+    format != OutputFormat::Json && !ci_present && stderr_is_term
+}
+
 fn default_policy_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("config")
         .join("policy.yaml")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{progress_enabled_for, OutputFormat};
+
+    #[test]
+    fn progress_enabled_for_only_allows_interactive_non_json_output() {
+        assert!(progress_enabled_for(OutputFormat::Text, false, true));
+        assert!(progress_enabled_for(OutputFormat::Markdown, false, true));
+        assert!(!progress_enabled_for(OutputFormat::Json, false, true));
+        assert!(!progress_enabled_for(OutputFormat::Text, true, true));
+        assert!(!progress_enabled_for(OutputFormat::Text, false, false));
+    }
 }

@@ -588,6 +588,9 @@ fn render_doctor_text(report: &DoctorReport) -> String {
         format!("Policy: {}", report.policy_summary),
     ];
 
+    lines.push(String::new());
+    lines.extend(render_doctor_executive_summary_lines(report, false));
+
     if let Some(latest_diff) = &report.latest_diff {
         lines.push(String::new());
         lines.push("Latest Diff:".to_string());
@@ -755,6 +758,9 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         format!("- Generated At: {}", report.generated_at),
         format!("- Policy: {}", report.policy_summary),
     ];
+
+    lines.push(String::new());
+    lines.extend(render_doctor_executive_summary_lines(report, true));
 
     if let Some(latest_diff) = &report.latest_diff {
         lines.push(String::new());
@@ -953,6 +959,69 @@ fn render_scan_executive_summary_lines(report: &ScanReport, markdown: bool) -> V
             "{label}: {} {}",
             risk_bar(bytes, total, 12),
             human_bytes(bytes)
+        ));
+    }
+
+    lines
+}
+
+fn render_doctor_executive_summary_lines(report: &DoctorReport, markdown: bool) -> Vec<String> {
+    let active_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "active")
+        .count();
+    let not_detected_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "not-detected")
+        .count();
+    let no_rules_topics = report
+        .topics
+        .iter()
+        .filter(|topic| topic.status == "no-rules")
+        .count();
+    let topic_sizes = report
+        .topics
+        .iter()
+        .map(|topic| {
+            let observed_bytes = topic
+                .findings
+                .iter()
+                .filter(|finding| finding.exists)
+                .map(|finding| finding.size_bytes)
+                .sum::<u64>();
+            (topic.name.as_str(), observed_bytes)
+        })
+        .collect::<Vec<_>>();
+    let total = topic_sizes
+        .iter()
+        .map(|(_, observed_bytes)| *observed_bytes)
+        .sum::<u64>();
+    let prefix = if markdown { "- " } else { "" };
+    let mut lines = vec![
+        if markdown {
+            "## Executive Summary".to_string()
+        } else {
+            "Executive Summary:".to_string()
+        },
+        String::new(),
+        format!("{prefix}Active topics: {active_topics}"),
+        format!("{prefix}Not detected topics: {not_detected_topics}"),
+        format!("{prefix}No-rules topics: {no_rules_topics}"),
+        String::new(),
+        if markdown {
+            "### Topic Size Distribution".to_string()
+        } else {
+            "Topic Size Distribution:".to_string()
+        },
+    ];
+
+    for (name, observed_bytes) in topic_sizes {
+        lines.push(format!(
+            "{name}: {} {}",
+            risk_bar(observed_bytes, total, 12),
+            human_bytes(observed_bytes)
         ));
     }
 
@@ -1299,6 +1368,67 @@ mod tests {
         };
 
         let output = super::render(&report, OutputFormat::Json).expect("scan json should render");
+
+        assert!(!output.contains("Executive Summary"));
+        assert!(!output.contains('█'));
+    }
+
+    #[test]
+    fn doctor_markdown_renders_executive_summary_and_topic_bars() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: None,
+            topics: vec![
+                DoctorTopic {
+                    name: "agents".to_string(),
+                    status: "active".to_string(),
+                    summary: "2 matching items".to_string(),
+                    findings: vec![DoctorFinding {
+                        id: "agent".to_string(),
+                        path: "C:\\Users\\demo\\.claude".to_string(),
+                        exists: true,
+                        size_bytes: 6,
+                        risk: "review".to_string(),
+                        action: "report-only".to_string(),
+                        reason: "agent state".to_string(),
+                        breakdown: Vec::new(),
+                    }],
+                    recommendations: Vec::new(),
+                    probes: Vec::new(),
+                },
+                DoctorTopic {
+                    name: "docker".to_string(),
+                    status: "not-detected".to_string(),
+                    summary: "not found".to_string(),
+                    findings: Vec::new(),
+                    recommendations: Vec::new(),
+                    probes: Vec::new(),
+                },
+            ],
+        };
+
+        let output = render_doctor(&report, OutputFormat::Markdown)
+            .expect("doctor markdown should render");
+
+        assert!(output.contains("## Executive Summary"));
+        assert!(output.contains("Active topics: 1"));
+        assert!(output.contains("Not detected topics: 1"));
+        assert!(output.contains("Topic Size Distribution"));
+        assert!(output.contains("agents"));
+        assert!(output.contains('█'));
+    }
+
+    #[test]
+    fn doctor_json_does_not_gain_executive_summary_text() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "test policy".to_string(),
+            latest_diff: None,
+            topics: Vec::new(),
+        };
+
+        let output = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
 
         assert!(!output.contains("Executive Summary"));
         assert!(!output.contains('█'));

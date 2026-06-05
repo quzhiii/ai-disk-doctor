@@ -85,6 +85,7 @@ Doctor V2 增强了 AI 时代的诊断能力，同时保持默认只读和保守
 | 能力 | 说明 |
 |-----------|-------------|
 | **智能扫描** | 发现 AI 模型（Ollama、Hugging Face）、AI IDE/CLI、浏览器、Docker、WSL、Playwright、安装包和测试产物的空间占用 |
+| **开发产物覆盖** | 识别 `node_modules`、Rust `target/`、Gradle 缓存、Python `__pycache__`、`dist/`、`.next`、`.turbo` 等常见可再生成产物 |
 | **规则驱动分类** | 每个路径通过 YAML 规则评估风险等级：`safe`、`careful`、`dangerous`。无硬编码路径。 |
 | **默认仅预览** | 所有破坏性操作执行前预览变更。真实执行需显式 `--yes`。 |
 | **隔离模式** | 将文件移动到指定归档文件夹而非直接删除。支持完整恢复，含冲突检测。 |

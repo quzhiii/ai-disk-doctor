@@ -61,7 +61,24 @@ pub struct TopFinding {
     pub size_bytes: u64,
 }
 
+pub struct ScanProgressEvent<'a> {
+    pub current: usize,
+    pub total: usize,
+    pub rule_id: &'a str,
+}
+
 pub fn scan(rules: &[Rule], max_scan_depth: usize) -> Result<ScanReport> {
+    scan_with_progress(rules, max_scan_depth, |_| {})
+}
+
+pub fn scan_with_progress<F>(
+    rules: &[Rule],
+    max_scan_depth: usize,
+    mut on_progress: F,
+) -> Result<ScanReport>
+where
+    F: FnMut(ScanProgressEvent<'_>),
+{
     let mut findings = Vec::new();
     let volumes = collect_volumes();
     let mut summary = Summary {
@@ -69,7 +86,13 @@ pub fn scan(rules: &[Rule], max_scan_depth: usize) -> Result<ScanReport> {
         ..Summary::default()
     };
 
-    for rule in rules {
+    for (index, rule) in rules.iter().enumerate() {
+        on_progress(ScanProgressEvent {
+            current: index + 1,
+            total: rules.len(),
+            rule_id: &rule.id,
+        });
+
         for raw_path in &rule.paths {
             let expanded_path = expand_windows_path(raw_path);
             let matched_paths = resolve_rule_paths(&expanded_path)?;
@@ -228,6 +251,58 @@ mod tests {
 
         assert_eq!(finding.size_bytes, 42);
         assert_eq!(finding.risk, RiskLevel::Safe);
+    }
+
+    #[test]
+    fn scan_with_progress_reports_rule_steps() {
+        let temp = tempdir().expect("tempdir should exist");
+        let first = temp.path().join("first-cache");
+        let second = temp.path().join("second-cache");
+        fs::create_dir_all(&first).expect("first dir should exist");
+        fs::create_dir_all(&second).expect("second dir should exist");
+
+        let rules = vec![
+            crate::rules::Rule {
+                id: "first".to_string(),
+                name: "First".to_string(),
+                category: "test".to_string(),
+                platform: "windows".to_string(),
+                paths: vec![first.display().to_string()],
+                risk: RiskLevel::Safe,
+                cleanup: crate::rules::Cleanup {
+                    method: "quarantine".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "first".to_string(),
+                warnings: Vec::new(),
+            },
+            crate::rules::Rule {
+                id: "second".to_string(),
+                name: "Second".to_string(),
+                category: "test".to_string(),
+                platform: "windows".to_string(),
+                paths: vec![second.display().to_string()],
+                risk: RiskLevel::Review,
+                cleanup: crate::rules::Cleanup {
+                    method: "report-only".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "second".to_string(),
+                warnings: Vec::new(),
+            },
+        ];
+        let mut events = Vec::new();
+
+        let report = super::scan_with_progress(&rules, 20, |event| {
+            events.push((event.current, event.total, event.rule_id.to_string()));
+        })
+        .expect("scan should succeed");
+
+        assert_eq!(report.summary.total_rules, 2);
+        assert_eq!(
+            events,
+            vec![(1, 2, "first".to_string()), (2, 2, "second".to_string())]
+        );
     }
 }
 

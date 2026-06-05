@@ -131,6 +131,14 @@ fn github_actions_run_tests_and_build_windows_release_artifact() {
 }
 
 #[test]
+fn cargo_toml_includes_progress_terminal_dependencies() {
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+
+    assert!(cargo_toml.contains("indicatif"));
+    assert!(cargo_toml.contains("console"));
+}
+
+#[test]
 fn repository_uses_dual_license_files_without_duplicate_root_license() {
     let root = repo_root();
 

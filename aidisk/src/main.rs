@@ -155,7 +155,20 @@ pub enum OutputFormat {
 }
 
 fn main() -> std::process::ExitCode {
-    let cli = Cli::parse();
+    let raw_args = std::env::args().collect::<Vec<_>>();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => {
+            let context = ErrorContext::from_raw_args(&raw_args);
+            return if context.format == OutputFormat::Json {
+                emit_clap_error(&context, &error);
+                std::process::ExitCode::FAILURE
+            } else {
+                let _ = error.print();
+                std::process::ExitCode::from(error.exit_code() as u8)
+            };
+        }
+    };
     let error_context = ErrorContext::from_command(&cli.command);
 
     match run(cli) {
@@ -432,6 +445,29 @@ struct JsonErrorBody {
 }
 
 impl ErrorContext {
+    fn from_raw_args(args: &[String]) -> Self {
+        let command = args
+            .iter()
+            .skip(1)
+            .find_map(|arg| match arg.as_str() {
+                "scan" => Some("scan"),
+                "plan" => Some("plan"),
+                "clean" => Some("clean"),
+                "restore" => Some("restore"),
+                "diff" => Some("diff"),
+                "doctor" => Some("doctor"),
+                _ => None,
+            })
+            .unwrap_or("aidisk");
+        let format = if raw_args_request_json(args) {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Text
+        };
+
+        Self { command, format }
+    }
+
     fn from_command(command: &Command) -> Self {
         match command {
             Command::Scan {
@@ -492,6 +528,17 @@ impl ErrorContext {
     }
 }
 
+fn raw_args_request_json(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == "--json")
+        || args
+            .windows(2)
+            .any(|window| window[0] == "--format" && window[1].eq_ignore_ascii_case("json"))
+        || args.iter().any(|arg| {
+            arg.strip_prefix("--format=")
+                .is_some_and(|value| value.eq_ignore_ascii_case("json"))
+        })
+}
+
 fn effective_format(format: OutputFormat, json: bool, markdown: bool) -> OutputFormat {
     if json {
         OutputFormat::Json
@@ -522,6 +569,25 @@ fn emit_error(context: &ErrorContext, error: &anyhow::Error) {
         }
     } else {
         eprintln!("Error: {error:?}");
+    }
+}
+
+fn emit_clap_error(context: &ErrorContext, error: &clap::Error) {
+    let envelope = JsonErrorEnvelope {
+        ok: false,
+        error: JsonErrorBody {
+            error_type: "usage".to_string(),
+            message: error.to_string(),
+            command: context.command.to_string(),
+            details: Vec::new(),
+        },
+    };
+    match serde_json::to_string_pretty(&envelope) {
+        Ok(output) => eprintln!("{output}"),
+        Err(render_error) => eprintln!(
+            "{{\"ok\":false,\"error\":{{\"type\":\"internal\",\"message\":\"failed to render JSON error: {render_error}\",\"command\":\"{}\",\"details\":[]}}}}",
+            context.command
+        ),
     }
 }
 

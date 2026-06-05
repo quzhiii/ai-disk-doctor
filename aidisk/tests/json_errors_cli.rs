@@ -136,6 +136,21 @@ fn restore_json_error_uses_same_contract_for_usage_errors() {
 }
 
 #[test]
+fn clap_parse_json_error_uses_same_contract_for_missing_required_args() {
+    let output = Command::new(aidisk_bin())
+        .args(["restore", "--json"])
+        .output()
+        .expect("restore should run");
+
+    let parsed = assert_json_error(&output, "restore");
+    assert_eq!(parsed["error"]["type"], "usage");
+    assert!(parsed["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("--index"));
+}
+
+#[test]
 fn diff_json_error_uses_same_contract() {
     let output = Command::new(aidisk_bin())
         .args(["diff", "--json"])

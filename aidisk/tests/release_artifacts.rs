@@ -105,3 +105,15 @@ fn crate_version_and_readme_reference_release_artifacts() {
     assert!(readme_zh.contains("docs/release-notes/v1.1.0.md"));
     assert!(readme.contains("scripts/release-smoke.ps1"));
 }
+
+#[test]
+fn repository_uses_dual_license_files_without_duplicate_root_license() {
+    let root = repo_root();
+
+    assert!(root.join("LICENSE-MIT").is_file());
+    assert!(root.join("LICENSE-APACHE").is_file());
+    assert!(
+        !root.join("LICENSE").exists(),
+        "root LICENSE duplicates the dual-license tabs on GitHub"
+    );
+}

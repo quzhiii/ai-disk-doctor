@@ -107,6 +107,17 @@ fn crate_version_and_readme_reference_release_artifacts() {
 }
 
 #[test]
+fn cargo_toml_defines_release_profile_for_distributable_binary() {
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+
+    assert!(cargo_toml.contains("[profile.release]"));
+    assert!(cargo_toml.contains("lto = \"thin\""));
+    assert!(cargo_toml.contains("strip = \"symbols\""));
+    assert!(cargo_toml.contains("codegen-units = 1"));
+    assert!(cargo_toml.contains("opt-level = \"z\""));
+}
+
+#[test]
 fn repository_uses_dual_license_files_without_duplicate_root_license() {
     let root = repo_root();
 

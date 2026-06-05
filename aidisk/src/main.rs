@@ -154,9 +154,33 @@ pub enum OutputFormat {
     Markdown,
 }
 
-fn main() -> Result<()> {
-    let cli = Cli::parse();
+fn main() -> std::process::ExitCode {
+    let raw_args = std::env::args().collect::<Vec<_>>();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => {
+            let context = ErrorContext::from_raw_args(&raw_args);
+            return if context.format == OutputFormat::Json {
+                emit_clap_error(&context, &error);
+                std::process::ExitCode::FAILURE
+            } else {
+                let _ = error.print();
+                std::process::ExitCode::from(error.exit_code() as u8)
+            };
+        }
+    };
+    let error_context = ErrorContext::from_command(&cli.command);
 
+    match run(cli) {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            emit_error(&error_context, &error);
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Command::Scan {
             format,
@@ -166,13 +190,7 @@ fn main() -> Result<()> {
             rules_dir,
             rules_repo,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -192,13 +210,7 @@ fn main() -> Result<()> {
             rules_repo,
             policy,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
@@ -233,13 +245,7 @@ fn main() -> Result<()> {
             policy,
             quarantine_root,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
@@ -262,19 +268,33 @@ fn main() -> Result<()> {
 
             if dry_run {
                 let clean_report = cleaner::build_dry_run(&plan_report);
-                println!(
-                    "{}",
-                    reporter::render_clean(&clean_report, effective_format)?
-                );
-
-                if let Some(quarantine_root) = quarantine_root {
-                    let quarantine_plan =
-                        cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
-                    println!();
+                if effective_format == OutputFormat::Json {
+                    let quarantine_plan = quarantine_root
+                        .as_deref()
+                        .map(|root| cleaner::build_quarantine_plan(&plan_report, root));
+                    let output = cleaner::CleanDryRunOutput {
+                        clean: clean_report,
+                        quarantine_plan,
+                    };
                     println!(
                         "{}",
-                        reporter::render_quarantine_plan(&quarantine_plan, effective_format)?
+                        reporter::render_clean_dry_run_output(&output, effective_format)?
                     );
+                } else {
+                    println!(
+                        "{}",
+                        reporter::render_clean(&clean_report, effective_format)?
+                    );
+
+                    if let Some(quarantine_root) = quarantine_root {
+                        let quarantine_plan =
+                            cleaner::build_quarantine_plan(&plan_report, &quarantine_root);
+                        println!();
+                        println!(
+                            "{}",
+                            reporter::render_quarantine_plan(&quarantine_plan, effective_format)?
+                        );
+                    }
                 }
             } else {
                 if !yes {
@@ -300,13 +320,7 @@ fn main() -> Result<()> {
             yes,
             index,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             if !dry_run && !yes {
                 anyhow::bail!("restore execution requires --yes or use --dry-run");
@@ -324,13 +338,7 @@ fn main() -> Result<()> {
             before,
             after,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             let (before, after) = if latest {
                 let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
@@ -365,13 +373,7 @@ fn main() -> Result<()> {
             rules_repo,
             policy,
         } => {
-            let effective_format = if json {
-                OutputFormat::Json
-            } else if markdown {
-                OutputFormat::Markdown
-            } else {
-                format
-            };
+            let effective_format = effective_format(format, json, markdown);
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let policy_path = policy.unwrap_or_else(default_policy_path);
@@ -419,6 +421,195 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct ErrorContext {
+    command: &'static str,
+    format: OutputFormat,
+}
+
+#[derive(serde::Serialize)]
+struct JsonErrorEnvelope {
+    ok: bool,
+    error: JsonErrorBody,
+}
+
+#[derive(serde::Serialize)]
+struct JsonErrorBody {
+    #[serde(rename = "type")]
+    error_type: String,
+    message: String,
+    command: String,
+    details: Vec<String>,
+}
+
+impl ErrorContext {
+    fn from_raw_args(args: &[String]) -> Self {
+        let command = args
+            .iter()
+            .skip(1)
+            .find_map(|arg| match arg.as_str() {
+                "scan" => Some("scan"),
+                "plan" => Some("plan"),
+                "clean" => Some("clean"),
+                "restore" => Some("restore"),
+                "diff" => Some("diff"),
+                "doctor" => Some("doctor"),
+                _ => None,
+            })
+            .unwrap_or("aidisk");
+        let format = if raw_args_request_json(args) {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Text
+        };
+
+        Self { command, format }
+    }
+
+    fn from_command(command: &Command) -> Self {
+        match command {
+            Command::Scan {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "scan",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Plan {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "plan",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Clean {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "clean",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Restore {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "restore",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Diff {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "diff",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Doctor {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "doctor",
+                format: effective_format(*format, *json, *markdown),
+            },
+        }
+    }
+}
+
+fn raw_args_request_json(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == "--json")
+        || args
+            .windows(2)
+            .any(|window| window[0] == "--format" && window[1].eq_ignore_ascii_case("json"))
+        || args.iter().any(|arg| {
+            arg.strip_prefix("--format=")
+                .is_some_and(|value| value.eq_ignore_ascii_case("json"))
+        })
+}
+
+fn effective_format(format: OutputFormat, json: bool, markdown: bool) -> OutputFormat {
+    if json {
+        OutputFormat::Json
+    } else if markdown {
+        OutputFormat::Markdown
+    } else {
+        format
+    }
+}
+
+fn emit_error(context: &ErrorContext, error: &anyhow::Error) {
+    if context.format == OutputFormat::Json {
+        let envelope = JsonErrorEnvelope {
+            ok: false,
+            error: JsonErrorBody {
+                error_type: classify_cli_error(error).to_string(),
+                message: error.to_string(),
+                command: context.command.to_string(),
+                details: Vec::new(),
+            },
+        };
+        match serde_json::to_string_pretty(&envelope) {
+            Ok(output) => eprintln!("{output}"),
+            Err(render_error) => eprintln!(
+                "{{\"ok\":false,\"error\":{{\"type\":\"internal\",\"message\":\"failed to render JSON error: {render_error}\",\"command\":\"{}\",\"details\":[]}}}}",
+                context.command
+            ),
+        }
+    } else {
+        eprintln!("Error: {error:?}");
+    }
+}
+
+fn emit_clap_error(context: &ErrorContext, error: &clap::Error) {
+    let envelope = JsonErrorEnvelope {
+        ok: false,
+        error: JsonErrorBody {
+            error_type: "usage".to_string(),
+            message: error.to_string(),
+            command: context.command.to_string(),
+            details: Vec::new(),
+        },
+    };
+    match serde_json::to_string_pretty(&envelope) {
+        Ok(output) => eprintln!("{output}"),
+        Err(render_error) => eprintln!(
+            "{{\"ok\":false,\"error\":{{\"type\":\"internal\",\"message\":\"failed to render JSON error: {render_error}\",\"command\":\"{}\",\"details\":[]}}}}",
+            context.command
+        ),
+    }
+}
+
+fn classify_cli_error(error: &anyhow::Error) -> &'static str {
+    let message = error.to_string().to_ascii_lowercase();
+    if message.contains("requires --yes")
+        || message.contains("requires --before")
+        || message.contains("requires --after")
+        || message.contains("requires --quarantine-root")
+    {
+        return "usage";
+    }
+    if message.contains("failed to read")
+        || message.contains("failed to parse")
+        || message.contains("requires at least two scan snapshots")
+        || message.contains("no such file")
+        || message.contains("not found")
+        || error.downcast_ref::<std::io::Error>().is_some()
+    {
+        return "input";
+    }
+    "execution"
 }
 
 fn default_rules_dir() -> PathBuf {

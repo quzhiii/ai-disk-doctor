@@ -243,6 +243,22 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
 
+### JSON 错误契约
+
+当选择 `--json` 或 `--format json` 且命令失败时，`aidisk` 会向 stderr 写入一个 JSON 错误对象，并保持 stdout 为空。成功的 JSON 报告仍写入 stdout。
+
+```json
+{
+  "ok": false,
+  "error": {
+    "type": "usage",
+    "message": "restore execution requires --yes or use --dry-run",
+    "command": "restore",
+    "details": []
+  }
+}
+```
+
 ---
 
 ## 安全第一

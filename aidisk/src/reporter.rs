@@ -1,6 +1,8 @@
 use anyhow::Result;
 
-use crate::cleaner::{CleanReport, ExecutionReport, QuarantinePlan, RestoreReport};
+use crate::cleaner::{
+    CleanDryRunOutput, CleanReport, ExecutionReport, QuarantinePlan, RestoreReport,
+};
 use crate::diff::DiffReport;
 use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
@@ -32,6 +34,19 @@ pub fn render_clean(report: &CleanReport, format: OutputFormat) -> Result<String
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_clean_markdown(report),
         OutputFormat::Text => render_clean_text(report),
+    };
+
+    Ok(output)
+}
+
+pub fn render_clean_dry_run_output(
+    report: &CleanDryRunOutput,
+    format: OutputFormat,
+) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_clean_markdown(&report.clean),
+        OutputFormat::Text => render_clean_text(&report.clean),
     };
 
     Ok(output)

@@ -21,6 +21,13 @@ pub struct CleanReport {
 }
 
 #[derive(Debug, Serialize)]
+pub struct CleanDryRunOutput {
+    #[serde(flatten)]
+    pub clean: CleanReport,
+    pub quarantine_plan: Option<QuarantinePlan>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct CleanAction {
     pub path: String,
     pub action: String,

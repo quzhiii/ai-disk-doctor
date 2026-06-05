@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added structured JSON error output for `--json` command failures. JSON-mode failures now write a single error object to stderr and keep stdout empty for consumers.
+- Fixed `clean --dry-run --json --quarantine-root` to emit a single parseable JSON document instead of two consecutive JSON documents.
+
 ## 1.1.0
 
 Doctor V2 release for AI tooling diagnostics and growth-aware topic analysis.

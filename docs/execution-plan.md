@@ -192,10 +192,22 @@ Doctor V2 roadmap：
 |---|---|---|
 | 规则库远程拉取与社区贡献模型 | rules 单独成 repo，支持 `--rules-repo <url>` | Completed |
 
+## Phase 7: Coverage And Discovery Roadmap
+
+基于 P1 结构化 JSON 错误完成后的下一轮产品优先级。目标是先扩大“立刻有用、低风险、规则驱动”的覆盖面，再补通用发现能力；避免进入复杂、低胜率的完整全盘扫描和分类清理。
+
+| 优先级 | 方向 | 验收标准 |
+|---|---|---|
+| P1 | 扩大规则覆盖面 | 内置规则覆盖 `node_modules`、`target/`、`.gradle`、`__pycache__`、`dist/`、`.next/`、`.turbo/` 等常见开发产物；不改核心扫描/清理架构；`scan --json` 和 `plan --safe-only --json` 可稳定呈现新增命中 |
+| P2 | 大文件发现模式 | 增加轻量只读 `scan --large-files --min-size <SIZE>`，输出按大小排序的大文件/目录列表；不分类、不给清理建议、不替代 WinDirStat/TreeSize |
+| P3 | 跨平台规则适配 | 在核心逻辑复用前提下补 Linux/macOS AI 工具路径，例如 `~/.ollama`、`~/.cache/huggingface`；重点是规则路径和环境变量展开适配 |
+
+明确不建议作为近期目标：完整全盘扫描 + 自动分类清理。该方向实现复杂度高，且正面对抗 WinDirStat/TreeSize，当前产品胜算不高。
+
 ### Immediate Next Steps
 
-1. Doctor V2 P3 的最小代码内 registry slice 已完成：默认 topics 与显式 flags 现在来自同一份 registry metadata。
-2. 下一步可评估是否把 topic metadata 外部化；在此之前不新增公开 `--topic` CLI。
+1. P1-1 结构化 JSON 错误已进入 PR：`--json` 错误输出统一 JSON envelope，`clean --dry-run --json --quarantine-root` 输出单文档。
+2. 下一轮优先做 Phase 7 P1：扩大规则覆盖面，先让现有工具在开发者机器上“立刻变强”。
 3. 继续保持 `doctor` 默认只读、`--probe-tools` 显式 opt-in、JSON 结构稳定、Markdown/Text 输出降噪。
 4. 每项完成后跑测试并本地提交。
 

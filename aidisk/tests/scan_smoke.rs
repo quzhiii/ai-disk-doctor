@@ -59,6 +59,25 @@ fn loads_expanded_ai_tooling_rule_yamls() {
 }
 
 #[test]
+fn loads_common_dev_artifact_rule_yaml() {
+    let content = fs::read_to_string("rules/dev-artifacts.yaml")
+        .expect("dev artifact rule should exist");
+
+    for term in [
+        "node_modules",
+        "target",
+        ".gradle",
+        "__pycache__",
+        "dist",
+        ".next",
+        ".turbo",
+        "category: dev-artifact",
+    ] {
+        assert!(content.contains(term), "dev artifact rules should include {term}");
+    }
+}
+
+#[test]
 fn example_glob_fixture_can_be_created() {
     let temp = tempdir().expect("tempdir should exist");
     let fixture = temp

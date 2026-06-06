@@ -30,3 +30,16 @@ fn repository_fixtures_cover_core_storage_shapes() {
     assert!(root.join(".cache/huggingface/hub/models--demo/model.bin").exists());
     assert!(root.join(".ollama/models/blobs/sha256-demo").exists());
 }
+
+#[test]
+fn repository_fixtures_cover_common_dev_artifacts() {
+    let root = Path::new("tests/fixtures/windows-user/projects/dev-artifacts-demo");
+
+    assert!(root.join("node_modules/pkg/index.js").exists());
+    assert!(root.join("target/debug/app.exe").exists());
+    assert!(root.join(".gradle/caches/modules-2/module.bin").exists());
+    assert!(root.join("src/__pycache__/module.pyc").exists());
+    assert!(root.join("dist/app.js").exists());
+    assert!(root.join(".next/cache/build.bin").exists());
+    assert!(root.join(".turbo/cache/hash.bin").exists());
+}

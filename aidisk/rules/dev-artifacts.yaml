@@ -1,0 +1,18 @@
+id: common-dev-artifacts
+name: Common development artifacts
+category: dev-artifact
+platform: windows
+paths:
+  - "%USERPROFILE%\\**\\node_modules"
+  - "%USERPROFILE%\\**\\target"
+  - "%USERPROFILE%\\**\\.gradle"
+  - "%USERPROFILE%\\**\\__pycache__"
+  - "%USERPROFILE%\\**\\dist"
+  - "%USERPROFILE%\\**\\.next"
+  - "%USERPROFILE%\\**\\.turbo"
+risk: safe
+cleanup:
+  method: quarantine
+reason: "Generated dependency, build, and framework cache artifacts can often be recreated. Review project context before cleanup."
+warnings:
+  - "Some projects may rely on generated artifacts for offline work; quarantine first and restore if needed."

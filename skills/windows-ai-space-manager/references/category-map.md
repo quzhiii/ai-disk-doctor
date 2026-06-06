@@ -13,6 +13,7 @@
 - `browser`: `doctor --playwright` 或 `scan --category browser`
 - `browser-cache`: `scan --category browser-cache`，通常可进入 safe-only 预演
 - `dev-cache`: `scan --category dev-cache` 或 `plan --safe-only`
+- `dev-artifact`: 可再生成的开发产物，例如 `node_modules`、Rust `target/`、Gradle cache、Python `__pycache__`、`dist/`、`.next/`、`.turbo/`
 - `docker`: `doctor --docker`
 - `models`: `doctor --ollama` 或 `doctor --huggingface`
 - `sensitive-sample`: 只报告，确认敏感路径阻断是否生效

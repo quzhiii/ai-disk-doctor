@@ -85,6 +85,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | Capability | What it does |
 |-----------|-------------|
 | **Intelligent Scanning** | Discover space usage across AI models (Ollama, Hugging Face), AI IDEs/CLIs, browsers, Docker, WSL, Playwright, installers, test artifacts, and dev artifacts |
+| **Developer Artifact Coverage** | Detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo` |
 | **Rule-Driven Classification** | Every path evaluated against YAML rules with risk levels: `safe`, `careful`, `dangerous`. No hardcoded paths. |
 | **Dry-Run by Default** | All destructive operations preview changes before touching disk. Explicit `--yes` required for real action. |
 | **Quarantine Pattern** | Move files to designated archive folder instead of deleting. Full restore with conflict detection. |

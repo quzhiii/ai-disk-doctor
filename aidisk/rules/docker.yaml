@@ -1,9 +1,10 @@
 id: docker-desktop-data
 name: Docker Desktop local data root
 category: docker
-platform: windows
+platform: cross-platform
 paths:
   - "%LOCALAPPDATA%\\Docker"
+  - "~/.docker"
 risk: review
 cleanup:
   method: report-only

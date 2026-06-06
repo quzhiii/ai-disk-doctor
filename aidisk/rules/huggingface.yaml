@@ -1,9 +1,10 @@
 id: huggingface-cache
 name: Hugging Face cache
 category: models
-platform: windows
+platform: cross-platform
 paths:
   - "%USERPROFILE%\\.cache\\huggingface"
+  - "~/.cache/huggingface"
 risk: review
 cleanup:
   method: guide

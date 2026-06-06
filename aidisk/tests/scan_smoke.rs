@@ -59,6 +59,17 @@ fn loads_expanded_ai_tooling_rule_yamls() {
 }
 
 #[test]
+fn loads_cross_platform_rule_paths() {
+    let models = fs::read_to_string("rules/models.yaml").expect("models rule should exist");
+    let huggingface = fs::read_to_string("rules/huggingface.yaml").expect("huggingface rule should exist");
+    let docker = fs::read_to_string("rules/docker.yaml").expect("docker rule should exist");
+
+    assert!(models.contains("~/.ollama"), "models should include unix ollama path");
+    assert!(huggingface.contains("~/.cache/huggingface"), "huggingface should include unix path");
+    assert!(docker.contains("~/.docker"), "docker should include unix path");
+}
+
+#[test]
 fn loads_common_dev_artifact_rule_yaml() {
     let content = fs::read_to_string("rules/dev-artifacts.yaml")
         .expect("dev artifact rule should exist");

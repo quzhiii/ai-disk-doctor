@@ -304,6 +304,102 @@ mod tests {
             vec![(1, 2, "first".to_string()), (2, 2, "second".to_string())]
         );
     }
+
+    #[test]
+    fn scan_large_files_discovers_entries_above_threshold() {
+        let temp = tempdir().expect("tempdir should exist");
+        let root = temp.path();
+        fs::create_dir_all(root.join("big-dir")).expect("big dir should exist");
+        fs::write(root.join("small.txt"), vec![0_u8; 100]).expect("small file should write");
+        fs::write(root.join("big-dir").join("large.bin"), vec![0_u8; 1000])
+            .expect("large file should write");
+        fs::write(root.join("big-dir").join("tiny.bin"), vec![0_u8; 10])
+            .expect("tiny file should write");
+
+        let report = super::scan_large_files(root, 500).expect("scan should succeed");
+
+        assert_eq!(report.scan_root, root.display().to_string());
+        assert_eq!(report.min_size_bytes, 500);
+        assert!(
+            report.entries.len() >= 1,
+            "should find at least one entry above 500 bytes"
+        );
+
+        let big_dir = report.entries.iter().find(|e| e.path.ends_with("big-dir"));
+        assert!(big_dir.is_some(), "should find big-dir directory");
+        assert!(big_dir.unwrap().is_directory);
+
+        let large_file = report
+            .entries
+            .iter()
+            .find(|e| e.path.ends_with("large.bin"));
+        assert!(large_file.is_some(), "should find large.bin");
+        assert!(!large_file.unwrap().is_directory);
+
+        assert!(
+            !report.entries.iter().any(|e| e.path.ends_with("small.txt")),
+            "small.txt should not appear below threshold"
+        );
+        assert!(
+            !report.entries.iter().any(|e| e.path.ends_with("tiny.bin")),
+            "tiny.bin should not appear below threshold"
+        );
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct LargeFilesReport {
+    pub scan_root: String,
+    pub min_size: String,
+    pub min_size_bytes: u64,
+    pub scan_time: DateTime<Local>,
+    pub entries: Vec<LargeFileEntry>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LargeFileEntry {
+    pub path: String,
+    pub size_bytes: u64,
+    pub is_directory: bool,
+}
+
+pub fn scan_large_files(root: &Path, min_size_bytes: u64) -> Result<LargeFilesReport> {
+    let mut entries = Vec::new();
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(20) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+
+        let size_bytes = if metadata.is_dir() {
+            compute_size(entry.path(), 20).unwrap_or(0)
+        } else {
+            metadata.len()
+        };
+
+        if size_bytes >= min_size_bytes {
+            entries.push(LargeFileEntry {
+                path: entry.path().display().to_string(),
+                size_bytes,
+                is_directory: metadata.is_dir(),
+            });
+        }
+    }
+
+    entries.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+
+    Ok(LargeFilesReport {
+        scan_root: root.display().to_string(),
+        min_size: format_size(min_size_bytes),
+        min_size_bytes,
+        scan_time: Local::now(),
+        entries,
+    })
 }
 
 fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
@@ -328,4 +424,21 @@ fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
     }
 
     Ok(total)
+}
+
+fn format_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+
+    let mut value = bytes as f64;
+    let mut unit = 0_usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+
+    if unit == 0 {
+        format!("{} {}", bytes, UNITS[unit])
+    } else {
+        format!("{value:.2} {}", UNITS[unit])
+    }
 }

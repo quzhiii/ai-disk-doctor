@@ -70,7 +70,19 @@ pub fn filter_rules(rules: Vec<Rule>, category: Option<&str>) -> Vec<Rule> {
 }
 
 pub fn expand_windows_path(pattern: &str) -> PathBuf {
+    expand_path(pattern)
+}
+
+pub fn expand_path(pattern: &str) -> PathBuf {
     let mut expanded = pattern.to_owned();
+
+    if expanded.starts_with("~/") {
+        if let Ok(home) = env::var("HOME") {
+            expanded = expanded.replacen("~", &home, 1);
+        } else {
+            expanded = expanded.replacen("~", "/tmp", 1);
+        }
+    }
 
     for (key, value) in env::vars() {
         let token = format!("%{key}%");
@@ -80,4 +92,36 @@ pub fn expand_windows_path(pattern: &str) -> PathBuf {
     }
 
     PathBuf::from(expanded)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expand_path_supports_home_tilde_and_windows_vars() {
+        // unix ~ expansion
+        std::env::set_var("HOME", "/home/demo");
+        assert_eq!(
+            expand_path("~/.cache/huggingface"),
+            PathBuf::from("/home/demo/.cache/huggingface")
+        );
+
+        // fallback without HOME
+        std::env::remove_var("HOME");
+        assert_eq!(expand_path("~/unknown"), PathBuf::from("/tmp/unknown"));
+
+        // windows %VAR% expansion
+        std::env::set_var("USERPROFILE", "C:\\Users\\demo");
+        assert_eq!(
+            expand_path("%USERPROFILE%\\.cache\\huggingface"),
+            PathBuf::from("C:\\Users\\demo\\.cache\\huggingface")
+        );
+
+        // unchanged path
+        assert_eq!(
+            expand_path("/usr/local/bin/tool"),
+            PathBuf::from("/usr/local/bin/tool")
+        );
+    }
 }

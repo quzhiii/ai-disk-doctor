@@ -200,7 +200,7 @@ Doctor V2 roadmap：
 |---|---|---|
 | P1 | 扩大规则覆盖面 | Completed: 内置规则覆盖 `node_modules`、`target/`、`.gradle`、`__pycache__`、`dist/`、`.next/`、`.turbo/` 等常见开发产物；不改核心扫描/清理架构；`scan --json` 和 `plan --safe-only --json` 可稳定呈现新增命中 |
 | P2 | 大文件发现模式 | 增加轻量只读 `scan --large-files --min-size <SIZE>`，输出按大小排序的大文件/目录列表；不分类、不给清理建议、不替代 WinDirStat/TreeSize |
-| P3 | 跨平台规则适配 | 在核心逻辑复用前提下补 Linux/macOS AI 工具路径，例如 `~/.ollama`、`~/.cache/huggingface`；重点是规则路径和环境变量展开适配 |
+| P3 | 跨平台规则适配 | Completed: 增加 `~` 展开支持，ollama/huggingface/docker 规则已包含 linux/macOS 路径 |
 
 明确不建议作为近期目标：完整全盘扫描 + 自动分类清理。该方向实现复杂度高，且正面对抗 WinDirStat/TreeSize，当前产品胜算不高。
 

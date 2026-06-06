@@ -7,6 +7,7 @@ use crate::diff::DiffReport;
 use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
 use crate::scanner::ScanReport;
+use crate::scanner::LargeFilesReport;
 use crate::OutputFormat;
 
 pub fn render(report: &ScanReport, format: OutputFormat) -> Result<String> {
@@ -698,6 +699,66 @@ pub fn render_diff(report: &DiffReport, format: OutputFormat) -> Result<String> 
     };
 
     Ok(output)
+}
+
+pub fn render_large_files(
+    report: &LargeFilesReport,
+    format: OutputFormat,
+) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_large_files_markdown(report),
+        OutputFormat::Text => render_large_files_text(report),
+    };
+
+    Ok(output)
+}
+
+fn render_large_files_text(report: &LargeFilesReport) -> String {
+    let mut lines = vec![
+        "Large Files Discovery".to_string(),
+        format!("Scan Root: {}", report.scan_root),
+        format!("Min Size: {}", report.min_size),
+        format!("Scan Time: {}", report.scan_time),
+        format!("Entries: {}", report.entries.len()),
+        String::new(),
+    ];
+
+    for entry in &report.entries {
+        lines.push(format!(
+            "{} {} {}",
+            if entry.is_directory { "[DIR]" } else { "[FILE]" },
+            human_bytes(entry.size_bytes),
+            entry.path
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_large_files_markdown(report: &LargeFilesReport) -> String {
+    let mut lines = vec![
+        "# Large Files Discovery".to_string(),
+        String::new(),
+        format!("- Scan Root: `{}`", report.scan_root),
+        format!("- Min Size: {}", report.min_size),
+        format!("- Scan Time: {}", report.scan_time),
+        format!("- Entries: {}", report.entries.len()),
+        String::new(),
+        "| Type | Size | Path |".to_string(),
+        "|---|---|---|".to_string(),
+    ];
+
+    for entry in &report.entries {
+        lines.push(format!(
+            "| {} | {} | `{}` |",
+            if entry.is_directory { "DIR" } else { "FILE" },
+            human_bytes(entry.size_bytes),
+            entry.path
+        ));
+    }
+
+    lines.join("\n")
 }
 
 fn render_diff_text(report: &DiffReport) -> String {

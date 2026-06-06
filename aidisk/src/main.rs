@@ -38,6 +38,12 @@ enum Command {
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
+        #[arg(long)]
+        large_files: bool,
+        #[arg(long, default_value_t = 524_288_000)]
+        min_size: u64,
+        #[arg(long)]
+        root: Option<PathBuf>,
     },
     Plan {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -189,8 +195,21 @@ fn run(cli: Cli) -> Result<()> {
             category,
             rules_dir,
             rules_repo,
+            large_files,
+            min_size,
+            root,
         } => {
             let effective_format = effective_format(format, json, markdown);
+
+            if large_files {
+                let root = root.unwrap_or_else(large_files_default_root);
+                let report = scanner::scan_large_files(&root, min_size)?;
+                println!(
+                    "{}",
+                    reporter::render_large_files(&report, effective_format)?
+                );
+                return Ok(());
+            }
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -673,6 +692,12 @@ fn default_policy_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("config")
         .join("policy.yaml")
+}
+
+fn large_files_default_root() -> PathBuf {
+    std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("C:\\"))
 }
 
 #[cfg(test)]

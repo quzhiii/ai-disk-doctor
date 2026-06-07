@@ -1,4 +1,5 @@
 use std::fs;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -87,6 +88,7 @@ where
     };
 
     for (index, rule) in rules.iter().enumerate() {
+        let mut seen_paths = HashSet::new();
         on_progress(ScanProgressEvent {
             current: index + 1,
             total: rules.len(),
@@ -94,10 +96,15 @@ where
         });
 
         for raw_path in &rule.paths {
-            let expanded_path = expand_windows_path(raw_path);
+            let Some(expanded_path) = expand_windows_path(raw_path) else {
+                continue;
+            };
             let matched_paths = resolve_rule_paths(&expanded_path)?;
 
             if matched_paths.is_empty() {
+                if !seen_paths.insert(expanded_path.clone()) {
+                    continue;
+                }
                 findings.push(Finding {
                     id: rule.id.clone(),
                     name: rule.name.clone(),
@@ -114,6 +121,9 @@ where
             }
 
             for matched_path in matched_paths {
+                if !seen_paths.insert(matched_path.clone()) {
+                    continue;
+                }
                 let exists = matched_path.exists();
                 let size_bytes = if exists { compute_size(&matched_path, max_scan_depth)? } else { 0 };
 
@@ -219,6 +229,7 @@ mod tests {
 
     use super::{resolve_rule_paths, Summary, TopFinding};
     use crate::rules::RiskLevel;
+    use crate::test_support::{env_lock, EnvSnapshot};
 
     #[test]
     fn resolves_globbed_rule_paths() {
@@ -344,6 +355,102 @@ mod tests {
             !report.entries.iter().any(|e| e.path.ends_with("tiny.bin")),
             "tiny.bin should not appear below threshold"
         );
+    }
+
+    #[test]
+    fn scan_skips_unresolved_home_tilde_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["HOME"]);
+        std::env::remove_var("HOME");
+        let rules = vec![crate::rules::Rule {
+            id: "unix-home".to_string(),
+            name: "Unix home path".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec!["~/.cache/huggingface".to_string()],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.total_rules, 1);
+        assert!(
+            report.findings.is_empty(),
+            "unresolved ~/ paths should be skipped instead of producing bogus findings"
+        );
+    }
+
+    #[test]
+    fn scan_skips_unresolved_windows_env_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["AIDISK_TEST_HOME"]);
+        std::env::remove_var("AIDISK_TEST_HOME");
+        let rules = vec![crate::rules::Rule {
+            id: "windows-env".to_string(),
+            name: "Windows env path".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec!["%AIDISK_TEST_HOME%\\cache".to_string()],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.total_rules, 1);
+        assert!(
+            report.findings.is_empty(),
+            "unresolved %VAR% paths should be skipped instead of producing bogus findings"
+        );
+    }
+
+    #[test]
+    fn scan_deduplicates_equivalent_rule_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["HOME", "AIDISK_TEST_HOME"]);
+        let temp = tempdir().expect("tempdir should exist");
+        let home = temp.path();
+        let target = home.join(".cache").join("huggingface");
+        fs::create_dir_all(&target).expect("cache dir should exist");
+        fs::write(target.join("model.bin"), vec![0_u8; 256]).expect("model should write");
+
+        std::env::set_var("HOME", home);
+        std::env::set_var("AIDISK_TEST_HOME", home);
+        let rules = vec![crate::rules::Rule {
+            id: "huggingface-cache".to_string(),
+            name: "Hugging Face cache".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec![
+                "%AIDISK_TEST_HOME%\\.cache\\huggingface".to_string(),
+                "~/.cache/huggingface".to_string(),
+            ],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.matched_paths, 1);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].path, target.display().to_string());
+        assert_eq!(report.summary.total_size_bytes, report.findings[0].size_bytes);
     }
 }
 

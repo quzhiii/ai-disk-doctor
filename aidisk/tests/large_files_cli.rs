@@ -94,3 +94,33 @@ fn scan_large_files_filters_below_min_size() {
         "small.txt should not appear below threshold"
     );
 }
+
+#[test]
+fn scan_large_files_accepts_human_readable_min_size() {
+    let temp = tempdir().expect("tempdir should exist");
+    let root = temp.path();
+
+    let output = Command::new(aidisk_bin())
+        .args([
+            "scan",
+            "--large-files",
+            "--min-size",
+            "500MB",
+            "--root",
+            root.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .expect("scan --large-files should run");
+
+    assert!(
+        output.status.success(),
+        "scan --large-files should accept 500MB: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("stdout should be parseable JSON");
+
+    assert_eq!(parsed["min_size_bytes"], 524_288_000_u64);
+}

@@ -8,6 +8,8 @@ mod reporter;
 mod rules;
 mod rules_repo;
 mod scanner;
+#[cfg(test)]
+mod test_support;
 
 use std::path::PathBuf;
 
@@ -38,6 +40,17 @@ enum Command {
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
+        #[arg(long)]
+        large_files: bool,
+        #[arg(
+            long,
+            default_value = "500MB",
+            value_parser = parse_size_arg,
+            help = "Minimum size in bytes or B/KB/MB/GB/TB"
+        )]
+        min_size: u64,
+        #[arg(long)]
+        root: Option<PathBuf>,
     },
     Plan {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -189,8 +202,21 @@ fn run(cli: Cli) -> Result<()> {
             category,
             rules_dir,
             rules_repo,
+            large_files,
+            min_size,
+            root,
         } => {
             let effective_format = effective_format(format, json, markdown);
+
+            if large_files {
+                let root = root.unwrap_or_else(large_files_default_root);
+                let report = scanner::scan_large_files(&root, min_size)?;
+                println!(
+                    "{}",
+                    reporter::render_large_files(&report, effective_format)?
+                );
+                return Ok(());
+            }
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
             let rules = rules::load_rules(&rules_dir)?;
@@ -549,6 +575,46 @@ fn effective_format(format: OutputFormat, json: bool, markdown: bool) -> OutputF
     }
 }
 
+fn parse_size_arg(value: &str) -> std::result::Result<u64, String> {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("size cannot be empty".to_string());
+    }
+
+    let upper = trimmed.to_ascii_uppercase();
+    let (number, multiplier) = if let Some(number) = upper.strip_suffix("TB") {
+        (number, TB)
+    } else if let Some(number) = upper.strip_suffix("GB") {
+        (number, GB)
+    } else if let Some(number) = upper.strip_suffix("MB") {
+        (number, MB)
+    } else if let Some(number) = upper.strip_suffix("KB") {
+        (number, KB)
+    } else if let Some(number) = upper.strip_suffix('B') {
+        (number, 1)
+    } else if upper.chars().all(|ch| ch.is_ascii_digit()) {
+        (upper.as_str(), 1)
+    } else {
+        return Err(format!(
+            "unsupported size suffix in '{value}'; expected bytes or B/KB/MB/GB/TB"
+        ));
+    };
+
+    let amount = number
+        .trim()
+        .parse::<u64>()
+        .map_err(|error| error.to_string())?;
+
+    amount
+        .checked_mul(multiplier)
+        .ok_or_else(|| format!("size '{value}' is too large"))
+}
+
 fn emit_error(context: &ErrorContext, error: &anyhow::Error) {
     if context.format == OutputFormat::Json {
         let envelope = JsonErrorEnvelope {
@@ -675,9 +741,15 @@ fn default_policy_path() -> PathBuf {
         .join("policy.yaml")
 }
 
+fn large_files_default_root() -> PathBuf {
+    std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("C:\\"))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{progress_enabled_for, OutputFormat};
+    use super::{parse_size_arg, progress_enabled_for, OutputFormat};
 
     #[test]
     fn progress_enabled_for_only_allows_interactive_non_json_output() {
@@ -686,5 +758,17 @@ mod tests {
         assert!(!progress_enabled_for(OutputFormat::Json, false, true));
         assert!(!progress_enabled_for(OutputFormat::Text, true, true));
         assert!(!progress_enabled_for(OutputFormat::Text, false, false));
+    }
+
+    #[test]
+    fn parse_size_arg_accepts_bytes_and_human_units() {
+        assert_eq!(parse_size_arg("500").unwrap(), 500);
+        assert_eq!(parse_size_arg("500MB").unwrap(), 524_288_000);
+        assert_eq!(parse_size_arg("2 gb").unwrap(), 2_147_483_648);
+    }
+
+    #[test]
+    fn parse_size_arg_rejects_unknown_suffixes() {
+        assert!(parse_size_arg("500XB").is_err());
     }
 }

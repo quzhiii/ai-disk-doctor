@@ -53,6 +53,13 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ## What's New
 
+### Unreleased
+
+- **Large Files Discovery** — `scan --large-files --min-size 500MB` discovers the largest files and directories under a root path with no classification or cleanup suggestions.
+- **Developer artifact coverage** — Built-in rules now detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo`.
+- **Cross-platform rule paths** — rules now expand Unix `~/` home directory paths alongside Windows `%VAR%` tokens, with linux/macOS paths added for Ollama, Hugging Face, and Docker.
+- **Structured JSON errors** — `--json` command failures now write a single error object to stderr and keep stdout empty for consumers.
+
 ### v1.1.0
 
 Doctor V2 improves AI-era diagnostics while preserving the conservative, read-only default posture:
@@ -86,6 +93,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 |-----------|-------------|
 | **Intelligent Scanning** | Discover space usage across AI models (Ollama, Hugging Face), AI IDEs/CLIs, browsers, Docker, WSL, Playwright, installers, test artifacts, and dev artifacts |
 | **Developer Artifact Coverage** | Detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo` |
+| **Cross-Platform Rule Paths** | Expand Unix `~/` home paths and keep Windows `%VAR%` expansion so Ollama, Hugging Face, and Docker rules work across Windows, Linux, and macOS path layouts |
 | **Rule-Driven Classification** | Every path evaluated against YAML rules with risk levels: `safe`, `careful`, `dangerous`. No hardcoded paths. |
 | **Dry-Run by Default** | All destructive operations preview changes before touching disk. Explicit `--yes` required for real action. |
 | **Quarantine Pattern** | Move files to designated archive folder instead of deleting. Full restore with conflict detection. |
@@ -236,6 +244,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `scan` | Discover and classify space usage | `--category`, `--rules-repo`, `--json`, `--markdown` |
+| `scan --large-files` | Discover largest files and directories | `--min-size`, `--root`, `--json`, `--markdown` |
 | `plan` | Generate cleanup recommendations | `--safe-only`, `--skip-modified-within-minutes` |
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |

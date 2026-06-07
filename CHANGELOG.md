@@ -2,10 +2,10 @@
 
 ## Unreleased
 
+- Added `scan --large-files --min-size <SIZE>` for lightweight large file and directory discovery without classification or cleanup suggestions.
+- Added built-in rules for common development artifacts including `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, web `dist/`, `.next`, and `.turbo` caches.
 - Added structured JSON error output for `--json` command failures. JSON-mode failures now write a single error object to stderr and keep stdout empty for consumers.
 - Fixed `clean --dry-run --json --quarantine-root` to emit a single parseable JSON document instead of two consecutive JSON documents.
-- Added built-in rules for common development artifacts including `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, web `dist/`, `.next`, and `.turbo` caches.
-- Added `scan --large-files --min-size <SIZE>` for lightweight large file and directory discovery without classification or cleanup suggestions.
 - Added cross-platform `~` home directory path expansion alongside existing Windows `%VAR%` expansion for rules.
 - Added linux/macOS paths to ollama, huggingface, and docker rules.
 

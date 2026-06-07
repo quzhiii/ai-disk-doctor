@@ -1,4 +1,5 @@
 use std::fs;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -87,6 +88,7 @@ where
     };
 
     for (index, rule) in rules.iter().enumerate() {
+        let mut seen_paths = HashSet::new();
         on_progress(ScanProgressEvent {
             current: index + 1,
             total: rules.len(),
@@ -94,10 +96,15 @@ where
         });
 
         for raw_path in &rule.paths {
-            let expanded_path = expand_windows_path(raw_path);
+            let Some(expanded_path) = expand_windows_path(raw_path) else {
+                continue;
+            };
             let matched_paths = resolve_rule_paths(&expanded_path)?;
 
             if matched_paths.is_empty() {
+                if !seen_paths.insert(expanded_path.clone()) {
+                    continue;
+                }
                 findings.push(Finding {
                     id: rule.id.clone(),
                     name: rule.name.clone(),
@@ -114,6 +121,9 @@ where
             }
 
             for matched_path in matched_paths {
+                if !seen_paths.insert(matched_path.clone()) {
+                    continue;
+                }
                 let exists = matched_path.exists();
                 let size_bytes = if exists { compute_size(&matched_path, max_scan_depth)? } else { 0 };
 
@@ -219,6 +229,7 @@ mod tests {
 
     use super::{resolve_rule_paths, Summary, TopFinding};
     use crate::rules::RiskLevel;
+    use crate::test_support::{env_lock, EnvSnapshot};
 
     #[test]
     fn resolves_globbed_rule_paths() {
@@ -304,6 +315,198 @@ mod tests {
             vec![(1, 2, "first".to_string()), (2, 2, "second".to_string())]
         );
     }
+
+    #[test]
+    fn scan_large_files_discovers_entries_above_threshold() {
+        let temp = tempdir().expect("tempdir should exist");
+        let root = temp.path();
+        fs::create_dir_all(root.join("big-dir")).expect("big dir should exist");
+        fs::write(root.join("small.txt"), vec![0_u8; 100]).expect("small file should write");
+        fs::write(root.join("big-dir").join("large.bin"), vec![0_u8; 1000])
+            .expect("large file should write");
+        fs::write(root.join("big-dir").join("tiny.bin"), vec![0_u8; 10])
+            .expect("tiny file should write");
+
+        let report = super::scan_large_files(root, 500).expect("scan should succeed");
+
+        assert_eq!(report.scan_root, root.display().to_string());
+        assert_eq!(report.min_size_bytes, 500);
+        assert!(
+            report.entries.len() >= 1,
+            "should find at least one entry above 500 bytes"
+        );
+
+        let big_dir = report.entries.iter().find(|e| e.path.ends_with("big-dir"));
+        assert!(big_dir.is_some(), "should find big-dir directory");
+        assert!(big_dir.unwrap().is_directory);
+
+        let large_file = report
+            .entries
+            .iter()
+            .find(|e| e.path.ends_with("large.bin"));
+        assert!(large_file.is_some(), "should find large.bin");
+        assert!(!large_file.unwrap().is_directory);
+
+        assert!(
+            !report.entries.iter().any(|e| e.path.ends_with("small.txt")),
+            "small.txt should not appear below threshold"
+        );
+        assert!(
+            !report.entries.iter().any(|e| e.path.ends_with("tiny.bin")),
+            "tiny.bin should not appear below threshold"
+        );
+    }
+
+    #[test]
+    fn scan_skips_unresolved_home_tilde_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["HOME"]);
+        std::env::remove_var("HOME");
+        let rules = vec![crate::rules::Rule {
+            id: "unix-home".to_string(),
+            name: "Unix home path".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec!["~/.cache/huggingface".to_string()],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.total_rules, 1);
+        assert!(
+            report.findings.is_empty(),
+            "unresolved ~/ paths should be skipped instead of producing bogus findings"
+        );
+    }
+
+    #[test]
+    fn scan_skips_unresolved_windows_env_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["AIDISK_TEST_HOME"]);
+        std::env::remove_var("AIDISK_TEST_HOME");
+        let rules = vec![crate::rules::Rule {
+            id: "windows-env".to_string(),
+            name: "Windows env path".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec!["%AIDISK_TEST_HOME%\\cache".to_string()],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.total_rules, 1);
+        assert!(
+            report.findings.is_empty(),
+            "unresolved %VAR% paths should be skipped instead of producing bogus findings"
+        );
+    }
+
+    #[test]
+    fn scan_deduplicates_equivalent_rule_paths() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["HOME", "AIDISK_TEST_HOME"]);
+        let temp = tempdir().expect("tempdir should exist");
+        let home = temp.path();
+        let target = home.join(".cache").join("huggingface");
+        fs::create_dir_all(&target).expect("cache dir should exist");
+        fs::write(target.join("model.bin"), vec![0_u8; 256]).expect("model should write");
+
+        std::env::set_var("HOME", home);
+        std::env::set_var("AIDISK_TEST_HOME", home);
+        let rules = vec![crate::rules::Rule {
+            id: "huggingface-cache".to_string(),
+            name: "Hugging Face cache".to_string(),
+            category: "models".to_string(),
+            platform: "cross-platform".to_string(),
+            paths: vec![
+                "%AIDISK_TEST_HOME%\\.cache\\huggingface".to_string(),
+                "~/.cache/huggingface".to_string(),
+            ],
+            risk: RiskLevel::Review,
+            cleanup: crate::rules::Cleanup {
+                method: "guide".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test".to_string(),
+            warnings: Vec::new(),
+        }];
+
+        let report = super::scan(&rules, 20).expect("scan should succeed");
+
+        assert_eq!(report.summary.matched_paths, 1);
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].path, target.display().to_string());
+        assert_eq!(report.summary.total_size_bytes, report.findings[0].size_bytes);
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct LargeFilesReport {
+    pub scan_root: String,
+    pub min_size: String,
+    pub min_size_bytes: u64,
+    pub scan_time: DateTime<Local>,
+    pub entries: Vec<LargeFileEntry>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LargeFileEntry {
+    pub path: String,
+    pub size_bytes: u64,
+    pub is_directory: bool,
+}
+
+pub fn scan_large_files(root: &Path, min_size_bytes: u64) -> Result<LargeFilesReport> {
+    let mut entries = Vec::new();
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(20) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+
+        let size_bytes = if metadata.is_dir() {
+            compute_size(entry.path(), 20).unwrap_or(0)
+        } else {
+            metadata.len()
+        };
+
+        if size_bytes >= min_size_bytes {
+            entries.push(LargeFileEntry {
+                path: entry.path().display().to_string(),
+                size_bytes,
+                is_directory: metadata.is_dir(),
+            });
+        }
+    }
+
+    entries.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+
+    Ok(LargeFilesReport {
+        scan_root: root.display().to_string(),
+        min_size: format_size(min_size_bytes),
+        min_size_bytes,
+        scan_time: Local::now(),
+        entries,
+    })
 }
 
 fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
@@ -328,4 +531,21 @@ fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
     }
 
     Ok(total)
+}
+
+fn format_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+
+    let mut value = bytes as f64;
+    let mut unit = 0_usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+
+    if unit == 0 {
+        format!("{} {}", bytes, UNITS[unit])
+    } else {
+        format!("{value:.2} {}", UNITS[unit])
+    }
 }

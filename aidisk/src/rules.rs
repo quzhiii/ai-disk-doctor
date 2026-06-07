@@ -69,59 +69,90 @@ pub fn filter_rules(rules: Vec<Rule>, category: Option<&str>) -> Vec<Rule> {
     }
 }
 
-pub fn expand_windows_path(pattern: &str) -> PathBuf {
+pub fn expand_windows_path(pattern: &str) -> Option<PathBuf> {
     expand_path(pattern)
 }
 
-pub fn expand_path(pattern: &str) -> PathBuf {
+pub fn expand_path(pattern: &str) -> Option<PathBuf> {
     let mut expanded = pattern.to_owned();
 
     if expanded.starts_with("~/") {
-        if let Ok(home) = env::var("HOME") {
-            expanded = expanded.replacen("~", &home, 1);
-        } else {
-            expanded = expanded.replacen("~", "/tmp", 1);
-        }
+        let home = env::var_os("HOME")?;
+        let suffix = expanded.trim_start_matches("~/");
+        expanded = PathBuf::from(home).join(suffix).to_string_lossy().into_owned();
     }
 
-    for (key, value) in env::vars() {
-        let token = format!("%{key}%");
-        if expanded.contains(&token) {
-            expanded = expanded.replace(&token, &value);
+    expanded = expand_windows_env_tokens(&expanded)?;
+
+    Some(PathBuf::from(expanded))
+}
+
+fn expand_windows_env_tokens(pattern: &str) -> Option<String> {
+    let mut expanded = String::with_capacity(pattern.len());
+    let mut rest = pattern;
+
+    while let Some(start) = rest.find('%') {
+        expanded.push_str(&rest[..start]);
+
+        let token_start = &rest[start + 1..];
+        let Some(end) = token_start.find('%') else {
+            expanded.push('%');
+            expanded.push_str(token_start);
+            return Some(expanded);
+        };
+
+        let token = &token_start[..end];
+        if token.is_empty() || !token.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '_') {
+            expanded.push('%');
+            rest = token_start;
+            continue;
         }
+
+        let value = env::var_os(token)?;
+        expanded.push_str(&PathBuf::from(value).to_string_lossy());
+        rest = &token_start[end + 1..];
     }
 
-    PathBuf::from(expanded)
+    expanded.push_str(rest);
+    Some(expanded)
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::test_support::{env_lock, EnvSnapshot};
+
     use super::*;
 
     #[test]
     fn expand_path_supports_home_tilde_and_windows_vars() {
+        let _env_lock = env_lock();
+        let _env_snapshot = EnvSnapshot::capture(&["HOME", "USERPROFILE", "AIDISK_TEST_HOME"]);
+
         // unix ~ expansion
         std::env::set_var("HOME", "/home/demo");
         assert_eq!(
             expand_path("~/.cache/huggingface"),
-            PathBuf::from("/home/demo/.cache/huggingface")
+            Some(PathBuf::from("/home/demo/.cache/huggingface"))
         );
 
-        // fallback without HOME
+        // unresolved unix home paths are skipped when HOME is unavailable
         std::env::remove_var("HOME");
-        assert_eq!(expand_path("~/unknown"), PathBuf::from("/tmp/unknown"));
+        assert_eq!(expand_path("~/unknown"), None);
 
         // windows %VAR% expansion
         std::env::set_var("USERPROFILE", "C:\\Users\\demo");
         assert_eq!(
             expand_path("%USERPROFILE%\\.cache\\huggingface"),
-            PathBuf::from("C:\\Users\\demo\\.cache\\huggingface")
+            Some(PathBuf::from("C:\\Users\\demo\\.cache\\huggingface"))
         );
+
+        std::env::remove_var("AIDISK_TEST_HOME");
+        assert_eq!(expand_path("%AIDISK_TEST_HOME%\\cache"), None);
 
         // unchanged path
         assert_eq!(
             expand_path("/usr/local/bin/tool"),
-            PathBuf::from("/usr/local/bin/tool")
+            Some(PathBuf::from("/usr/local/bin/tool"))
         );
     }
 }

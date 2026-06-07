@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
@@ -45,7 +45,7 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.1.0
+**Current release:** v1.2.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
@@ -53,12 +53,16 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ## What's New
 
-### Unreleased
+### v1.2.0
+
+Phase 7 expands coverage and discovery while keeping the same conservative cleanup posture:
 
 - **Large Files Discovery** — `scan --large-files --min-size 500MB` discovers the largest files and directories under a root path with no classification or cleanup suggestions.
 - **Developer artifact coverage** — Built-in rules now detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo`.
 - **Cross-platform rule paths** — rules now expand Unix `~/` home directory paths alongside Windows `%VAR%` tokens, with linux/macOS paths added for Ollama, Hugging Face, and Docker.
 - **Structured JSON errors** — `--json` command failures now write a single error object to stderr and keep stdout empty for consumers.
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.2.0.md`](./docs/release-notes/v1.2.0.md).
 
 ### v1.1.0
 

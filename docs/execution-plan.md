@@ -218,5 +218,6 @@ Doctor V2 roadmap：
 - `CHANGELOG.md`
 - `docs/release-notes/v1.0.0.md`
 - `docs/release-notes/v1.1.0.md`
+- `docs/release-notes/v1.2.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.1.0`
+- `aidisk` crate version `1.2.0`

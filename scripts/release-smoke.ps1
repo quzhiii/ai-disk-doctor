@@ -8,6 +8,7 @@ Push-Location $AidiskDir
 try {
     & cargo test
     & cargo run -- scan --rules-repo "tests/fixtures/community-rules" --json
+    & cargo run -- scan --large-files --min-size 500MB --json
     & cargo run -- plan --safe-only --json
     & cargo run -- clean --dry-run --safe-only --markdown
     & cargo run -- doctor --markdown

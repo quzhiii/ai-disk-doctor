@@ -118,7 +118,11 @@ pub fn build_quarantine_plan(plan: &PlanReport, root: &str) -> QuarantinePlan {
         .filter(|candidate| candidate.action == "quarantine")
         .map(|candidate| QuarantineEntry {
             source_path: candidate.path.clone(),
-            destination_path: format!("{}\\{}", root.trim_end_matches(['\\', '/']), sanitize_path(&candidate.path)),
+            destination_path: format!(
+                "{}\\{}",
+                root.trim_end_matches(['\\', '/']),
+                sanitize_path(&candidate.path)
+            ),
         })
         .collect();
 
@@ -183,8 +187,9 @@ pub fn execute_quarantine(plan: &QuarantinePlan) -> Result<ExecutionReport> {
 }
 
 pub fn restore_from_index(index_path: &Path, dry_run: bool) -> Result<RestoreReport> {
-    let content = fs::read_to_string(index_path)
-        .map_err(|e| anyhow::anyhow!("failed to read index file {}: {}", index_path.display(), e))?;
+    let content = fs::read_to_string(index_path).map_err(|e| {
+        anyhow::anyhow!("failed to read index file {}: {}", index_path.display(), e)
+    })?;
     let execution_report: ExecutionReport = serde_json::from_str(&content)
         .map_err(|e| anyhow::anyhow!("failed to parse index file: {}", e))?;
 
@@ -272,7 +277,10 @@ fn validate_index(report: &ExecutionReport) -> Result<()> {
     Ok(())
 }
 
-fn move_to_quarantine(entry: &QuarantineEntry, skip_modified_within_minutes: u64) -> Result<String> {
+fn move_to_quarantine(
+    entry: &QuarantineEntry,
+    skip_modified_within_minutes: u64,
+) -> Result<String> {
     let source = Path::new(&entry.source_path);
     if !source.exists() {
         anyhow::bail!("source path does not exist");
@@ -497,6 +505,7 @@ mod tests {
             mode: "dry-run".to_string(),
             safe_only: true,
             skip_modified_within_minutes: 30,
+            policy: None,
             summary: PlanSummary {
                 total_findings: 2,
                 eligible_candidates: 1,
@@ -515,6 +524,8 @@ mod tests {
                 path: "C:\\temp\\cache".to_string(),
                 risk: RiskLevel::Safe,
                 size_bytes: 100,
+                partial: false,
+                partial_reasons: Vec::new(),
                 action: "quarantine".to_string(),
                 reason: "safe".to_string(),
             }],
@@ -522,6 +533,8 @@ mod tests {
                 id: "skip-me".to_string(),
                 path: "C:\\skip".to_string(),
                 reason: "path does not exist".to_string(),
+                partial: false,
+                partial_reasons: Vec::new(),
             }],
         }
     }
@@ -539,8 +552,12 @@ mod tests {
         let plan = sample_plan();
         let quarantine = build_quarantine_plan(&plan, "F:\\archives");
         assert_eq!(quarantine.entries.len(), 1);
-        assert!(quarantine.entries[0].destination_path.contains("F:\\archives"));
-        assert!(quarantine.entries[0].destination_path.contains("C__temp__cache"));
+        assert!(quarantine.entries[0]
+            .destination_path
+            .contains("F:\\archives"));
+        assert!(quarantine.entries[0]
+            .destination_path
+            .contains("C__temp__cache"));
     }
 
     #[test]
@@ -655,7 +672,10 @@ mod tests {
             skip_modified_within_minutes: 0,
             entries: vec![QuarantineEntry {
                 source_path: source.display().to_string(),
-                destination_path: destination_root.join("restore-live-dir").display().to_string(),
+                destination_path: destination_root
+                    .join("restore-live-dir")
+                    .display()
+                    .to_string(),
             }],
         };
 
@@ -709,7 +729,10 @@ mod tests {
             skip_modified_within_minutes: 0,
             entries: vec![QuarantineEntry {
                 source_path: source.display().to_string(),
-                destination_path: destination_root.join("restore-conflict-dir").display().to_string(),
+                destination_path: destination_root
+                    .join("restore-conflict-dir")
+                    .display()
+                    .to_string(),
             }],
         };
 

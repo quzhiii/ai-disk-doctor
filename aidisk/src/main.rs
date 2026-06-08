@@ -51,6 +51,8 @@ enum Command {
         min_size: u64,
         #[arg(long)]
         root: Option<PathBuf>,
+        #[arg(long)]
+        policy: Option<PathBuf>,
     },
     Plan {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -205,6 +207,7 @@ fn run(cli: Cli) -> Result<()> {
             large_files,
             min_size,
             root,
+            policy,
         } => {
             let effective_format = effective_format(format, json, markdown);
 
@@ -219,9 +222,15 @@ fn run(cli: Cli) -> Result<()> {
             }
 
             let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
+            let policy = load_scan_policy(policy, &default_policy_path())?;
             let rules = rules::load_rules(&rules_dir)?;
             let rules = rules::filter_rules(rules, category.as_deref());
-            let report = scan_with_optional_progress(&rules, 20, effective_format)?;
+            let mut report = scan_with_optional_progress(
+                &rules,
+                policy.planner.max_scan_depth,
+                effective_format,
+            )?;
+            report.policy = Some(policy.snapshot());
             history::save_scan_snapshot(&report, &history::default_reports_dir())?;
             println!("{}", reporter::render(&report, effective_format)?);
         }
@@ -741,6 +750,35 @@ fn default_policy_path() -> PathBuf {
         .join("policy.yaml")
 }
 
+fn default_scan_policy() -> policy::Policy {
+    policy::Policy {
+        sensitive_markers: vec!["token".to_string()],
+        planner: policy::PlannerPolicy {
+            skip_modified_within_minutes: 30,
+            allow_actions: vec![
+                "quarantine".to_string(),
+                "report-only".to_string(),
+                "guide".to_string(),
+            ],
+            max_scan_depth: 20,
+        },
+    }
+}
+
+fn load_scan_policy(
+    explicit_policy: Option<PathBuf>,
+    default_policy_path: &std::path::Path,
+) -> Result<policy::Policy> {
+    if let Some(explicit_policy) = explicit_policy {
+        return policy::load_policy(&explicit_policy);
+    }
+
+    match policy::load_policy(default_policy_path) {
+        Ok(policy) => Ok(policy),
+        Err(_) => Ok(default_scan_policy()),
+    }
+}
+
 fn large_files_default_root() -> PathBuf {
     std::env::var_os("USERPROFILE")
         .map(PathBuf::from)
@@ -749,7 +787,11 @@ fn large_files_default_root() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_size_arg, progress_enabled_for, OutputFormat};
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::{load_scan_policy, parse_size_arg, progress_enabled_for, OutputFormat};
 
     #[test]
     fn progress_enabled_for_only_allows_interactive_non_json_output() {
@@ -770,5 +812,47 @@ mod tests {
     #[test]
     fn parse_size_arg_rejects_unknown_suffixes() {
         assert!(parse_size_arg("500XB").is_err());
+    }
+
+    #[test]
+    fn load_scan_policy_uses_builtin_defaults_when_default_file_missing() {
+        let temp = tempdir().expect("tempdir should exist");
+        let missing_default = temp.path().join("missing-policy.yaml");
+
+        let policy = load_scan_policy(None, &missing_default).expect("fallback policy should load");
+
+        assert_eq!(policy.planner.max_scan_depth, 20);
+        assert!(policy
+            .planner
+            .allow_actions
+            .iter()
+            .any(|action| action == "quarantine"));
+        assert!(policy.sensitive_markers.iter().any(|marker| marker == "token"));
+    }
+
+    #[test]
+    fn load_scan_policy_prefers_explicit_override() {
+        let temp = tempdir().expect("tempdir should exist");
+        let missing_default = temp.path().join("missing-policy.yaml");
+        let explicit_policy = temp.path().join("explicit-policy.yaml");
+        fs::write(
+            &explicit_policy,
+            r#"sensitive_markers:
+  - explicit
+planner:
+  skip_modified_within_minutes: 9
+  allow_actions:
+    - report-only
+  max_scan_depth: 4
+"#,
+        )
+        .expect("policy should be written");
+
+        let policy = load_scan_policy(Some(explicit_policy), &missing_default)
+            .expect("explicit policy should load");
+
+        assert_eq!(policy.planner.max_scan_depth, 4);
+        assert_eq!(policy.planner.skip_modified_within_minutes, 9);
+        assert_eq!(policy.sensitive_markers, vec!["explicit".to_string()]);
     }
 }

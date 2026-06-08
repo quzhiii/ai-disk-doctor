@@ -7,13 +7,15 @@ use chrono::{DateTime, Local};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::policy::Policy;
+use crate::policy::{Policy, PolicySnapshot};
 use crate::scanner::{Finding, ScanReport};
 
 #[derive(Debug, Serialize)]
 pub struct DoctorReport {
     pub generated_at: DateTime<Local>,
     pub policy_summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy: Option<PolicySnapshot>,
     pub latest_diff: Option<DoctorLatestDiff>,
     pub topics: Vec<DoctorTopic>,
 }
@@ -60,6 +62,8 @@ pub struct DoctorFinding {
     pub path: String,
     pub exists: bool,
     pub size_bytes: u64,
+    pub partial: bool,
+    pub partial_reasons: Vec<String>,
     pub risk: String,
     pub action: String,
     pub reason: String,
@@ -277,7 +281,13 @@ pub fn build_doctor_with_latest_diff(
     policy: &Policy,
     latest_diff: Option<DoctorLatestDiff>,
 ) -> DoctorReport {
-    build_doctor_with_probe_runner(scan_report, options, policy, latest_diff, &default_probe_runner)
+    build_doctor_with_probe_runner(
+        scan_report,
+        options,
+        policy,
+        latest_diff,
+        &default_probe_runner,
+    )
 }
 
 fn build_doctor_with_probe_runner<F>(
@@ -290,13 +300,6 @@ fn build_doctor_with_probe_runner<F>(
 where
     F: Fn(&str, &[&str]) -> ProbeCommandResult,
 {
-    let policy_summary = format!(
-        "sensitive markers: [{}]; planner actions: [{}]; skip modified within: {}min",
-        policy.sensitive_markers.join(", "),
-        policy.planner.allow_actions.join(", "),
-        policy.planner.skip_modified_within_minutes
-    );
-
     let topics = doctor_topic_specs()
         .iter()
         .filter(|spec| doctor_topic_enabled(options, spec.key))
@@ -305,13 +308,17 @@ where
 
     DoctorReport {
         generated_at: Local::now(),
-        policy_summary,
+        policy_summary: policy.policy_summary(),
+        policy: Some(policy.snapshot()),
         latest_diff,
         topics,
     }
 }
 
-pub fn build_latest_diff_section(report: &crate::diff::DiffReport, max_changes: usize) -> DoctorLatestDiff {
+pub fn build_latest_diff_section(
+    report: &crate::diff::DiffReport,
+    max_changes: usize,
+) -> DoctorLatestDiff {
     DoctorLatestDiff {
         before: report.before.clone(),
         after: report.after.clone(),
@@ -355,6 +362,8 @@ where
             path: finding.path.clone(),
             exists: finding.exists,
             size_bytes: finding.size_bytes,
+            partial: finding.partial,
+            partial_reasons: finding.partial_reasons.clone(),
             risk: format!("{:?}", finding.risk).to_ascii_lowercase(),
             action: finding.action.clone(),
             reason: finding.reason.clone(),
@@ -718,8 +727,8 @@ mod tests {
 
     use super::{
         build_breakdown, build_doctor, build_doctor_with_latest_diff,
-        build_doctor_with_probe_runner, build_latest_diff_section,
-        decode_probe_output_bytes, DoctorOptions, ProbeCommandResult,
+        build_doctor_with_probe_runner, build_latest_diff_section, decode_probe_output_bytes,
+        DoctorOptions, ProbeCommandResult,
     };
     use crate::policy::{PlannerPolicy, Policy};
     use crate::rules::RiskLevel;
@@ -728,6 +737,7 @@ mod tests {
     fn empty_scan() -> ScanReport {
         ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: Vec::<Finding>::new(),
             summary: Summary::default(),
@@ -758,7 +768,14 @@ mod tests {
 
         assert_eq!(
             names,
-            vec!["docker", "wsl", "ollama", "huggingface", "playwright", "agents"]
+            vec![
+                "docker",
+                "wsl",
+                "ollama",
+                "huggingface",
+                "playwright",
+                "agents"
+            ]
         );
     }
 
@@ -798,6 +815,7 @@ mod tests {
     fn build_doctor_registry_spec_builder_attaches_probe_metadata() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "docker-root".to_string(),
@@ -806,6 +824,8 @@ mod tests {
                 path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
                 exists: true,
                 size_bytes: 100,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "docker".to_string(),
@@ -912,6 +932,7 @@ mod tests {
     fn doctor_explains_missing_paths() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "wsl-ext4-vhdx".to_string(),
@@ -921,6 +942,8 @@ mod tests {
                     .to_string(),
                 exists: false,
                 size_bytes: 0,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::System,
                 action: "guide".to_string(),
                 reason: "demo".to_string(),
@@ -953,6 +976,7 @@ mod tests {
     fn doctor_not_detected_topic_does_not_emit_generic_tool_advice() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "docker-root".to_string(),
@@ -961,6 +985,8 @@ mod tests {
                 path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
                 exists: false,
                 size_bytes: 0,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "docker".to_string(),
@@ -998,6 +1024,7 @@ mod tests {
     fn doctor_does_not_probe_tools_by_default() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "docker-root".to_string(),
@@ -1006,6 +1033,8 @@ mod tests {
                 path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
                 exists: true,
                 size_bytes: 100,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "docker".to_string(),
@@ -1037,6 +1066,7 @@ mod tests {
     fn doctor_runs_docker_probe_when_enabled() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "docker-root".to_string(),
@@ -1045,6 +1075,8 @@ mod tests {
                 path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
                 exists: true,
                 size_bytes: 100,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "docker".to_string(),
@@ -1079,7 +1111,9 @@ mod tests {
         assert_eq!(doctor.topics[0].probes.len(), 1);
         assert_eq!(doctor.topics[0].probes[0].name, "docker-system-df");
         assert_eq!(doctor.topics[0].probes[0].status, "ok");
-        assert!(doctor.topics[0].probes[0].command.contains("docker system df"));
+        assert!(doctor.topics[0].probes[0]
+            .command
+            .contains("docker system df"));
         assert!(doctor.topics[0].probes[0].output.contains("RECLAIMABLE"));
     }
 
@@ -1087,6 +1121,7 @@ mod tests {
     fn doctor_records_probe_command_unavailable_without_failing() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "ollama-models".to_string(),
@@ -1095,6 +1130,8 @@ mod tests {
                 path: "C:\\Users\\demo\\.ollama\\models".to_string(),
                 exists: false,
                 size_bytes: 0,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "guide".to_string(),
                 reason: "ollama".to_string(),
@@ -1128,14 +1165,15 @@ mod tests {
 
         assert_eq!(doctor.topics[0].probes.len(), 1);
         assert_eq!(doctor.topics[0].probes[0].status, "not-available");
-        assert!(doctor.topics[0].probes[0]
-            .summary
-            .contains("not-available"));
+        assert!(doctor.topics[0].probes[0].summary.contains("not-available"));
     }
 
     #[test]
     fn decode_probe_output_bytes_handles_utf16le_console_output() {
-        let bytes = "NAME\r\nUbuntu".encode_utf16().flat_map(|unit| unit.to_le_bytes()).collect::<Vec<_>>();
+        let bytes = "NAME\r\nUbuntu"
+            .encode_utf16()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect::<Vec<_>>();
 
         let decoded = decode_probe_output_bytes(&bytes);
 
@@ -1144,11 +1182,11 @@ mod tests {
         assert!(!decoded.contains('\0'));
     }
 
-
     #[test]
     fn doctor_can_split_ollama_and_huggingface_topics() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![
                 Finding {
@@ -1158,6 +1196,8 @@ mod tests {
                     path: "C:\\Users\\demo\\.ollama\\models".to_string(),
                     exists: true,
                     size_bytes: 100,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Review,
                     action: "guide".to_string(),
                     reason: "ollama".to_string(),
@@ -1170,6 +1210,8 @@ mod tests {
                     path: "C:\\Users\\demo\\.cache\\huggingface".to_string(),
                     exists: true,
                     size_bytes: 200,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Review,
                     action: "guide".to_string(),
                     reason: "hf".to_string(),
@@ -1208,6 +1250,7 @@ mod tests {
         ];
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: agent_findings
                 .into_iter()
@@ -1218,6 +1261,8 @@ mod tests {
                     path: path.to_string(),
                     exists: true,
                     size_bytes,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Review,
                     action: "report-only".to_string(),
                     reason: "agent state".to_string(),
@@ -1261,6 +1306,7 @@ mod tests {
         ];
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: categories
                 .into_iter()
@@ -1272,6 +1318,8 @@ mod tests {
                     path: format!("C:\\Users\\demo\\{category}"),
                     exists: true,
                     size_bytes: (index as u64) + 1,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Review,
                     action: "report-only".to_string(),
                     reason: "ai tooling state".to_string(),
@@ -1333,6 +1381,7 @@ mod tests {
 
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "claude-home".to_string(),
@@ -1341,6 +1390,8 @@ mod tests {
                 path: root.display().to_string(),
                 exists: true,
                 size_bytes: 21,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "agent state".to_string(),
@@ -1376,6 +1427,7 @@ mod tests {
         fs::write(&cache, [0_u8]).expect("tiny cache placeholder should write");
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "huggingface-cache".to_string(),
@@ -1384,6 +1436,8 @@ mod tests {
                 path: cache.display().to_string(),
                 exists: true,
                 size_bytes: 1,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "guide".to_string(),
                 reason: "hf".to_string(),
@@ -1421,6 +1475,7 @@ mod tests {
             .expect("cache artifact should write");
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "claude-home".to_string(),
@@ -1429,6 +1484,8 @@ mod tests {
                 path: root.display().to_string(),
                 exists: true,
                 size_bytes: 2 * 1024 * 1024 * 1024,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "agent state".to_string(),
@@ -1507,6 +1564,7 @@ mod tests {
     fn doctor_report_can_include_latest_diff_section() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![Finding {
                 id: "claude-home".to_string(),
@@ -1515,6 +1573,8 @@ mod tests {
                 path: "C:\\Users\\demo\\.claude".to_string(),
                 exists: true,
                 size_bytes: 200,
+                partial: false,
+                partial_reasons: Vec::new(),
                 risk: RiskLevel::Review,
                 action: "report-only".to_string(),
                 reason: "agent state".to_string(),

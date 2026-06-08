@@ -6,8 +6,9 @@ use crate::cleaner::{
 use crate::diff::DiffReport;
 use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
-use crate::scanner::ScanReport;
+use crate::policy::PolicySnapshot;
 use crate::scanner::LargeFilesReport;
+use crate::scanner::ScanReport;
 use crate::OutputFormat;
 
 pub fn render(report: &ScanReport, format: OutputFormat) -> Result<String> {
@@ -97,18 +98,29 @@ fn render_text(report: &ScanReport) -> String {
     let mut lines = vec![
         "Windows AI Space Report".to_string(),
         format!("Scan Time: {}", report.scan_time),
+    ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), false));
+    lines.extend(render_scan_limit_lines(report.policy.as_ref(), false));
+    lines.extend([
         format!("Rules: {}", report.summary.total_rules),
         format!("Matched Paths: {}", report.summary.matched_paths),
-        format!("Total Size: {}", human_bytes(report.summary.total_size_bytes)),
+        format!("Partial Findings: {}", report.summary.partial_findings),
+        format!(
+            "Total Size: {}",
+            human_bytes(report.summary.total_size_bytes)
+        ),
         format!("Safe Bytes: {}", human_bytes(report.summary.safe_bytes)),
         format!("Review Bytes: {}", human_bytes(report.summary.review_bytes)),
-        format!("Dangerous Bytes: {}", human_bytes(report.summary.dangerous_bytes)),
+        format!(
+            "Dangerous Bytes: {}",
+            human_bytes(report.summary.dangerous_bytes)
+        ),
         format!("System Bytes: {}", human_bytes(report.summary.system_bytes)),
         format!(
             "Reclaimable Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
-    ];
+    ]);
 
     lines.push(String::new());
     lines.extend(render_scan_executive_summary_lines(report, false));
@@ -134,7 +146,7 @@ fn render_text(report: &ScanReport) -> String {
             "- [{}] {} | {}",
             risk_label(&finding.risk),
             finding.path,
-            human_bytes(finding.size_bytes)
+            human_bytes_with_partial(finding.size_bytes, finding.partial)
         ));
     }
 
@@ -146,9 +158,15 @@ fn render_text(report: &ScanReport) -> String {
             risk_label(&finding.risk),
             finding.path,
             finding.exists,
-            human_bytes(finding.size_bytes),
+            human_bytes_with_partial(finding.size_bytes, finding.partial),
             finding.reason
         ));
+        if finding.partial {
+            lines.push(format!(
+                "  Partial size warning: {}",
+                partial_reasons_text(&finding.partial_reasons)
+            ));
+        }
     }
 
     lines.join("\n")
@@ -159,18 +177,35 @@ fn render_markdown(report: &ScanReport) -> String {
         "# Windows AI Space Report".to_string(),
         String::new(),
         format!("- Scan Time: {}", report.scan_time),
+    ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), true));
+    lines.extend(render_scan_limit_lines(report.policy.as_ref(), true));
+    lines.extend([
         format!("- Rules: {}", report.summary.total_rules),
         format!("- Matched Paths: {}", report.summary.matched_paths),
-        format!("- Total Size: {}", human_bytes(report.summary.total_size_bytes)),
+        format!("- Partial Findings: {}", report.summary.partial_findings),
+        format!(
+            "- Total Size: {}",
+            human_bytes(report.summary.total_size_bytes)
+        ),
         format!("- Safe Bytes: {}", human_bytes(report.summary.safe_bytes)),
-        format!("- Review Bytes: {}", human_bytes(report.summary.review_bytes)),
-        format!("- Dangerous Bytes: {}", human_bytes(report.summary.dangerous_bytes)),
-        format!("- System Bytes: {}", human_bytes(report.summary.system_bytes)),
+        format!(
+            "- Review Bytes: {}",
+            human_bytes(report.summary.review_bytes)
+        ),
+        format!(
+            "- Dangerous Bytes: {}",
+            human_bytes(report.summary.dangerous_bytes)
+        ),
+        format!(
+            "- System Bytes: {}",
+            human_bytes(report.summary.system_bytes)
+        ),
         format!(
             "- Reclaimable Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
-    ];
+    ]);
 
     lines.push(String::new());
     lines.extend(render_scan_executive_summary_lines(report, true));
@@ -202,7 +237,7 @@ fn render_markdown(report: &ScanReport) -> String {
             "| {} | `{}` | {} |",
             risk_label(&finding.risk),
             finding.path,
-            human_bytes(finding.size_bytes)
+            human_bytes_with_partial(finding.size_bytes, finding.partial)
         ));
     }
 
@@ -217,9 +252,16 @@ fn render_markdown(report: &ScanReport) -> String {
             risk_label(&finding.risk),
             finding.path,
             finding.exists,
-            human_bytes(finding.size_bytes),
+            human_bytes_with_partial(finding.size_bytes, finding.partial),
             finding.action
         ));
+        if finding.partial {
+            lines.push(format!(
+                "- Partial size warning for `{}`: {}",
+                finding.path,
+                partial_reasons_text(&finding.partial_reasons)
+            ));
+        }
     }
 
     lines.join("\n")
@@ -235,8 +277,14 @@ fn render_plan_text(report: &PlanReport) -> String {
             "Skip Modified Within Minutes: {}",
             report.skip_modified_within_minutes
         ),
+    ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), false));
+    lines.extend([
         format!("Total Findings: {}", report.summary.total_findings),
-        format!("Eligible Candidates: {}", report.summary.eligible_candidates),
+        format!(
+            "Eligible Candidates: {}",
+            report.summary.eligible_candidates
+        ),
         format!("Skipped Findings: {}", report.summary.skipped_findings),
         format!(
             "Blocked Sensitive Paths: {}",
@@ -252,7 +300,7 @@ fn render_plan_text(report: &PlanReport) -> String {
         ),
         String::new(),
         "Action Groups:".to_string(),
-    ];
+    ]);
 
     for group in &report.groups {
         lines.push(format!(
@@ -263,19 +311,22 @@ fn render_plan_text(report: &PlanReport) -> String {
         ));
     }
 
-    lines.extend([
-        String::new(),
-        "Candidates:".to_string(),
-    ]);
+    lines.extend([String::new(), "Candidates:".to_string()]);
 
     for candidate in &report.candidates {
         lines.push(format!(
             "- [{}] {} | {} | {}",
             risk_label(&candidate.risk),
             candidate.path,
-            human_bytes(candidate.size_bytes),
+            human_bytes_with_partial(candidate.size_bytes, candidate.partial),
             candidate.action
         ));
+        if candidate.partial {
+            lines.push(format!(
+                "  Partial size warning: {}",
+                partial_reasons_text(&candidate.partial_reasons)
+            ));
+        }
     }
 
     if !report.skipped.is_empty() {
@@ -283,6 +334,12 @@ fn render_plan_text(report: &PlanReport) -> String {
         lines.push("Skipped:".to_string());
         for skipped in &report.skipped {
             lines.push(format!("- {} | {}", skipped.path, skipped.reason));
+            if skipped.partial {
+                lines.push(format!(
+                    "  Partial size warning: {}",
+                    partial_reasons_text(&skipped.partial_reasons)
+                ));
+            }
         }
     }
 
@@ -300,8 +357,14 @@ fn render_plan_markdown(report: &PlanReport) -> String {
             "- Skip Modified Within Minutes: {}",
             report.skip_modified_within_minutes
         ),
+    ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), true));
+    lines.extend([
         format!("- Total Findings: {}", report.summary.total_findings),
-        format!("- Eligible Candidates: {}", report.summary.eligible_candidates),
+        format!(
+            "- Eligible Candidates: {}",
+            report.summary.eligible_candidates
+        ),
         format!("- Skipped Findings: {}", report.summary.skipped_findings),
         format!(
             "- Blocked Sensitive Paths: {}",
@@ -320,7 +383,7 @@ fn render_plan_markdown(report: &PlanReport) -> String {
         String::new(),
         "| Action | Candidates | Size |".to_string(),
         "|---|---:|---:|".to_string(),
-    ];
+    ]);
 
     for group in &report.groups {
         lines.push(format!(
@@ -342,9 +405,16 @@ fn render_plan_markdown(report: &PlanReport) -> String {
             "| {} | `{}` | {} | {} |",
             risk_label(&candidate.risk),
             candidate.path,
-            human_bytes(candidate.size_bytes),
+            human_bytes_with_partial(candidate.size_bytes, candidate.partial),
             candidate.action
         ));
+        if candidate.partial {
+            lines.push(format!(
+                "- Partial size warning for `{}`: {}",
+                candidate.path,
+                partial_reasons_text(&candidate.partial_reasons)
+            ));
+        }
     }
 
     if !report.skipped.is_empty() {
@@ -355,6 +425,13 @@ fn render_plan_markdown(report: &PlanReport) -> String {
         lines.push("|---|---|".to_string());
         for skipped in &report.skipped {
             lines.push(format!("| `{}` | {} |", skipped.path, skipped.reason));
+            if skipped.partial {
+                lines.push(format!(
+                    "- Partial size warning for `{}`: {}",
+                    skipped.path,
+                    partial_reasons_text(&skipped.partial_reasons)
+                ));
+            }
         }
     }
 
@@ -367,7 +444,10 @@ fn render_clean_text(report: &CleanReport) -> String {
         format!("Generated At: {}", report.generated_at),
         format!("Mode: {}", report.mode),
         format!("Candidate Count: {}", report.candidate_count),
-        format!("Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
+        format!(
+            "Reclaimable Bytes: {}",
+            human_bytes(report.reclaimable_bytes)
+        ),
         String::new(),
         "Action Groups:".to_string(),
     ];
@@ -381,10 +461,7 @@ fn render_clean_text(report: &CleanReport) -> String {
         ));
     }
 
-    lines.extend([
-        String::new(),
-        "Actions:".to_string(),
-    ]);
+    lines.extend([String::new(), "Actions:".to_string()]);
 
     for action in &report.actions {
         lines.push(format!(
@@ -413,7 +490,10 @@ fn render_clean_markdown(report: &CleanReport) -> String {
         format!("- Generated At: {}", report.generated_at),
         format!("- Mode: {}", report.mode),
         format!("- Candidate Count: {}", report.candidate_count),
-        format!("- Reclaimable Bytes: {}", human_bytes(report.reclaimable_bytes)),
+        format!(
+            "- Reclaimable Bytes: {}",
+            human_bytes(report.reclaimable_bytes)
+        ),
         String::new(),
         "## Action Groups".to_string(),
         String::new(),
@@ -468,7 +548,10 @@ fn render_quarantine_text(report: &QuarantinePlan) -> String {
     ];
 
     for entry in &report.entries {
-        lines.push(format!("- {} => {}", entry.source_path, entry.destination_path));
+        lines.push(format!(
+            "- {} => {}",
+            entry.source_path, entry.destination_path
+        ));
     }
 
     lines.join("\n")
@@ -487,7 +570,10 @@ fn render_quarantine_markdown(report: &QuarantinePlan) -> String {
     ];
 
     for entry in &report.entries {
-        lines.push(format!("| `{}` | `{}` |", entry.source_path, entry.destination_path));
+        lines.push(format!(
+            "| `{}` | `{}` |",
+            entry.source_path, entry.destination_path
+        ));
     }
 
     lines.join("\n")
@@ -601,8 +687,8 @@ fn render_doctor_text(report: &DoctorReport) -> String {
     let mut lines = vec![
         "Windows AI Space Doctor".to_string(),
         format!("Generated At: {}", report.generated_at),
-        format!("Policy: {}", report.policy_summary),
     ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), false));
 
     lines.push(String::new());
     lines.extend(render_doctor_executive_summary_lines(report, false));
@@ -658,9 +744,18 @@ fn render_doctor_text(report: &DoctorReport) -> String {
 
         for finding in existing_findings {
             lines.push(format!(
-                "- {} | exists={} | {} bytes | {}",
-                finding.path, finding.exists, finding.size_bytes, finding.reason
+                "- {} | exists={} | {} | {}",
+                finding.path,
+                finding.exists,
+                human_bytes_with_partial(finding.size_bytes, finding.partial),
+                finding.reason
             ));
+            if finding.partial {
+                lines.push(format!(
+                    "  Partial size warning: {}",
+                    partial_reasons_text(&finding.partial_reasons)
+                ));
+            }
             if !finding.breakdown.is_empty() {
                 lines.push("  Breakdown:".to_string());
                 for item in &finding.breakdown {
@@ -701,10 +796,7 @@ pub fn render_diff(report: &DiffReport, format: OutputFormat) -> Result<String> 
     Ok(output)
 }
 
-pub fn render_large_files(
-    report: &LargeFilesReport,
-    format: OutputFormat,
-) -> Result<String> {
+pub fn render_large_files(report: &LargeFilesReport, format: OutputFormat) -> Result<String> {
     let output = match format {
         OutputFormat::Json => serde_json::to_string_pretty(report)?,
         OutputFormat::Markdown => render_large_files_markdown(report),
@@ -727,7 +819,11 @@ fn render_large_files_text(report: &LargeFilesReport) -> String {
     for entry in &report.entries {
         lines.push(format!(
             "{} {} {}",
-            if entry.is_directory { "[DIR]" } else { "[FILE]" },
+            if entry.is_directory {
+                "[DIR]"
+            } else {
+                "[FILE]"
+            },
             human_bytes(entry.size_bytes),
             entry.path
         ));
@@ -767,9 +863,17 @@ fn render_diff_text(report: &DiffReport) -> String {
         format!("Generated At: {}", report.generated_at),
         format!("Before: {}", report.before),
         format!("After: {}", report.after),
-        format!("Total Growth: {}", human_bytes_delta(report.summary.total_growth_bytes)),
-        format!("Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}", 
-            report.summary.grew, report.summary.shrunk, report.summary.appeared, report.summary.disappeared),
+        format!(
+            "Total Growth: {}",
+            human_bytes_delta(report.summary.total_growth_bytes)
+        ),
+        format!(
+            "Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}",
+            report.summary.grew,
+            report.summary.shrunk,
+            report.summary.appeared,
+            report.summary.disappeared
+        ),
         String::new(),
         "Changes:".to_string(),
     ];
@@ -795,9 +899,17 @@ fn render_diff_markdown(report: &DiffReport) -> String {
         format!("- Generated At: {}", report.generated_at),
         format!("- Before: `{}`", report.before),
         format!("- After: `{}`", report.after),
-        format!("- Total Growth: {}", human_bytes_delta(report.summary.total_growth_bytes)),
-        format!("- Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}",
-            report.summary.grew, report.summary.shrunk, report.summary.appeared, report.summary.disappeared),
+        format!(
+            "- Total Growth: {}",
+            human_bytes_delta(report.summary.total_growth_bytes)
+        ),
+        format!(
+            "- Grew: {}, Shrunk: {}, Appeared: {}, Disappeared: {}",
+            report.summary.grew,
+            report.summary.shrunk,
+            report.summary.appeared,
+            report.summary.disappeared
+        ),
         String::new(),
         "## Changes".to_string(),
         String::new(),
@@ -832,8 +944,8 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
         "# Windows AI Space Doctor".to_string(),
         String::new(),
         format!("- Generated At: {}", report.generated_at),
-        format!("- Policy: {}", report.policy_summary),
     ];
+    lines.extend(render_policy_lines(report.policy.as_ref(), true));
 
     lines.push(String::new());
     lines.extend(render_doctor_executive_summary_lines(report, true));
@@ -901,8 +1013,19 @@ fn render_doctor_markdown(report: &DoctorReport) -> String {
             for finding in &existing_findings {
                 lines.push(format!(
                     "| `{}` | {} | {} | {} | {} |",
-                    finding.path, finding.exists, finding.size_bytes, finding.risk, finding.action
+                    finding.path,
+                    finding.exists,
+                    human_bytes_with_partial(finding.size_bytes, finding.partial),
+                    finding.risk,
+                    finding.action
                 ));
+                if finding.partial {
+                    lines.push(format!(
+                        "- Partial size warning for `{}`: {}",
+                        finding.path,
+                        partial_reasons_text(&finding.partial_reasons)
+                    ));
+                }
             }
         }
         let breakdown_items = existing_findings
@@ -989,6 +1112,63 @@ fn human_bytes(bytes: u64) -> String {
     } else {
         format!("{value:.2} {}", UNITS[unit])
     }
+}
+
+fn human_bytes_with_partial(bytes: u64, partial: bool) -> String {
+    let size = human_bytes(bytes);
+    if partial {
+        format!("{size} (partial)")
+    } else {
+        size
+    }
+}
+
+fn partial_reasons_text(reasons: &[String]) -> String {
+    if reasons.is_empty() {
+        "best-effort, not exact; reason unavailable".to_string()
+    } else {
+        format!("best-effort, not exact; {}", reasons.join("; "))
+    }
+}
+
+fn render_policy_lines(policy: Option<&PolicySnapshot>, markdown: bool) -> Vec<String> {
+    let Some(policy) = policy else {
+        return Vec::new();
+    };
+
+    let prefix = if markdown { "- " } else { "" };
+    vec![
+        if markdown {
+            "## Policy:".to_string()
+        } else {
+            "Policy:".to_string()
+        },
+        format!(
+            "{prefix}Sensitive Markers: {}",
+            policy.sensitive_markers.join(", ")
+        ),
+        format!(
+            "{prefix}Allowed Actions: {}",
+            policy.planner.allow_actions.join(", ")
+        ),
+        format!(
+            "{prefix}Skip Modified Within Minutes: {}",
+            policy.planner.skip_modified_within_minutes
+        ),
+        format!("{prefix}Max Scan Depth: {}", policy.planner.max_scan_depth),
+    ]
+}
+
+fn render_scan_limit_lines(policy: Option<&PolicySnapshot>, markdown: bool) -> Vec<String> {
+    let Some(policy) = policy else {
+        return Vec::new();
+    };
+
+    let prefix = if markdown { "- " } else { "" };
+    vec![format!(
+        "{prefix}Scan Limits: max depth {}",
+        policy.planner.max_scan_depth
+    )]
 }
 
 fn render_scan_executive_summary_lines(report: &ScanReport, markdown: bool) -> Vec<String> {
@@ -1122,13 +1302,313 @@ mod tests {
 
     use super::render_doctor;
     use crate::doctor::{DoctorBreakdownItem, DoctorFinding, DoctorReport, DoctorTopic};
+    use crate::planner::{PlanCandidate, PlanReport, PlanSummary, SkippedItem};
+    use crate::policy::{PlannerPolicySnapshot, PolicySnapshot};
     use crate::OutputFormat;
+
+    fn sample_policy_snapshot() -> PolicySnapshot {
+        PolicySnapshot {
+            sensitive_markers: vec!["token".to_string(), ".env".to_string()],
+            planner: PlannerPolicySnapshot {
+                allow_actions: vec!["quarantine".to_string(), "report-only".to_string()],
+                skip_modified_within_minutes: 15,
+                max_scan_depth: 7,
+            },
+        }
+    }
+
+    fn assert_policy_text(output: &str) {
+        assert!(output.contains("Policy:"));
+        assert!(output.contains("Sensitive Markers: token, .env"));
+        assert!(output.contains("Allowed Actions: quarantine, report-only"));
+        assert!(output.contains("Skip Modified Within Minutes: 15"));
+        assert!(output.contains("Max Scan Depth: 7"));
+    }
+
+    fn assert_policy_json(output: &str) {
+        let value: serde_json::Value = serde_json::from_str(output).expect("json should parse");
+        assert_eq!(value["policy"]["sensitive_markers"][0], "token");
+        assert_eq!(value["policy"]["sensitive_markers"][1], ".env");
+        assert_eq!(value["policy"]["planner"]["allow_actions"][0], "quarantine");
+        assert_eq!(
+            value["policy"]["planner"]["allow_actions"][1],
+            "report-only"
+        );
+        assert_eq!(
+            value["policy"]["planner"]["skip_modified_within_minutes"],
+            15
+        );
+        assert_eq!(value["policy"]["planner"]["max_scan_depth"], 7);
+    }
+
+    #[test]
+    fn scan_report_renders_structured_policy_snapshot() {
+        let report = crate::scanner::ScanReport {
+            scan_time: Local::now(),
+            policy: Some(sample_policy_snapshot()),
+            volumes: Vec::new(),
+            findings: Vec::new(),
+            summary: crate::scanner::Summary::default(),
+        };
+
+        let text = super::render(&report, OutputFormat::Text).expect("scan text should render");
+        let markdown =
+            super::render(&report, OutputFormat::Markdown).expect("scan markdown should render");
+        let json = super::render(&report, OutputFormat::Json).expect("scan json should render");
+
+        assert_policy_text(&text);
+        assert_policy_text(&markdown);
+        assert_policy_json(&json);
+    }
+
+    #[test]
+    fn plan_report_renders_structured_policy_snapshot() {
+        let report = PlanReport {
+            generated_at: Local::now(),
+            mode: "dry-run".to_string(),
+            safe_only: true,
+            skip_modified_within_minutes: 15,
+            policy: Some(sample_policy_snapshot()),
+            summary: PlanSummary::default(),
+            groups: Vec::new(),
+            candidates: Vec::new(),
+            skipped: Vec::new(),
+        };
+
+        let text =
+            super::render_plan(&report, OutputFormat::Text).expect("plan text should render");
+        let markdown = super::render_plan(&report, OutputFormat::Markdown)
+            .expect("plan markdown should render");
+        let json =
+            super::render_plan(&report, OutputFormat::Json).expect("plan json should render");
+
+        assert_policy_text(&text);
+        assert_policy_text(&markdown);
+        assert_policy_json(&json);
+    }
+
+    #[test]
+    fn doctor_report_renders_structured_policy_snapshot() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "sensitive markers: [token, .env]; planner actions: [quarantine, report-only]; skip modified within: 15min; max scan depth: 7".to_string(),
+            policy: Some(sample_policy_snapshot()),
+            latest_diff: None,
+            topics: Vec::new(),
+        };
+
+        let text = render_doctor(&report, OutputFormat::Text).expect("doctor text should render");
+        let markdown =
+            render_doctor(&report, OutputFormat::Markdown).expect("doctor markdown should render");
+        let json = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
+
+        assert_policy_text(&text);
+        assert_policy_text(&markdown);
+        assert_policy_json(&json);
+    }
+
+    #[test]
+    fn doctor_json_keeps_legacy_policy_summary_for_compatibility() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: "sensitive markers: [token, .env]; planner actions: [quarantine, report-only]; skip modified within: 15min; max scan depth: 7".to_string(),
+            policy: Some(sample_policy_snapshot()),
+            latest_diff: None,
+            topics: Vec::new(),
+        };
+
+        let json = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
+        let value: serde_json::Value = serde_json::from_str(&json).expect("json should parse");
+
+        assert!(value.get("policy").is_some(), "new structured policy field should exist");
+        assert_eq!(
+            value["policy_summary"],
+            "sensitive markers: [token, .env]; planner actions: [quarantine, report-only]; skip modified within: 15min; max scan depth: 7"
+        );
+    }
+
+    #[test]
+    fn scan_text_and_markdown_label_partial_sizes() {
+        let report = crate::scanner::ScanReport {
+            scan_time: Local::now(),
+            policy: None,
+            volumes: Vec::new(),
+            findings: vec![crate::scanner::Finding {
+                id: "partial-cache".to_string(),
+                name: "Partial Cache".to_string(),
+                category: "test".to_string(),
+                path: "C:\\cache".to_string(),
+                exists: true,
+                size_bytes: 10,
+                partial: true,
+                partial_reasons: vec!["max scan depth 1 reached".to_string()],
+                risk: crate::rules::RiskLevel::Safe,
+                action: "quarantine".to_string(),
+                reason: "cache".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: crate::scanner::Summary {
+                total_rules: 1,
+                matched_paths: 1,
+                total_size_bytes: 10,
+                safe_bytes: 10,
+                review_bytes: 0,
+                dangerous_bytes: 0,
+                system_bytes: 0,
+                top_findings: vec![crate::scanner::TopFinding {
+                    id: "partial-cache".to_string(),
+                    path: "C:\\cache".to_string(),
+                    risk: crate::rules::RiskLevel::Safe,
+                    size_bytes: 10,
+                    partial: true,
+                }],
+                reclaimable_safe_bytes: 10,
+                partial_findings: 1,
+            },
+        };
+
+        let text = super::render(&report, OutputFormat::Text).expect("scan text should render");
+        let markdown =
+            super::render(&report, OutputFormat::Markdown).expect("scan markdown should render");
+
+        assert!(text.contains("Partial Findings: 1"));
+        assert!(text.contains("10 B (partial)"));
+        assert!(text.contains("max scan depth 1 reached"));
+        assert!(markdown.contains("Partial Findings: 1"));
+        assert!(markdown.contains("10 B (partial)"));
+        assert!(markdown.contains("max scan depth 1 reached"));
+    }
+
+    #[test]
+    fn scan_text_and_markdown_explain_active_scan_limits() {
+        let report = crate::scanner::ScanReport {
+            scan_time: Local::now(),
+            policy: Some(sample_policy_snapshot()),
+            volumes: Vec::new(),
+            findings: Vec::new(),
+            summary: crate::scanner::Summary {
+                total_rules: 1,
+                matched_paths: 1,
+                total_size_bytes: 10,
+                safe_bytes: 10,
+                review_bytes: 0,
+                dangerous_bytes: 0,
+                system_bytes: 0,
+                top_findings: Vec::new(),
+                reclaimable_safe_bytes: 10,
+                partial_findings: 2,
+            },
+        };
+
+        let text = super::render(&report, OutputFormat::Text).expect("scan text should render");
+        let markdown =
+            super::render(&report, OutputFormat::Markdown).expect("scan markdown should render");
+
+        assert!(text.contains("Scan Limits: max depth 7"));
+        assert!(text.contains("Partial Findings: 2"));
+        assert!(markdown.contains("Scan Limits: max depth 7"));
+        assert!(markdown.contains("Partial Findings: 2"));
+    }
+
+    #[test]
+    fn plan_text_and_markdown_preserve_partial_candidates_and_skipped_items() {
+        let report = PlanReport {
+            generated_at: Local::now(),
+            mode: "dry-run".to_string(),
+            safe_only: false,
+            skip_modified_within_minutes: 0,
+            policy: None,
+            summary: PlanSummary {
+                total_findings: 2,
+                eligible_candidates: 1,
+                skipped_findings: 1,
+                reclaimable_bytes: 10,
+                blocked_sensitive_paths: 0,
+                skipped_recently_modified: 0,
+            },
+            groups: Vec::new(),
+            candidates: vec![PlanCandidate {
+                id: "partial-candidate".to_string(),
+                path: "C:\\candidate".to_string(),
+                risk: crate::rules::RiskLevel::Safe,
+                size_bytes: 10,
+                partial: true,
+                partial_reasons: vec!["traversal error: denied".to_string()],
+                action: "quarantine".to_string(),
+                reason: "candidate".to_string(),
+            }],
+            skipped: vec![SkippedItem {
+                id: "partial-skipped".to_string(),
+                path: "C:\\skipped".to_string(),
+                reason: "filtered".to_string(),
+                partial: true,
+                partial_reasons: vec!["metadata unavailable: denied".to_string()],
+            }],
+        };
+
+        let text =
+            super::render_plan(&report, OutputFormat::Text).expect("plan text should render");
+        let markdown = super::render_plan(&report, OutputFormat::Markdown)
+            .expect("plan markdown should render");
+
+        assert!(text.contains("10 B (partial)"));
+        assert!(text.contains("best-effort, not exact"));
+        assert!(text.contains("traversal error: denied"));
+        assert!(text.contains("metadata unavailable: denied"));
+        assert!(markdown.contains("10 B (partial)"));
+        assert!(markdown.contains("best-effort, not exact"));
+        assert!(markdown.contains("traversal error: denied"));
+        assert!(markdown.contains("metadata unavailable: denied"));
+    }
+
+    #[test]
+    fn doctor_text_and_markdown_surface_partial_findings_as_warnings() {
+        let report = DoctorReport {
+            generated_at: Local::now(),
+            policy_summary: String::new(),
+            policy: None,
+            latest_diff: None,
+            topics: vec![DoctorTopic {
+                name: "agents".to_string(),
+                status: "active".to_string(),
+                summary: "1 matching item".to_string(),
+                findings: vec![DoctorFinding {
+                    id: "partial-agent".to_string(),
+                    path: "C:\\agent".to_string(),
+                    exists: true,
+                    size_bytes: 10,
+                    partial: true,
+                    partial_reasons: vec!["max scan depth 1 reached".to_string()],
+                    risk: "review".to_string(),
+                    action: "report-only".to_string(),
+                    reason: "agent".to_string(),
+                    breakdown: Vec::new(),
+                }],
+                recommendations: Vec::new(),
+                probes: Vec::new(),
+            }],
+        };
+
+        let text = render_doctor(&report, OutputFormat::Text).expect("doctor text should render");
+        let markdown =
+            render_doctor(&report, OutputFormat::Markdown).expect("doctor markdown should render");
+
+        assert!(text.contains("Partial size warning"));
+        assert!(text.contains("10 B (partial)"));
+        assert!(text.contains("best-effort, not exact"));
+        assert!(text.contains("max scan depth 1 reached"));
+        assert!(markdown.contains("Partial size warning"));
+        assert!(markdown.contains("10 B (partial)"));
+        assert!(markdown.contains("best-effort, not exact"));
+        assert!(markdown.contains("max scan depth 1 reached"));
+    }
 
     #[test]
     fn doctor_markdown_renders_breakdown_items() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
@@ -1139,6 +1619,8 @@ mod tests {
                     path: "C:\\Users\\demo\\.claude".to_string(),
                     exists: true,
                     size_bytes: 1024,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: "review".to_string(),
                     action: "report-only".to_string(),
                     reason: "agent state".to_string(),
@@ -1163,7 +1645,8 @@ mod tests {
     fn doctor_markdown_summarizes_missing_findings() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
@@ -1175,6 +1658,8 @@ mod tests {
                         path: "C:\\Users\\demo\\.claude".to_string(),
                         exists: true,
                         size_bytes: 1024,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "agent state".to_string(),
@@ -1185,6 +1670,8 @@ mod tests {
                         path: "C:\\Users\\demo\\missing-one".to_string(),
                         exists: false,
                         size_bytes: 0,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "not installed".to_string(),
@@ -1195,6 +1682,8 @@ mod tests {
                         path: "C:\\Users\\demo\\missing-two".to_string(),
                         exists: false,
                         size_bytes: 0,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "not installed".to_string(),
@@ -1218,7 +1707,8 @@ mod tests {
     fn doctor_text_summarizes_missing_findings() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
@@ -1230,6 +1720,8 @@ mod tests {
                         path: "C:\\Users\\demo\\.codex".to_string(),
                         exists: true,
                         size_bytes: 512,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "agent state".to_string(),
@@ -1240,6 +1732,8 @@ mod tests {
                         path: "C:\\Users\\demo\\missing-cli".to_string(),
                         exists: false,
                         size_bytes: 0,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "not installed".to_string(),
@@ -1262,7 +1756,8 @@ mod tests {
     fn doctor_json_preserves_missing_findings() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "agents".to_string(),
@@ -1273,6 +1768,8 @@ mod tests {
                     path: "C:\\Users\\demo\\missing-json".to_string(),
                     exists: false,
                     size_bytes: 0,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: "review".to_string(),
                     action: "report-only".to_string(),
                     reason: "not installed".to_string(),
@@ -1293,7 +1790,8 @@ mod tests {
     fn doctor_markdown_renders_probe_section() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![DoctorTopic {
                 name: "docker".to_string(),
@@ -1304,6 +1802,8 @@ mod tests {
                     path: "C:\\Users\\demo\\AppData\\Local\\Docker".to_string(),
                     exists: true,
                     size_bytes: 2048,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: "review".to_string(),
                     action: "report-only".to_string(),
                     reason: "docker state".to_string(),
@@ -1334,7 +1834,8 @@ mod tests {
     fn doctor_markdown_renders_latest_diff_section() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: Some(crate::doctor::DoctorLatestDiff {
                 before: "before.json".to_string(),
                 after: "after.json".to_string(),
@@ -1373,7 +1874,8 @@ mod tests {
     fn doctor_text_renders_latest_diff_summary_counters() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: Some(crate::doctor::DoctorLatestDiff {
                 before: "before.json".to_string(),
                 after: "after.json".to_string(),
@@ -1407,6 +1909,7 @@ mod tests {
     fn scan_markdown_renders_executive_summary_and_unicode_risk_bars() {
         let report = crate::scanner::ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::new(),
             findings: Vec::new(),
             summary: crate::scanner::Summary {
@@ -1419,11 +1922,12 @@ mod tests {
                 system_bytes: 0,
                 top_findings: Vec::new(),
                 reclaimable_safe_bytes: 6,
+                partial_findings: 0,
             },
         };
 
-        let output = super::render(&report, OutputFormat::Markdown)
-            .expect("scan markdown should render");
+        let output =
+            super::render(&report, OutputFormat::Markdown).expect("scan markdown should render");
 
         assert!(output.contains("## Executive Summary"));
         assert!(output.contains("Reclaimable now: 6 B"));
@@ -1438,6 +1942,7 @@ mod tests {
     fn scan_json_does_not_gain_executive_summary_text() {
         let report = crate::scanner::ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::new(),
             findings: Vec::new(),
             summary: crate::scanner::Summary::default(),
@@ -1453,7 +1958,8 @@ mod tests {
     fn doctor_markdown_renders_executive_summary_and_topic_bars() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: vec![
                 DoctorTopic {
@@ -1465,6 +1971,8 @@ mod tests {
                         path: "C:\\Users\\demo\\.claude".to_string(),
                         exists: true,
                         size_bytes: 6,
+                        partial: false,
+                        partial_reasons: Vec::new(),
                         risk: "review".to_string(),
                         action: "report-only".to_string(),
                         reason: "agent state".to_string(),
@@ -1484,8 +1992,8 @@ mod tests {
             ],
         };
 
-        let output = render_doctor(&report, OutputFormat::Markdown)
-            .expect("doctor markdown should render");
+        let output =
+            render_doctor(&report, OutputFormat::Markdown).expect("doctor markdown should render");
 
         assert!(output.contains("## Executive Summary"));
         assert!(output.contains("Active topics: 1"));
@@ -1499,7 +2007,8 @@ mod tests {
     fn doctor_json_does_not_gain_executive_summary_text() {
         let report = DoctorReport {
             generated_at: Local::now(),
-            policy_summary: "test policy".to_string(),
+            policy_summary: String::new(),
+            policy: None,
             latest_diff: None,
             topics: Vec::new(),
         };

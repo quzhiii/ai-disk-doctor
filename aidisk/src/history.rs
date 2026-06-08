@@ -42,7 +42,10 @@ pub fn latest_scan_pair_for_command(
         for entry in fs::read_dir(reports_dir)? {
             let entry = entry?;
             let path = entry.path();
-            let file_name = path.file_name().and_then(|value| value.to_str()).unwrap_or("");
+            let file_name = path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("");
             if file_name.starts_with("scan-") && file_name.ends_with(".json") {
                 snapshots.push(path);
             }
@@ -77,6 +80,7 @@ mod tests {
     fn sample_scan_report() -> ScanReport {
         ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::new(),
             findings: Vec::new(),
             summary: Summary::default(),
@@ -99,10 +103,9 @@ mod tests {
             path.extension().and_then(|extension| extension.to_str()),
             Some("json")
         );
-        let parsed: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(&path).expect("snapshot should be readable"),
-        )
-        .expect("snapshot should be json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).expect("snapshot should be readable"))
+                .expect("snapshot should be json");
         assert!(parsed.get("findings").is_some());
     }
 

@@ -106,6 +106,7 @@ Doctor V2 增强了 AI 时代的诊断能力，同时保持默认只读和保守
 | **历史对比** | 对比扫描快照，回答"什么变大了？"并追踪清理效果 |
 | **社区规则** | 通过 `--rules-repo` 加载自定义规则库（本地目录或 HTTPS git 地址） |
 | **Agent 友好输出** | JSON 和 Markdown 输出，兼顾人工阅读和 AI Agent 解析 |
+| **可运维元数据** | 报告包含当前策略快照，并在深度限制或后代路径不可读导致 size 不完整时，将 partial size 标记为 `best-effort, not exact` |
 | **跨盘安全** | 隔离操作在跨盘时自动使用 copy+delete 回退（rename 跨盘会失败） |
 
 ---

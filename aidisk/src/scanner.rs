@@ -1,5 +1,5 @@
-use std::fs;
 use std::collections::HashSet;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -9,11 +9,14 @@ use serde::Serialize;
 use sysinfo::Disks;
 use walkdir::WalkDir;
 
+use crate::policy::PolicySnapshot;
 use crate::rules::{expand_windows_path, RiskLevel, Rule};
 
 #[derive(Debug, Serialize)]
 pub struct ScanReport {
     pub scan_time: DateTime<Local>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy: Option<PolicySnapshot>,
     pub volumes: Vec<Volume>,
     pub findings: Vec<Finding>,
     pub summary: Summary,
@@ -35,6 +38,8 @@ pub struct Finding {
     pub path: String,
     pub exists: bool,
     pub size_bytes: u64,
+    pub partial: bool,
+    pub partial_reasons: Vec<String>,
     pub risk: RiskLevel,
     pub action: String,
     pub reason: String,
@@ -52,6 +57,7 @@ pub struct Summary {
     pub system_bytes: u64,
     pub top_findings: Vec<TopFinding>,
     pub reclaimable_safe_bytes: u64,
+    pub partial_findings: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -60,6 +66,7 @@ pub struct TopFinding {
     pub path: String,
     pub risk: RiskLevel,
     pub size_bytes: u64,
+    pub partial: bool,
 }
 
 pub struct ScanProgressEvent<'a> {
@@ -112,6 +119,8 @@ where
                     path: expanded_path.display().to_string(),
                     exists: false,
                     size_bytes: 0,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: rule.risk.clone(),
                     action: rule.cleanup.method.clone(),
                     reason: rule.reason.clone(),
@@ -125,21 +134,31 @@ where
                     continue;
                 }
                 let exists = matched_path.exists();
-                let size_bytes = if exists { compute_size(&matched_path, max_scan_depth)? } else { 0 };
+                let computed_size = if exists {
+                    compute_size(&matched_path, max_scan_depth)?
+                } else {
+                    ComputedSize::exact(0)
+                };
+                let size_bytes = computed_size.size_bytes;
 
                 if exists {
                     summary.matched_paths += 1;
                     summary.total_size_bytes = summary.total_size_bytes.saturating_add(size_bytes);
+                    if computed_size.partial {
+                        summary.partial_findings += 1;
+                    }
                     match rule.risk {
                         RiskLevel::Safe => {
                             summary.safe_bytes = summary.safe_bytes.saturating_add(size_bytes);
-                            summary.reclaimable_safe_bytes = summary.reclaimable_safe_bytes.saturating_add(size_bytes);
+                            summary.reclaimable_safe_bytes =
+                                summary.reclaimable_safe_bytes.saturating_add(size_bytes);
                         }
                         RiskLevel::Review => {
                             summary.review_bytes = summary.review_bytes.saturating_add(size_bytes);
                         }
                         RiskLevel::Dangerous => {
-                            summary.dangerous_bytes = summary.dangerous_bytes.saturating_add(size_bytes);
+                            summary.dangerous_bytes =
+                                summary.dangerous_bytes.saturating_add(size_bytes);
                         }
                         RiskLevel::System => {
                             summary.system_bytes = summary.system_bytes.saturating_add(size_bytes);
@@ -154,6 +173,8 @@ where
                     path: matched_path.display().to_string(),
                     exists,
                     size_bytes,
+                    partial: computed_size.partial,
+                    partial_reasons: computed_size.partial_reasons,
                     risk: rule.risk.clone(),
                     action: rule.cleanup.method.clone(),
                     reason: rule.reason.clone(),
@@ -163,7 +184,11 @@ where
         }
     }
 
-    findings.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes).then_with(|| a.id.cmp(&b.id)));
+    findings.sort_by(|a, b| {
+        b.size_bytes
+            .cmp(&a.size_bytes)
+            .then_with(|| a.id.cmp(&b.id))
+    });
     summary.top_findings = findings
         .iter()
         .filter(|finding| finding.exists)
@@ -173,11 +198,13 @@ where
             path: finding.path.clone(),
             risk: finding.risk,
             size_bytes: finding.size_bytes,
+            partial: finding.partial,
         })
         .collect();
 
     Ok(ScanReport {
         scan_time: Local::now(),
+        policy: None,
         volumes,
         findings,
         summary,
@@ -221,6 +248,70 @@ fn collect_volumes() -> Vec<Volume> {
         .collect()
 }
 
+#[derive(Debug)]
+struct ComputedSize {
+    size_bytes: u64,
+    partial: bool,
+    partial_reasons: Vec<String>,
+}
+
+impl ComputedSize {
+    fn exact(size_bytes: u64) -> Self {
+        Self {
+            size_bytes,
+            partial: false,
+            partial_reasons: Vec::new(),
+        }
+    }
+
+    fn mark_partial(&mut self, reason: String) {
+        self.partial = true;
+        if !self.partial_reasons.contains(&reason) {
+            self.partial_reasons.push(reason);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct WalkSizeEntry {
+    depth: usize,
+    metadata: std::result::Result<WalkSizeMetadata, String>,
+}
+
+#[derive(Debug)]
+struct WalkSizeMetadata {
+    is_file: bool,
+    is_dir: bool,
+    has_unscanned_children: bool,
+    len: u64,
+}
+
+fn compute_size_from_walk_entries<I>(entries: I, max_depth: usize) -> ComputedSize
+where
+    I: IntoIterator<Item = WalkSizeEntry>,
+{
+    let mut computed = ComputedSize::exact(0);
+    for entry in entries {
+        let metadata = match entry.metadata {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                computed.mark_partial(format!("metadata unavailable: {error}"));
+                continue;
+            }
+        };
+
+        if metadata.is_file {
+            computed.size_bytes = computed.size_bytes.saturating_add(metadata.len);
+        } else if metadata.is_dir && entry.depth == max_depth && metadata.has_unscanned_children {
+            computed.mark_partial(format!(
+                "max scan depth {max_depth} reached; deeper children were not scanned"
+            ));
+        }
+    }
+
+    computed
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -258,6 +349,7 @@ mod tests {
             path: "C:\\demo".to_string(),
             risk: RiskLevel::Safe,
             size_bytes: 42,
+            partial: false,
         };
 
         assert_eq!(finding.size_bytes, 42);
@@ -450,7 +542,91 @@ mod tests {
         assert_eq!(report.summary.matched_paths, 1);
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].path, target.display().to_string());
-        assert_eq!(report.summary.total_size_bytes, report.findings[0].size_bytes);
+        assert_eq!(
+            report.summary.total_size_bytes,
+            report.findings[0].size_bytes
+        );
+    }
+
+    #[test]
+    fn scan_marks_finding_partial_when_max_depth_truncates_directory_size() {
+        let temp = tempdir().expect("tempdir should exist");
+        let root = temp.path().join("cache-root");
+        let nested = root.join("nested");
+        fs::create_dir_all(&nested).expect("nested dir should exist");
+        fs::write(root.join("visible.bin"), vec![0_u8; 10]).expect("visible file should write");
+        fs::write(nested.join("hidden.bin"), vec![0_u8; 99]).expect("hidden file should write");
+
+        let report = super::scan(&[test_rule_for_path(&root)], 1).expect("scan should succeed");
+
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].size_bytes, 10);
+        assert!(report.findings[0].partial);
+        assert!(report.findings[0]
+            .partial_reasons
+            .iter()
+            .any(|reason| reason.contains("max scan depth")));
+        assert_eq!(report.summary.partial_findings, 1);
+    }
+
+    #[test]
+    fn compute_size_marks_partial_when_descendant_metadata_is_unreadable() {
+        let computed = super::compute_size_from_walk_entries(
+            vec![
+                super::WalkSizeEntry {
+                    depth: 1,
+                    metadata: Ok(super::WalkSizeMetadata {
+                        is_file: true,
+                        is_dir: false,
+                        has_unscanned_children: false,
+                        len: 5,
+                    }),
+                },
+                super::WalkSizeEntry {
+                    depth: 2,
+                    metadata: Err("access denied".to_string()),
+                },
+            ],
+            20,
+        );
+
+        assert_eq!(computed.size_bytes, 5);
+        assert!(computed.partial);
+        assert!(computed
+            .partial_reasons
+            .iter()
+            .any(|reason| reason.contains("metadata")));
+    }
+
+    #[test]
+    fn scan_does_not_mark_empty_root_at_depth_boundary_as_partial() {
+        let temp = tempdir().expect("tempdir should exist");
+        let root = temp.path().join("empty-root");
+        fs::create_dir_all(&root).expect("empty root should exist");
+
+        let report = super::scan(&[test_rule_for_path(&root)], 0).expect("scan should succeed");
+
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].size_bytes, 0);
+        assert!(!report.findings[0].partial, "empty boundary directory should not be partial");
+        assert_eq!(report.summary.partial_findings, 0);
+    }
+
+    fn test_rule_for_path(path: &std::path::Path) -> crate::rules::Rule {
+        crate::rules::Rule {
+            id: "cache-root".to_string(),
+            name: "Cache Root".to_string(),
+            category: "test".to_string(),
+            platform: "windows".to_string(),
+            paths: vec![path.display().to_string()],
+            risk: RiskLevel::Safe,
+            cleanup: crate::rules::Cleanup {
+                method: "quarantine".to_string(),
+            },
+            exclusions: Vec::new(),
+            reason: "test cache".to_string(),
+            warnings: Vec::new(),
+        }
     }
 }
 
@@ -484,7 +660,9 @@ pub fn scan_large_files(root: &Path, min_size_bytes: u64) -> Result<LargeFilesRe
         };
 
         let size_bytes = if metadata.is_dir() {
-            compute_size(entry.path(), 20).unwrap_or(0)
+            compute_size(entry.path(), 20)
+                .map(|computed| computed.size_bytes)
+                .unwrap_or(0)
         } else {
             metadata.len()
         };
@@ -509,28 +687,38 @@ pub fn scan_large_files(root: &Path, min_size_bytes: u64) -> Result<LargeFilesRe
     })
 }
 
-fn compute_size(path: &Path, max_depth: usize) -> Result<u64> {
+fn compute_size(path: &Path, max_depth: usize) -> Result<ComputedSize> {
     let metadata = fs::metadata(path)?;
     if metadata.is_file() {
-        return Ok(metadata.len());
+        return Ok(ComputedSize::exact(metadata.len()));
     }
 
-    let mut total = 0_u64;
+    let mut entries = Vec::new();
     for entry in WalkDir::new(path).follow_links(false).max_depth(max_depth) {
         let entry = match entry {
             Ok(entry) => entry,
-            Err(_) => continue,
+            Err(error) => {
+                entries.push(WalkSizeEntry {
+                    depth: max_depth,
+                    metadata: Err(format!("traversal error: {error}")),
+                });
+                continue;
+            }
         };
-        let metadata = match entry.metadata() {
-            Ok(metadata) => metadata,
-            Err(_) => continue,
-        };
-        if metadata.is_file() {
-            total = total.saturating_add(metadata.len());
-        }
+        let depth = entry.depth();
+        let metadata = entry
+            .metadata()
+            .map(|metadata| WalkSizeMetadata {
+                is_file: metadata.is_file(),
+                is_dir: metadata.is_dir(),
+                has_unscanned_children: metadata.is_dir() && entry.depth() == max_depth && fs::read_dir(entry.path()).map(|mut children| children.next().is_some()).unwrap_or(true),
+                len: metadata.len(),
+            })
+            .map_err(|error| error.to_string());
+        entries.push(WalkSizeEntry { depth, metadata });
     }
 
-    Ok(total)
+    Ok(compute_size_from_walk_entries(entries, max_depth))
 }
 
 fn format_size(bytes: u64) -> String {

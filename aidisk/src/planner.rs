@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, Local, Utc};
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::policy::Policy;
+use crate::policy::{PlannerPolicySnapshot, Policy, PolicySnapshot};
 use crate::rules::RiskLevel;
 use crate::scanner::{Finding, ScanReport};
 
@@ -16,6 +16,8 @@ pub struct PlanReport {
     pub mode: String,
     pub safe_only: bool,
     pub skip_modified_within_minutes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy: Option<PolicySnapshot>,
     pub summary: PlanSummary,
     pub groups: Vec<ActionGroup>,
     pub candidates: Vec<PlanCandidate>,
@@ -38,6 +40,8 @@ pub struct PlanCandidate {
     pub path: String,
     pub risk: RiskLevel,
     pub size_bytes: u64,
+    pub partial: bool,
+    pub partial_reasons: Vec<String>,
     pub action: String,
     pub reason: String,
 }
@@ -54,6 +58,8 @@ pub struct SkippedItem {
     pub id: String,
     pub path: String,
     pub reason: String,
+    pub partial: bool,
+    pub partial_reasons: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +91,8 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
                 id: finding.id.clone(),
                 path: finding.path.clone(),
                 reason,
+                partial: finding.partial,
+                partial_reasons: finding.partial_reasons.clone(),
             });
             continue;
         }
@@ -96,6 +104,8 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
             path: finding.path.clone(),
             risk: finding.risk,
             size_bytes: finding.size_bytes,
+            partial: finding.partial,
+            partial_reasons: finding.partial_reasons.clone(),
             action: finding.action.clone(),
             reason: finding.reason.clone(),
         });
@@ -108,11 +118,22 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
         mode: "dry-run".to_string(),
         safe_only: options.safe_only,
         skip_modified_within_minutes: options.skip_modified_within_minutes,
+        policy: Some(effective_policy_snapshot(&options)),
         summary,
         groups,
         candidates,
         skipped,
     }
+}
+
+fn effective_policy_snapshot(options: &PlanOptions) -> PolicySnapshot {
+    let mut snapshot = options.policy.snapshot();
+    snapshot.planner = PlannerPolicySnapshot {
+        allow_actions: snapshot.planner.allow_actions,
+        skip_modified_within_minutes: options.skip_modified_within_minutes,
+        max_scan_depth: snapshot.planner.max_scan_depth,
+    };
+    snapshot
 }
 
 fn skip_reason(finding: &Finding, options: &PlanOptions) -> Option<String> {
@@ -151,7 +172,10 @@ fn build_action_groups(candidates: &[PlanCandidate]) -> Vec<ActionGroup> {
     let mut groups: Vec<ActionGroup> = Vec::new();
 
     for candidate in candidates {
-        if let Some(group) = groups.iter_mut().find(|group| group.action == candidate.action) {
+        if let Some(group) = groups
+            .iter_mut()
+            .find(|group| group.action == candidate.action)
+        {
             group.candidate_count += 1;
             group.total_bytes = group.total_bytes.saturating_add(candidate.size_bytes);
             continue;
@@ -164,7 +188,11 @@ fn build_action_groups(candidates: &[PlanCandidate]) -> Vec<ActionGroup> {
         });
     }
 
-    groups.sort_by(|a, b| b.total_bytes.cmp(&a.total_bytes).then_with(|| a.action.cmp(&b.action)));
+    groups.sort_by(|a, b| {
+        b.total_bytes
+            .cmp(&a.total_bytes)
+            .then_with(|| a.action.cmp(&b.action))
+    });
     groups
 }
 
@@ -233,6 +261,7 @@ mod tests {
     fn safe_only_plan_keeps_only_safe_findings() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![
                 Finding {
@@ -242,6 +271,8 @@ mod tests {
                     path: "C:\\safe".to_string(),
                     exists: true,
                     size_bytes: 100,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Safe,
                     action: "quarantine".to_string(),
                     reason: "safe".to_string(),
@@ -254,6 +285,8 @@ mod tests {
                     path: "C:\\review".to_string(),
                     exists: true,
                     size_bytes: 200,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Review,
                     action: "report-only".to_string(),
                     reason: "review".to_string(),
@@ -283,6 +316,7 @@ mod tests {
     fn non_safe_only_plan_keeps_existing_positive_size_candidates() {
         let report = ScanReport {
             scan_time: Local::now(),
+            policy: None,
             volumes: Vec::<Volume>::new(),
             findings: vec![
                 Finding {
@@ -292,6 +326,8 @@ mod tests {
                     path: "C:\\system".to_string(),
                     exists: true,
                     size_bytes: 300,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::System,
                     action: "guide".to_string(),
                     reason: "system".to_string(),
@@ -304,6 +340,8 @@ mod tests {
                     path: "C:\\missing".to_string(),
                     exists: false,
                     size_bytes: 0,
+                    partial: false,
+                    partial_reasons: Vec::new(),
                     risk: RiskLevel::Safe,
                     action: "quarantine".to_string(),
                     reason: "missing".to_string(),
@@ -330,11 +368,57 @@ mod tests {
 
     #[test]
     fn blocks_sensitive_paths() {
-        let markers = vec!["cookies".to_string(), "login data".to_string(), "auth.json".to_string()];
+        let markers = vec![
+            "cookies".to_string(),
+            "login data".to_string(),
+            "auth.json".to_string(),
+        ];
         assert!(is_sensitive_path("C:\\Users\\demo\\cookies", &markers));
         assert!(is_sensitive_path("C:\\Users\\demo\\Login Data", &markers));
         assert!(is_sensitive_path("C:\\Users\\demo\\auth.json", &markers));
         assert!(!is_sensitive_path("C:\\Users\\demo\\Cache", &markers));
+    }
+
+    #[test]
+    fn plan_policy_snapshot_uses_effective_skip_window() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            policy: None,
+            volumes: Vec::<Volume>::new(),
+            findings: vec![Finding {
+                id: "safe-cache".to_string(),
+                name: "Safe cache".to_string(),
+                category: "browser-cache".to_string(),
+                path: "C:\\safe".to_string(),
+                exists: true,
+                size_bytes: 100,
+                partial: false,
+                partial_reasons: Vec::new(),
+                risk: RiskLevel::Safe,
+                action: "quarantine".to_string(),
+                reason: "safe".to_string(),
+                warnings: Vec::new(),
+            }],
+            summary: Summary::default(),
+        };
+
+        let plan = build_plan(
+            &report,
+            PlanOptions {
+                safe_only: true,
+                skip_modified_within_minutes: 5,
+                policy: test_policy(),
+            },
+        );
+
+        assert_eq!(
+            plan.policy
+                .as_ref()
+                .expect("policy snapshot should exist")
+                .planner
+                .skip_modified_within_minutes,
+            5
+        );
     }
 
     fn test_policy() -> Policy {

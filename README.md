@@ -106,6 +106,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
+| **Operability Metadata** | Reports include the active policy snapshot and mark partial sizes as `best-effort, not exact` when depth limits or unreadable descendants prevent complete traversal |
 | **Cross-Disk Safety** | Quarantine handles cross-drive moves with copy+delete fallback when rename fails |
 
 ---

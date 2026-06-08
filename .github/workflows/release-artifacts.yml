@@ -8,17 +8,17 @@ on:
 
 jobs:
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     defaults:
       run:
         working-directory: aidisk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Build release binary
         run: cargo build --release
       - name: Upload aidisk.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aidisk-windows-x86_64
           path: aidisk/target/release/aidisk.exe

@@ -189,6 +189,22 @@ fn scheduler_setup_script_registers_windows_task_for_governance() {
 }
 
 #[test]
+fn scheduler_management_scripts_can_show_and_unregister_task() {
+    let show_script = read_repo_file("scripts/governance/show-governance-task.ps1");
+    let unregister_script = read_repo_file("scripts/governance/unregister-governance-task.ps1");
+
+    assert!(show_script.contains("Get-ScheduledTask"));
+    assert!(show_script.contains("Get-ScheduledTaskInfo"));
+    assert!(show_script.contains("-TaskName"));
+
+    assert!(unregister_script.contains("Unregister-ScheduledTask"));
+    assert!(unregister_script.contains("-TaskName"));
+    assert!(unregister_script.contains("-Confirm:$false"));
+    assert!(!unregister_script.contains("Remove-Item"));
+    assert!(!unregister_script.contains("clean --yes"));
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let readme = read_repo_file("README.md");

@@ -47,6 +47,10 @@ fn readme_english_exists_and_has_required_sections() {
         readme.contains("register-governance-task.ps1") && readme.contains("-DailyAt"),
         "Should document Windows scheduler registration workflow"
     );
+    assert!(
+        readme.contains("show-governance-task.ps1") && readme.contains("unregister-governance-task.ps1"),
+        "Should document Windows scheduler management companion scripts"
+    );
 }
 
 #[test]
@@ -94,5 +98,9 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(
         readme.contains("register-governance-task.ps1") && readme.contains("-DailyAt"),
         "Should document Windows scheduler registration workflow"
+    );
+    assert!(
+        readme.contains("show-governance-task.ps1") && readme.contains("unregister-governance-task.ps1"),
+        "Should document Windows scheduler management companion scripts"
     );
 }

@@ -270,6 +270,12 @@ The governance script keeps the workflow read-only: it runs `scan`, reuses scan 
 
 # Register a webhook-enabled daily run
 .\scripts\governance\register-governance-task.ps1 -DailyAt "09:00" -NotifierAdapter webhook -WebhookUrl https://example.test/webhook
+
+# Show the registered governance task
+.\scripts\governance\show-governance-task.ps1
+
+# Unregister the governance task
+.\scripts\governance\unregister-governance-task.ps1
 ```
 
 The scheduler setup script only registers a Windows Task Scheduler entry that calls `run-governance.ps1`; it does not perform cleanup or delete any files.

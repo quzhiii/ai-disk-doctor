@@ -32,6 +32,17 @@ fn readme_english_exists_and_has_required_sections() {
         readme.contains("run-governance.ps1"),
         "Should document local governance script entrypoint"
     );
+    assert!(
+        readme.contains("-NotifierAdapter webhook") && readme.contains("-WebhookUrl"),
+        "Should document generic webhook notifier usage"
+    );
+    assert!(
+        readme.contains("governance-event.json")
+            && readme.contains("anomaly_found")
+            && readme.contains("pending_history")
+            && readme.contains("no_anomaly"),
+        "Should document governance event envelope and event types"
+    );
 }
 
 #[test]
@@ -64,5 +75,16 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(
         readme.contains("run-governance.ps1"),
         "Should document local governance script entrypoint"
+    );
+    assert!(
+        readme.contains("-NotifierAdapter webhook") && readme.contains("-WebhookUrl"),
+        "Should document generic webhook notifier usage"
+    );
+    assert!(
+        readme.contains("governance-event.json")
+            && readme.contains("anomaly_found")
+            && readme.contains("pending_history")
+            && readme.contains("no_anomaly"),
+        "Should document governance event envelope and event types"
     );
 }

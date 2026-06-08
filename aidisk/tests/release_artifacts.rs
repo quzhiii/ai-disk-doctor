@@ -161,8 +161,15 @@ fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
     assert!(script.contains("cargo run -- scan --json"));
     assert!(script.contains("cargo run -- anomaly --latest"));
     assert!(script.contains("-NotifierAdapter"));
+    assert!(script.contains("-WebhookUrl"));
     assert!(script.contains("Copy-Item"));
     assert!(script.contains("requires at least two scan snapshots"));
+    assert!(script.contains("Invoke-RestMethod"));
+    assert!(script.contains("ContentType \"application/json\""));
+    assert!(script.contains("governance-event.json"));
+    assert!(script.contains("anomaly_found"));
+    assert!(script.contains("pending_history"));
+    assert!(script.contains("no_anomaly"));
     assert!(!script.contains("clean --yes"));
     assert!(!script.contains("Remove-Item"));
 }

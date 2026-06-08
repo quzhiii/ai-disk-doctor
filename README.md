@@ -255,9 +255,12 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 
 # Tune anomaly thresholds
 .\scripts\governance\run-governance.ps1 -MinGrowth "2GB" -MinGrowthPercent 50
+
+# Send anomaly JSON to a generic webhook endpoint
+.\scripts\governance\run-governance.ps1 -NotifierAdapter webhook -WebhookUrl https://example.test/webhook
 ```
 
-The governance script keeps the workflow read-only: it runs `scan`, reuses scan snapshots, and emits anomaly artifacts locally. On the first run, if history does not yet contain two snapshots, it writes a pending note instead of failing.
+The governance script keeps the workflow read-only: it runs `scan`, reuses scan snapshots, and emits anomaly artifacts locally. On the first run, if history does not yet contain two snapshots, it writes a pending note instead of failing. It also writes a stable `governance-event.json` envelope with one of three event types: `anomaly_found`, `pending_history`, or `no_anomaly`. `-NotifierAdapter webhook` posts that governance event payload to a generic HTTP endpoint so future WeChat / WeCom / Feishu / Slack / Telegram / Discord adapters can share the same contract.
 
 ---
 

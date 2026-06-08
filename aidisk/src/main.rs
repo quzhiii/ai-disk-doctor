@@ -1,3 +1,4 @@
+mod anomaly;
 mod cleaner;
 mod diff;
 mod doctor;
@@ -127,6 +128,26 @@ enum Command {
         before: Option<PathBuf>,
         #[arg(long)]
         after: Option<PathBuf>,
+    },
+    Anomaly {
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        format: OutputFormat,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+        #[arg(long)]
+        latest: bool,
+        #[arg(long)]
+        reports_dir: Option<PathBuf>,
+        #[arg(long)]
+        before: Option<PathBuf>,
+        #[arg(long)]
+        after: Option<PathBuf>,
+        #[arg(long, default_value = "1GB", value_parser = parse_size_arg)]
+        min_growth: u64,
+        #[arg(long, default_value_t = 30.0)]
+        min_growth_percent: f64,
     },
     Doctor {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
@@ -391,6 +412,42 @@ fn run(cli: Cli) -> Result<()> {
             let report = diff::build_diff(&before, &after)?;
             println!("{}", reporter::render_diff(&report, effective_format)?);
         }
+        Command::Anomaly {
+            format,
+            json,
+            markdown,
+            latest,
+            reports_dir,
+            before,
+            after,
+            min_growth,
+            min_growth_percent,
+        } => {
+            let effective_format = effective_format(format, json, markdown);
+
+            let (before, after) = if latest {
+                let reports_dir = reports_dir.unwrap_or_else(history::default_reports_dir);
+                history::latest_scan_pair_for_command(&reports_dir, "anomaly --latest")?
+            } else {
+                let before = before.ok_or_else(|| {
+                    anyhow::anyhow!("anomaly requires --before unless --latest is used")
+                })?;
+                let after = after.ok_or_else(|| {
+                    anyhow::anyhow!("anomaly requires --after unless --latest is used")
+                })?;
+                (before, after)
+            };
+
+            let diff_report = diff::build_diff(&before, &after)?;
+            let report = anomaly::build_anomaly_report(
+                &diff_report,
+                anomaly::AnomalyThresholds {
+                    min_growth_bytes: min_growth,
+                    min_growth_percent,
+                },
+            );
+            println!("{}", reporter::render_anomaly(&report, effective_format)?);
+        }
         Command::Doctor {
             format,
             json,
@@ -490,6 +547,7 @@ impl ErrorContext {
                 "clean" => Some("clean"),
                 "restore" => Some("restore"),
                 "diff" => Some("diff"),
+                "anomaly" => Some("anomaly"),
                 "doctor" => Some("doctor"),
                 _ => None,
             })
@@ -548,6 +606,15 @@ impl ErrorContext {
                 ..
             } => Self {
                 command: "diff",
+                format: effective_format(*format, *json, *markdown),
+            },
+            Command::Anomaly {
+                format,
+                json,
+                markdown,
+                ..
+            } => Self {
+                command: "anomaly",
                 format: effective_format(*format, *json, *markdown),
             },
             Command::Doctor {

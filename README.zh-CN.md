@@ -105,6 +105,7 @@ Doctor V2 增强了 AI 时代的诊断能力，同时保持默认只读和保守
 | **专项诊断** | `doctor` 命令提供 AI Agents、AI IDE/CLI、安装包、测试产物、Docker、WSL、Ollama、Playwright 和 Hugging Face 的针对性分析 |
 | **Registry 驱动的 Doctor Topics** | 内置 doctor topics 保持既有公开 flags，同时用一份代码内 registry 统一 topic 名称、默认启用、匹配逻辑、建议和可选 probes |
 | **历史对比** | 对比扫描快照，回答"什么变大了？"并追踪清理效果 |
+| **增长异常检测** | 基于绝对与相对双阈值识别异常增长路径，用于本地定时治理 |
 | **社区规则** | 通过 `--rules-repo` 加载自定义规则库（本地目录或 HTTPS git 地址） |
 | **Agent 友好输出** | JSON 和 Markdown 输出，兼顾人工阅读和 AI Agent 解析 |
 | **可运维元数据** | 报告包含当前策略快照，并在深度限制或后代路径不可读导致 size 不完整时，将 partial size 标记为 `best-effort, not exact` |
@@ -245,6 +246,21 @@ aidisk diff --latest --markdown
 aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
 ```
 
+### 7. 运行本地治理
+
+```powershell
+# 执行一次本地治理周期
+.\scripts\governance\run-governance.ps1
+
+# 将产物写到自定义目录
+.\scripts\governance\run-governance.ps1 -OutputDir ".aidisk\governance"
+
+# 调整增长异常阈值
+.\scripts\governance\run-governance.ps1 -MinGrowth "2GB" -MinGrowthPercent 50
+```
+
+治理脚本保持全程只读：它会运行 `scan`、复用扫描快照，并将 anomaly 产物写到本地。若首轮历史快照不足两份，它会写出 pending 提示而不是直接失败。
+
 ---
 
 ## 命令参考
@@ -258,6 +274,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `restore` | 恢复隔离的文件 | `--dry-run`, `--yes`, `--index` |
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
+| `anomaly` | 从扫描快照中检测增长异常 | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
 ### JSON 错误契约
 
@@ -315,9 +332,10 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
        +-- 扫描器 (WalkDir 带深度限制)
        +-- 规划器 (风险过滤 + 敏感路径阻断)
        +-- 清理器 (隔离/恢复，支持跨盘回退)
-       +-- 诊断器 (registry 驱动的主题分析器)
-       +-- 对比引擎 (快照对比)
-       +-- 报告器 (JSON / Markdown 输出)
+        +-- 诊断器 (registry 驱动的主题分析器)
+        +-- 对比引擎 (快照对比)
+        +-- 异常引擎 (增长阈值检测)
+        +-- 报告器 (JSON / Markdown 输出)
 ```
 
 详细架构文档请参阅 [`docs/architecture.md`](./docs/architecture.md)。

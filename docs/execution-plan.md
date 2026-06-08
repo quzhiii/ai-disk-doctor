@@ -221,3 +221,26 @@ Doctor V2 roadmap：
 - `docs/release-notes/v1.2.0.md`
 - `scripts/release-smoke.ps1`
 - `aidisk` crate version `1.2.0`
+
+## Phase 9: Local Scheduled Governance
+
+目标：
+
+- 将 `aidisk` 从按需诊断 CLI 升级为本地持续治理哨兵。
+- 第一版聚焦增长异常，而不是自动清理。
+- 使用混合架构：Rust 提供异常判断核心，脚本负责调度和通知编排。
+
+架构边界：
+
+- Rust 核心新增 `anomaly` 能力，基于 scan snapshots / diff 结果做双阈值增长异常判断。
+- 阈值模型采用绝对增长 + 相对增长组合，避免小目录噪声和大目录低敏感度问题。
+- 调度层先由 Windows PowerShell + Task Scheduler 落地，但接口应能映射到 cron / launchd / systemd timer。
+- 通知层采用可插拔 adapter，先支持 local file / generic webhook payload，后续扩展微信、企业微信、飞书、Slack、Telegram、Discord、email。
+
+验收标准：
+
+- `aidisk anomaly --latest` 可读取最近两个 scan snapshots 并输出增长异常报告。
+- `aidisk anomaly --before <FILE> --after <FILE>` 支持显式快照对比。
+- JSON 输出稳定，Markdown 输出适合直接投递到 IM / webhook。
+- Windows 脚本能完成一次本地治理 run：scan → anomaly → report artifact。
+- 第一版不做后台常驻、不自动清理、不绑定单一 IM 服务。

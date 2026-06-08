@@ -105,6 +105,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | **Specialized Diagnostics** | `doctor` command provides targeted analysis for AI agents, AI IDEs/CLIs, installers, test artifacts, Docker, WSL, Ollama, Playwright, and Hugging Face |
 | **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
+| **Growth Anomaly Detection** | Detect paths whose growth exceeds both absolute and relative thresholds for local scheduled governance |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
 | **Operability Metadata** | Reports include the active policy snapshot and mark partial sizes as `best-effort, not exact` when depth limits or unreadable descendants prevent complete traversal |
@@ -243,6 +244,21 @@ aidisk diff --latest --markdown
 aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json --markdown
 ```
 
+### 7. Run Local Governance
+
+```powershell
+# Run one local governance cycle
+.\scripts\governance\run-governance.ps1
+
+# Keep artifacts under a custom directory
+.\scripts\governance\run-governance.ps1 -OutputDir ".aidisk\governance"
+
+# Tune anomaly thresholds
+.\scripts\governance\run-governance.ps1 -MinGrowth "2GB" -MinGrowthPercent 50
+```
+
+The governance script keeps the workflow read-only: it runs `scan`, reuses scan snapshots, and emits anomaly artifacts locally. On the first run, if history does not yet contain two snapshots, it writes a pending note instead of failing.
+
 ---
 
 ## Command Reference
@@ -256,6 +272,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
+| `anomaly` | Detect growth anomalies from scan snapshots | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
 ### JSON Error Contract
 
@@ -315,6 +332,7 @@ User / AI Agent
        +-- Cleaner (quarantine / restore with cross-disk fallback)
        +-- Doctor (registry-driven topic analyzers)
        +-- Diff Engine (snapshot comparison)
+       +-- Anomaly Engine (growth threshold detection)
        +-- Reporter (JSON / Markdown output)
 ```
 

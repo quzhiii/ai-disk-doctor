@@ -155,6 +155,19 @@ fn smoke_script_is_non_destructive_and_covers_core_commands() {
 }
 
 #[test]
+fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
+    let script = read_repo_file("scripts/governance/run-governance.ps1");
+
+    assert!(script.contains("cargo run -- scan --json"));
+    assert!(script.contains("cargo run -- anomaly --latest"));
+    assert!(script.contains("-NotifierAdapter"));
+    assert!(script.contains("Copy-Item"));
+    assert!(script.contains("requires at least two scan snapshots"));
+    assert!(!script.contains("clean --yes"));
+    assert!(!script.contains("Remove-Item"));
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let readme = read_repo_file("README.md");

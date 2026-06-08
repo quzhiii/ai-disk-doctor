@@ -15,6 +15,7 @@ User / AI Agent
        +-- Cleaner .................... Quarantine / restore with cross-disk fallback
        +-- Doctor ..................... Topic-specific analyzers
        +-- Diff Engine ................ Snapshot comparison
+       +-- Anomaly Engine ............. Growth threshold detection
        +-- Reporter ................... JSON / Markdown output
 ```
 
@@ -65,6 +66,12 @@ User / AI Agent
 - Uses `exists` field (not `size_bytes`) to avoid false positives
 - Auto-discovers latest two snapshots via `latest_scan_pair`
 
+### Anomaly Engine
+- Builds on scan snapshots and diff output
+- Detects growth anomalies with absolute + relative thresholds
+- Treats newly appeared paths as baseline-free and checks absolute growth only
+- Outputs JSON and Markdown for local scheduled governance and future notifier adapters
+
 ### Reporter
 - JSON output: Machine-parseable, schema-stable
 - Markdown output: Human-readable with tables and sections
@@ -90,6 +97,8 @@ Scanner --> Findings (path, size, risk, category)
               |
               +---> Diff Engine --> Change Report
               |
+              +---> Anomaly Engine --> Growth Alerts
+              |
               v
            Reporter --> JSON / Markdown
 ```
@@ -109,6 +118,7 @@ Scanner --> Findings (path, size, risk, category)
 - **Policy Override** — `policy.yaml` allows tuning thresholds without code changes
 - **New Topics** — Doctor topics are modular; add new YAML rule categories
 - **Output Formats** — Reporter trait allows adding new output serializers
+- **Governance Automation** — Scheduler scripts can call `scan`, `anomaly`, and notifier adapters without changing the Rust core
 
 ## Design Constraints
 

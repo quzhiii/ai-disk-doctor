@@ -24,6 +24,14 @@ fn readme_english_exists_and_has_required_sections() {
         readme.contains("mark sizes as `(partial)`") && readme.contains("best-effort, not exact"),
         "Should describe partial size marker plus warning text"
     );
+    assert!(
+        readme.contains("Growth Anomaly Detection") && readme.contains("`anomaly`"),
+        "Should document anomaly command and growth governance capability"
+    );
+    assert!(
+        readme.contains("run-governance.ps1"),
+        "Should document local governance script entrypoint"
+    );
 }
 
 #[test]
@@ -48,5 +56,13 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(
         readme.contains("size 标记为 `(partial)`") && readme.contains("best-effort, not exact"),
         "Should describe partial size marker plus warning text"
+    );
+    assert!(
+        readme.contains("增长异常检测") && readme.contains("`anomaly`"),
+        "Should document anomaly command and growth governance capability"
+    );
+    assert!(
+        readme.contains("run-governance.ps1"),
+        "Should document local governance script entrypoint"
     );
 }

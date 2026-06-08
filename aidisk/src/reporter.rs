@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::anomaly::AnomalyReport;
 use crate::cleaner::{
     CleanDryRunOutput, CleanReport, ExecutionReport, QuarantinePlan, RestoreReport,
 };
@@ -92,6 +93,82 @@ pub fn render_doctor(report: &DoctorReport, format: OutputFormat) -> Result<Stri
     };
 
     Ok(output)
+}
+
+pub fn render_anomaly(report: &AnomalyReport, format: OutputFormat) -> Result<String> {
+    let output = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(report)?,
+        OutputFormat::Markdown => render_anomaly_markdown(report),
+        OutputFormat::Text => render_anomaly_text(report),
+    };
+
+    Ok(output)
+}
+
+fn render_anomaly_text(report: &AnomalyReport) -> String {
+    let mut lines = vec![
+        "Windows AI Space Anomaly Report".to_string(),
+        format!("Generated At: {}", report.generated_at),
+        format!("Before: {}", report.before),
+        format!("After: {}", report.after),
+        format!("Anomalies: {}", report.summary.anomalies),
+        format!(
+            "Thresholds: min_growth={} min_growth_percent={:.2}%",
+            human_bytes(report.thresholds.min_growth_bytes),
+            report.thresholds.min_growth_percent
+        ),
+        String::new(),
+    ];
+
+    for anomaly in &report.anomalies {
+        lines.push(format!(
+            "- {} grew by {}{}",
+            anomaly.path,
+            human_bytes(anomaly.delta_bytes),
+            anomaly
+                .growth_percent
+                .map(|percent| format!(" ({percent:.2}%)"))
+                .unwrap_or_else(|| " (new path)".to_string())
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn render_anomaly_markdown(report: &AnomalyReport) -> String {
+    let mut lines = vec![
+        "# Windows AI Space Anomaly Report".to_string(),
+        String::new(),
+        format!("- Generated At: {}", report.generated_at),
+        format!("- Before: `{}`", report.before),
+        format!("- After: `{}`", report.after),
+        format!("- Anomalies: {}", report.summary.anomalies),
+        format!(
+            "- Thresholds: `min_growth={}` `min_growth_percent={:.2}%`",
+            human_bytes(report.thresholds.min_growth_bytes),
+            report.thresholds.min_growth_percent
+        ),
+        String::new(),
+        "| Path | Before | After | Growth | Growth % |".to_string(),
+        "|---|---:|---:|---:|---:|".to_string(),
+    ];
+
+    for anomaly in &report.anomalies {
+        let growth_percent = anomaly
+            .growth_percent
+            .map(|percent| format!("{percent:.2}%"))
+            .unwrap_or_else(|| "new path".to_string());
+        lines.push(format!(
+            "| `{}` | {} | {} | {} | {} |",
+            anomaly.path,
+            human_bytes(anomaly.before_bytes),
+            human_bytes(anomaly.after_bytes),
+            human_bytes(anomaly.delta_bytes),
+            growth_percent
+        ));
+    }
+
+    lines.join("\n")
 }
 
 fn render_text(report: &ScanReport) -> String {

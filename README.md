@@ -262,6 +262,18 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 
 The governance script keeps the workflow read-only: it runs `scan`, reuses scan snapshots, and emits anomaly artifacts locally. On the first run, if history does not yet contain two snapshots, it writes a pending note instead of failing. It also writes a stable `governance-event.json` envelope with one of three event types: `anomaly_found`, `pending_history`, or `no_anomaly`. `-NotifierAdapter webhook` posts that governance event payload to a generic HTTP endpoint so future WeChat / WeCom / Feishu / Slack / Telegram / Discord adapters can share the same contract.
 
+### 8. Register a Daily Windows Task
+
+```powershell
+# Register a daily governance run at 09:00
+.\scripts\governance\register-governance-task.ps1 -DailyAt "09:00"
+
+# Register a webhook-enabled daily run
+.\scripts\governance\register-governance-task.ps1 -DailyAt "09:00" -NotifierAdapter webhook -WebhookUrl https://example.test/webhook
+```
+
+The scheduler setup script only registers a Windows Task Scheduler entry that calls `run-governance.ps1`; it does not perform cleanup or delete any files.
+
 ---
 
 ## Command Reference

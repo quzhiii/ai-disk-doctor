@@ -175,6 +175,20 @@ fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
 }
 
 #[test]
+fn scheduler_setup_script_registers_windows_task_for_governance() {
+    let script = read_repo_file("scripts/governance/register-governance-task.ps1");
+
+    assert!(script.contains("Register-ScheduledTask"));
+    assert!(script.contains("New-ScheduledTaskAction"));
+    assert!(script.contains("New-ScheduledTaskTrigger"));
+    assert!(script.contains("run-governance.ps1"));
+    assert!(script.contains("-TaskName"));
+    assert!(script.contains("-DailyAt"));
+    assert!(!script.contains("clean --yes"));
+    assert!(!script.contains("Remove-Item"));
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let readme = read_repo_file("README.md");

@@ -26,6 +26,9 @@ fn changelog_and_release_notes_cover_v1_2_scope() {
         "stderr",
         "~/",
         "%VAR%",
+        "policy snapshot",
+        "best-effort, not exact",
+        "scan --policy",
     ];
 
     assert!(changelog.contains("## 1.2.0"));
@@ -41,6 +44,33 @@ fn changelog_and_release_notes_cover_v1_2_scope() {
             "release notes should mention {term}"
         );
     }
+
+    assert!(
+        changelog.contains("rule-driven `scan`, `plan`, and `doctor`"),
+        "CHANGELOG.md should scope policy metadata to rule-driven reports"
+    );
+    assert!(
+        release_notes.contains("rule-driven `scan`, `plan`, and `doctor`"),
+        "release notes should scope policy metadata to rule-driven reports"
+    );
+    assert!(
+        changelog.contains("rule-driven read-only scans"),
+        "CHANGELOG.md should scope scan --policy to rule-driven read-only scans"
+    );
+    assert!(
+        release_notes.contains("rule-driven read-only scans"),
+        "release notes should scope scan --policy to rule-driven read-only scans"
+    );
+    assert!(
+        changelog.contains("mark sizes as `(partial)`")
+            && changelog.contains("best-effort, not exact"),
+        "CHANGELOG.md should describe partial marker plus warning wording"
+    );
+    assert!(
+        release_notes.contains("mark sizes as `(partial)`")
+            && release_notes.contains("best-effort, not exact"),
+        "release notes should describe partial marker plus warning wording"
+    );
 }
 
 #[test]

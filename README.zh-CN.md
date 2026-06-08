@@ -61,6 +61,7 @@ Phase 7 在保持保守清理边界的前提下扩展了发现能力和覆盖面
 - **开发产物覆盖** — 内置规则可识别 `node_modules`、Rust `target/`、Gradle 缓存、Python `__pycache__`、`dist/`、`.next`、`.turbo` 等常见可再生成产物。
 - **跨平台规则路径** — 规则现在同时支持 Unix `~/` home 路径和 Windows `%VAR%` 展开，并为 Ollama、Hugging Face、Docker 增加了 linux/macOS 路径。
 - **结构化 JSON 错误** — `--json` 命令失败时输出单一错误对象到 stderr，保持 stdout 为空。
+- **可运维元数据** — 规则驱动的 `scan`、`plan`、`doctor` 会展示当前 `policy snapshot`；当遍历不完整时，text/markdown 输出会先将 size 标记为 `(partial)`，再用 warning 解释为 `best-effort, not exact`；并支持通过规则驱动的 `scan --policy` 显式指定策略文件。
 
 完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.2.0](./docs/release-notes/v1.2.0.md)。
 

@@ -198,3 +198,52 @@ fn scan_json_accepts_policy_override_and_reports_snapshot() {
     assert_eq!(parsed["policy"]["planner"]["skip_modified_within_minutes"], 12);
     assert_eq!(parsed["policy"]["planner"]["max_scan_depth"], 3);
 }
+
+#[test]
+fn scan_large_files_ignores_policy_override_and_emits_no_policy_snapshot() {
+    let temp = tempdir().expect("tempdir should exist");
+    let root = temp.path();
+    let policy_path = temp.path().join("scan-policy.yaml");
+    fs::create_dir_all(root.join("big")).expect("big dir should exist");
+    fs::write(root.join("big").join("large.bin"), vec![0_u8; 600])
+        .expect("large file should write");
+    write_policy(&policy_path, 12, 3);
+
+    let output = Command::new(aidisk_bin())
+        .args([
+            "scan",
+            "--large-files",
+            "--min-size",
+            "500",
+            "--root",
+            root.to_str().unwrap(),
+            "--policy",
+            policy_path.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .expect("scan --large-files should run");
+
+    assert!(
+        output.status.success(),
+        "scan --large-files should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be parseable JSON");
+
+    assert!(
+        parsed.get("policy").is_none(),
+        "large-files JSON should not emit a policy snapshot"
+    );
+    assert_eq!(parsed["min_size_bytes"], 500);
+    assert!(
+        parsed["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["path"].as_str().unwrap().ends_with("big")),
+        "large-files scan should still return discovery entries"
+    );
+}

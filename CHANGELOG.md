@@ -10,6 +10,8 @@
 - Fixed `clean --dry-run --json --quarantine-root` to emit a single parseable JSON document instead of two consecutive JSON documents.
 - Added cross-platform `~/` home directory path expansion alongside existing Windows `%VAR%` expansion for rules.
 - Added linux/macOS paths to ollama, huggingface, and docker rules.
+- Added operability metadata so rule-driven `scan`, `plan`, and `doctor` reports carry the active `policy snapshot`; when traversal is incomplete, text/markdown outputs mark sizes as `(partial)` and explain them as `best-effort, not exact` in the accompanying warning.
+- Added `scan --policy <PATH>` for explicit policy selection during rule-driven read-only scans while keeping built-in defaults available when the default policy file is absent.
 
 ## 1.1.0
 

@@ -12,6 +12,18 @@ fn readme_english_exists_and_has_required_sections() {
     assert!(readme.contains("![Version]"), "Should have version badge");
     assert!(readme.contains("policy snapshot"), "Should document policy snapshot report metadata");
     assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");
+    assert!(
+        readme.contains("rule-driven `scan`, `plan`, and `doctor`"),
+        "Should scope policy metadata to rule-driven reports"
+    );
+    assert!(
+        readme.contains("rule-driven `scan --policy`"),
+        "Should scope scan --policy to rule-driven scan mode"
+    );
+    assert!(
+        readme.contains("mark sizes as `(partial)`") && readme.contains("best-effort, not exact"),
+        "Should describe partial size marker plus warning text"
+    );
 }
 
 #[test]
@@ -25,4 +37,16 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(readme.contains("[English](./README.md)"), "Should link to English readme");
     assert!(readme.contains("策略快照"), "Should document policy snapshot report metadata");
     assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");
+    assert!(
+        readme.contains("规则驱动的 `scan`、`plan`、`doctor`"),
+        "Should scope policy metadata to rule-driven reports"
+    );
+    assert!(
+        readme.contains("规则驱动的 `scan --policy`"),
+        "Should scope scan --policy to rule-driven scan mode"
+    );
+    assert!(
+        readme.contains("size 标记为 `(partial)`") && readme.contains("best-effort, not exact"),
+        "Should describe partial size marker plus warning text"
+    );
 }

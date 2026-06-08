@@ -61,6 +61,7 @@ Phase 7 expands coverage and discovery while keeping the same conservative clean
 - **Developer artifact coverage** — Built-in rules now detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo`.
 - **Cross-platform rule paths** — rules now expand Unix `~/` home directory paths alongside Windows `%VAR%` tokens, with linux/macOS paths added for Ollama, Hugging Face, and Docker.
 - **Structured JSON errors** — `--json` command failures now write a single error object to stderr and keep stdout empty for consumers.
+- **Operability metadata** — rule-driven `scan`, `plan`, and `doctor` now surface the active `policy snapshot`; when traversal is incomplete, text/markdown outputs mark sizes as `(partial)` and explain them as `best-effort, not exact`; and rule-driven `scan --policy` supports explicit policy selection.
 
 Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.2.0.md`](./docs/release-notes/v1.2.0.md).
 

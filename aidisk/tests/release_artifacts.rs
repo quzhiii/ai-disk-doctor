@@ -155,10 +155,13 @@ fn github_actions_run_tests_and_build_windows_release_artifact() {
 
     assert!(ci.contains("cargo test"));
     assert!(ci.contains("working-directory: aidisk"));
+    assert!(ci.contains("runs-on: windows-2025"));
+    assert!(ci.contains("actions/checkout@v5"));
     assert!(release.contains("cargo build --release"));
-    assert!(release.contains("windows-latest"));
+    assert!(release.contains("runs-on: windows-2025"));
+    assert!(release.contains("actions/checkout@v5"));
     assert!(release.contains("aidisk.exe"));
-    assert!(release.contains("actions/upload-artifact"));
+    assert!(release.contains("actions/upload-artifact@v7"));
 }
 
 #[test]

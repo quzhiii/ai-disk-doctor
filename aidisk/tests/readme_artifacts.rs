@@ -44,6 +44,13 @@ fn readme_english_exists_and_has_required_sections() {
         "Should document governance event envelope and event types"
     );
     assert!(
+        readme.contains("headline")
+            && readme.contains("summary_markdown")
+            && readme.contains("top_anomaly_path")
+            && readme.contains("top_anomaly_growth_bytes"),
+        "Should document message-friendly governance event summary fields"
+    );
+    assert!(
         readme.contains("register-governance-task.ps1") && readme.contains("-DailyAt"),
         "Should document Windows scheduler registration workflow"
     );
@@ -94,6 +101,13 @@ fn readme_chinese_exists_and_has_required_sections() {
             && readme.contains("pending_history")
             && readme.contains("no_anomaly"),
         "Should document governance event envelope and event types"
+    );
+    assert!(
+        readme.contains("headline")
+            && readme.contains("summary_markdown")
+            && readme.contains("top_anomaly_path")
+            && readme.contains("top_anomaly_growth_bytes"),
+        "Should document message-friendly governance event summary fields"
     );
     assert!(
         readme.contains("register-governance-task.ps1") && readme.contains("-DailyAt"),

@@ -42,19 +42,31 @@ try {
             Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "latest-anomaly.md")
 
         $AnomalyJsonPath = Join-Path $ResolvedOutputDir "latest-anomaly.json"
+        $AnomalyMarkdownPath = Join-Path $ResolvedOutputDir "latest-anomaly.md"
         $AnomalyReport = Get-Content -LiteralPath $AnomalyJsonPath -Raw | ConvertFrom-Json
+        $TopAnomaly = $AnomalyReport.anomalies | Select-Object -First 1
         $EventType = if ($AnomalyReport.summary.anomalies -gt 0) { "anomaly_found" } else { "no_anomaly" }
+        $Headline = if ($EventType -eq "anomaly_found") {
+            "AI Disk governance detected $($AnomalyReport.summary.anomalies) growth anomalies"
+        }
+        else {
+            "AI Disk governance found no growth anomalies"
+        }
         @{
             event_type = $EventType
+            headline = $Headline
             generated_at = (Get-Date).ToString("o")
             notifier_adapter = $NotifierAdapter
             reports_dir = $ResolvedReportsDir
             output_dir = $ResolvedOutputDir
             min_growth = $MinGrowth
             min_growth_percent = $MinGrowthPercent
+            summary_markdown = Get-Content -LiteralPath $AnomalyMarkdownPath -Raw
             anomaly_summary = $AnomalyReport.summary
             anomaly_report_path = $AnomalyJsonPath
-            markdown_report_path = (Join-Path $ResolvedOutputDir "latest-anomaly.md")
+            markdown_report_path = $AnomalyMarkdownPath
+            top_anomaly_path = if ($null -ne $TopAnomaly) { $TopAnomaly.path } else { $null }
+            top_anomaly_growth_bytes = if ($null -ne $TopAnomaly) { $TopAnomaly.delta_bytes } else { $null }
         } | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $GovernanceEventPath
     }
     catch {
@@ -64,14 +76,18 @@ try {
 
             @{
                 event_type = "pending_history"
+                headline = "AI Disk governance needs more snapshot history"
                 generated_at = (Get-Date).ToString("o")
                 notifier_adapter = $NotifierAdapter
                 reports_dir = $ResolvedReportsDir
                 output_dir = $ResolvedOutputDir
                 min_growth = $MinGrowth
                 min_growth_percent = $MinGrowthPercent
+                summary_markdown = "Not enough history yet. anomaly --latest requires at least two scan snapshots."
                 message = "anomaly --latest requires at least two scan snapshots"
                 pending_note_path = (Join-Path $ResolvedOutputDir "latest-anomaly-pending.txt")
+                top_anomaly_path = $null
+                top_anomaly_growth_bytes = $null
             } | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $GovernanceEventPath
         }
         else {

@@ -262,7 +262,7 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 .\scripts\governance\run-governance.ps1 -NotifierAdapter webhook -WebhookUrl https://example.test/webhook
 ```
 
-治理脚本保持全程只读：它会运行 `scan`、复用扫描快照，并将 anomaly 产物写到本地。若首轮历史快照不足两份，它会写出 pending 提示而不是直接失败。脚本还会统一写出稳定的 `governance-event.json` 事件封装，事件类型包括 `anomaly_found`、`pending_history`、`no_anomaly`。`-NotifierAdapter webhook` 会将该治理事件 payload 投递到通用 HTTP 端点，后续微信 / 企业微信 / 飞书 / Slack / Telegram / Discord 等适配器都可以复用这一契约。
+治理脚本保持全程只读：它会运行 `scan`、复用扫描快照，并将 anomaly 产物写到本地。若首轮历史快照不足两份，它会写出 pending 提示而不是直接失败。脚本还会统一写出稳定的 `governance-event.json` 事件封装，事件类型包括 `anomaly_found`、`pending_history`、`no_anomaly`。该事件还包含更适合消息模板直接消费的摘要字段，例如 `headline`、`summary_markdown`、`top_anomaly_path`、`top_anomaly_growth_bytes`。`-NotifierAdapter webhook` 会将该治理事件 payload 投递到通用 HTTP 端点，后续微信 / 企业微信 / 飞书 / Slack / Telegram / Discord 等适配器都可以复用这一契约。
 
 ### 8. 注册 Windows 每日任务
 

@@ -170,6 +170,10 @@ fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
     assert!(script.contains("anomaly_found"));
     assert!(script.contains("pending_history"));
     assert!(script.contains("no_anomaly"));
+    assert!(script.contains("headline"));
+    assert!(script.contains("summary_markdown"));
+    assert!(script.contains("top_anomaly_path"));
+    assert!(script.contains("top_anomaly_growth_bytes"));
     assert!(!script.contains("clean --yes"));
     assert!(!script.contains("Remove-Item"));
 }

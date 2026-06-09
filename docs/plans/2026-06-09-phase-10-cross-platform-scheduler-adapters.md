@@ -1546,54 +1546,54 @@ git log --oneline --grep="Phase 10\|cron\|launchd\|systemd" | head -20
 **Deliverables:**
 
 1. **Scheduler Adapter Contract**
-   - 统一的四操作接口：register, show, unregister, test-run
-   - 所有平台语义对齐，参数一致
+   - Unified four-operation interface: register, show, unregister, test-run
+   - All platforms semantically aligned with consistent parameters
 
 2. **cron Adapter** (`scripts/governance/cron/`)
-   - register-governance-cron.sh: 注册 crontab 任务
-   - show-governance-cron.sh: 查看任务状态
-   - unregister-governance-cron.sh: 卸载任务
-   - test-run-governance-cron.sh: 立即执行
+   - register-governance-cron.sh: Register crontab task
+   - show-governance-cron.sh: View task status
+   - unregister-governance-cron.sh: Uninstall task
+   - test-run-governance-cron.sh: Execute immediately
 
 3. **launchd Adapter** (`scripts/governance/launchd/`)
-   - register-governance-launchd.sh: 生成并加载 .plist
-   - show-governance-launchd.sh: 查看 launchd 任务
-   - unregister-governance-launchd.sh: 卸载并删除 .plist
-   - test-run-governance-launchd.sh: 立即触发
+   - register-governance-launchd.sh: Generate and load .plist
+   - show-governance-launchd.sh: View launchd task
+   - unregister-governance-launchd.sh: Unload and delete .plist
+   - test-run-governance-launchd.sh: Trigger immediately
 
 4. **systemd timer Adapter** (`scripts/governance/systemd/`)
-   - register-governance-systemd.sh: 生成 .service + .timer 并启用
-   - show-governance-systemd.sh: 查看 timer/service 状态
-   - unregister-governance-systemd.sh: 停止、禁用并删除 unit 文件
-   - test-run-governance-systemd.sh: 立即启动 service
+   - register-governance-systemd.sh: Generate .service + .timer and enable
+   - show-governance-systemd.sh: View timer/service status
+   - unregister-governance-systemd.sh: Stop, disable and delete unit files
+   - test-run-governance-systemd.sh: Start service immediately
 
 5. **Test Coverage**
    - cron_adapter_scripts_exist_and_cover_scheduler_contract
    - launchd_adapter_scripts_exist_and_cover_scheduler_contract
    - systemd_timer_adapter_scripts_exist_and_cover_scheduler_contract
-   - 所有测试覆盖脚本存在性、关键模式匹配、安全边界
-   - 完整测试套件：147 tests passed, 0 failures
+   - All tests cover script existence, key pattern matching, security boundaries
+   - All tests passing: 119 passed (including 3 new scheduler adapter tests)
 
 **Design Decisions:**
 
-- 保持 scheduler-first 原则：只做调度层，不绑定具体 IM 平台
-- 平台原生实现：每个平台使用其原生调度机制
-- 无后台常驻：所有 adapter 都是按需触发，不引入 daemon
-- 脚本层适配：保持 Rust 核心不变，所有平台差异在脚本层处理
-- 契约统一：四个操作在所有平台保持语义一致
+- Maintained scheduler-first principle: only scheduling layer, not binding to specific IM platforms
+- Platform-native implementation: each platform uses its native scheduling mechanism
+- No background daemons: all adapters are triggered on-demand, no daemon introduced
+- Script-layer adaptation: keep Rust core unchanged, all platform differences handled in scripts
+- Contract uniformity: four operations semantically consistent across all platforms
 
 **Non-Goals Preserved:**
 
-- ? 未添加具体 IM notifier adapter
-- ? 未修改 Rust anomaly 引擎
-- ? 未引入后台常驻服务
-- ? 未重新设计 governance-event.json 契约
+- Did not add specific IM notifier adapters
+- Did not modify Rust anomaly engine
+- Did not introduce background daemon services
+- Did not redesign governance-event.json contract
 
 **Note:** `run-governance.sh` was not created in this phase as the cron/launchd/systemd scripts reference it but it doesn't exist yet. This is intentional - the scripts are prepared for when run-governance.sh is implemented in a future task.
 
 **Future Work:**
 
 - Create run-governance.sh (Unix equivalent of run-governance.ps1)
-- Notifier adapter 扩展（飞书、Slack、微信、钉钉等）
-- 用户手册和使用示例
-- 跨平台测试自动化
+- Notifier adapter extensions (Feishu, Slack, WeChat, DingTalk, etc.)
+- User manual and usage examples
+- Cross-platform test automation

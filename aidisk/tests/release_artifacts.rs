@@ -177,6 +177,8 @@ fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
     assert!(script.contains("top_anomaly_growth_bytes"));
     assert!(script.contains("webhook-failure.json"));
     assert!(script.contains("delivery_status"));
+    assert!(script.contains("function New-GovernanceEvent"));
+    assert!(script.contains("function Send-NotifierEvent"));
     assert!(!script.contains("clean --yes"));
     assert!(!script.contains("Remove-Item"));
 }

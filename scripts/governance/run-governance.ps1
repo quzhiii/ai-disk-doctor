@@ -14,6 +14,65 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function New-GovernanceEvent {
+    param(
+        [hashtable]$EventData,
+        [string]$EventPath
+    )
+
+    $EventData | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $EventPath
+}
+
+function Send-NotifierEvent {
+    param(
+        [string]$NotifierAdapter,
+        [string]$WebhookUrl,
+        [int]$WebhookTimeoutSeconds,
+        [string]$GovernanceEventPath,
+        [string]$ResolvedOutputDir
+    )
+
+    if ($NotifierAdapter -eq "webhook") {
+        if ([string]::IsNullOrWhiteSpace($WebhookUrl)) {
+            throw "Webhook notifier requires -WebhookUrl"
+        }
+
+        if (Test-Path -LiteralPath $GovernanceEventPath) {
+            $Payload = Get-Content -LiteralPath $GovernanceEventPath -Raw
+            $FailureArtifactPath = Join-Path $ResolvedOutputDir "webhook-failure.json"
+            $EventObject = Get-Content -LiteralPath $GovernanceEventPath -Raw | ConvertFrom-Json
+            try {
+                Invoke-RestMethod -Method Post -Uri $WebhookUrl -Body $Payload -ContentType "application/json" -TimeoutSec $WebhookTimeoutSeconds
+                $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "delivered" -Force
+                $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
+            }
+            catch {
+                $Failure = @{
+                    delivery_status = "failed"
+                    failed_at = (Get-Date).ToString("o")
+                    notifier_adapter = $NotifierAdapter
+                    webhook_url = $WebhookUrl
+                    webhook_timeout_seconds = $WebhookTimeoutSeconds
+                    error_message = $_.Exception.Message
+                    governance_event_path = $GovernanceEventPath
+                }
+                $Failure | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $FailureArtifactPath
+                $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "failed" -Force
+                $EventObject | Add-Member -NotePropertyName webhook_failure_path -NotePropertyValue $FailureArtifactPath -Force
+                $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
+            }
+        }
+        else {
+            "Webhook delivery skipped because no governance event artifact exists yet." |
+                Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "webhook-pending.txt")
+        }
+    }
+    elseif ($NotifierAdapter -ne "local-file") {
+        "Notifier adapter '$NotifierAdapter' is reserved for future webhook/IM delivery." |
+            Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "notifier-placeholder.txt")
+    }
+}
+
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $AidiskDir = Join-Path $RepoRoot "aidisk"
 $ResolvedOutputDir = Join-Path $RepoRoot $OutputDir
@@ -53,7 +112,7 @@ try {
         else {
             "AI Disk governance found no growth anomalies"
         }
-        @{
+        New-GovernanceEvent -EventData @{
             event_type = $EventType
             headline = $Headline
             generated_at = (Get-Date).ToString("o")
@@ -68,14 +127,14 @@ try {
             markdown_report_path = $AnomalyMarkdownPath
             top_anomaly_path = if ($null -ne $TopAnomaly) { $TopAnomaly.path } else { $null }
             top_anomaly_growth_bytes = if ($null -ne $TopAnomaly) { $TopAnomaly.delta_bytes } else { $null }
-        } | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $GovernanceEventPath
+        } -EventPath $GovernanceEventPath
     }
     catch {
         if ($_.Exception.Message -like "*requires at least two scan snapshots*") {
             "Not enough history yet. anomaly --latest requires at least two scan snapshots." |
                 Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "latest-anomaly-pending.txt")
 
-            @{
+            New-GovernanceEvent -EventData @{
                 event_type = "pending_history"
                 headline = "AI Disk governance needs more snapshot history"
                 generated_at = (Get-Date).ToString("o")
@@ -89,7 +148,7 @@ try {
                 pending_note_path = (Join-Path $ResolvedOutputDir "latest-anomaly-pending.txt")
                 top_anomaly_path = $null
                 top_anomaly_growth_bytes = $null
-            } | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $GovernanceEventPath
+            } -EventPath $GovernanceEventPath
         }
         else {
             throw
@@ -100,42 +159,4 @@ finally {
     Pop-Location
 }
 
-if ($NotifierAdapter -eq "webhook") {
-    if ([string]::IsNullOrWhiteSpace($WebhookUrl)) {
-        throw "Webhook notifier requires -WebhookUrl"
-    }
-
-    if (Test-Path -LiteralPath $GovernanceEventPath) {
-        $Payload = Get-Content -LiteralPath $GovernanceEventPath -Raw
-        $FailureArtifactPath = Join-Path $ResolvedOutputDir "webhook-failure.json"
-        $EventObject = Get-Content -LiteralPath $GovernanceEventPath -Raw | ConvertFrom-Json
-        try {
-            Invoke-RestMethod -Method Post -Uri $WebhookUrl -Body $Payload -ContentType "application/json" -TimeoutSec $WebhookTimeoutSeconds
-            $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "delivered" -Force
-            $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
-        }
-        catch {
-            $Failure = @{
-                delivery_status = "failed"
-                failed_at = (Get-Date).ToString("o")
-                notifier_adapter = $NotifierAdapter
-                webhook_url = $WebhookUrl
-                webhook_timeout_seconds = $WebhookTimeoutSeconds
-                error_message = $_.Exception.Message
-                governance_event_path = $GovernanceEventPath
-            }
-            $Failure | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $FailureArtifactPath
-            $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "failed" -Force
-            $EventObject | Add-Member -NotePropertyName webhook_failure_path -NotePropertyValue $FailureArtifactPath -Force
-            $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
-        }
-    }
-    else {
-        "Webhook delivery skipped because no governance event artifact exists yet." |
-            Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "webhook-pending.txt")
-    }
-}
-elseif ($NotifierAdapter -ne "local-file") {
-    "Notifier adapter '$NotifierAdapter' is reserved for future webhook/IM delivery." |
-        Out-File -Encoding utf8 (Join-Path $ResolvedOutputDir "notifier-placeholder.txt")
-}
+Send-NotifierEvent -NotifierAdapter $NotifierAdapter -WebhookUrl $WebhookUrl -WebhookTimeoutSeconds $WebhookTimeoutSeconds -GovernanceEventPath $GovernanceEventPath -ResolvedOutputDir $ResolvedOutputDir

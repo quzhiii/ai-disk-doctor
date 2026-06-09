@@ -314,6 +314,60 @@ fn phase_9_roadmap_marks_local_governance_complete() {
 }
 
 #[test]
+fn roadmap_and_reference_docs_reflect_post_phase_9_state() {
+    let roadmap = read_repo_file("docs/execution-plan.md");
+    let phase_8_plan = read_repo_file("docs/plans/2026-06-07-phase-8-hardening-operability.md");
+    let phase_10_plan = read_repo_file("docs/plans/2026-06-09-phase-10-cross-platform-scheduler-adapters.md");
+    let rules_spec = read_repo_file("docs/rules-spec.md");
+    let storage_map = read_repo_file("docs/windows-ai-storage-map.md");
+
+    let roadmap_terms = [
+        "Doctor V2 status: Completed",
+        "Phase 8 status: Completed",
+        "v1.3.0 release readiness is complete",
+        "Phase 10",
+        "cross-platform scheduler adapters",
+        "scheduler-first",
+        "notifier adapter expansion",
+    ];
+
+    for term in roadmap_terms {
+        assert!(roadmap.contains(term), "execution plan should mention {term}");
+    }
+
+    assert!(
+        phase_8_plan.contains("Phase 8 Hardening And Operability Implementation Plan"),
+        "Phase 8 implementation plan should be tracked as a repository artifact"
+    );
+
+    assert!(
+        phase_10_plan.contains("Phase 10 Cross-Platform Scheduler Adapters Implementation Plan")
+            && phase_10_plan.contains("cron")
+            && phase_10_plan.contains("launchd")
+            && phase_10_plan.contains("systemd timer")
+            && phase_10_plan.contains("scheduler-first")
+            && phase_10_plan.contains("notifier adapter")
+            && phase_10_plan.contains("run-governance.ps1"),
+        "Phase 10 implementation plan should define scheduler-first roadmap and boundaries"
+    );
+
+    assert!(
+        rules_spec.contains("glob 递归匹配")
+            && rules_spec.contains("环境变量占位")
+            && rules_spec.contains("~/"),
+        "rules spec should describe current glob and path expansion behavior"
+    );
+
+    assert!(
+        storage_map.contains("已完成覆盖")
+            && storage_map.contains("Docker build cache / volumes 更精细解释与原生命令联动")
+            && storage_map.contains("同步盘高频项目识别")
+            && storage_map.contains("npm / uv / pip / cargo 开发缓存"),
+        "storage map should separate completed coverage from remaining roadmap items"
+    );
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let cargo_lock = read_repo_file("aidisk/Cargo.lock");

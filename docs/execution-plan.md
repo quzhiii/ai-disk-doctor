@@ -123,7 +123,7 @@
 - 结构化建议输出
 - 无参数时运行完整诊断集合
 
-下一步：Doctor V2。
+Doctor V2 status: Completed
 
 当前 doctor 已经能安全解释专项 topic，但它仍然主要复用 scan 结果并追加静态建议。真实机器测试显示，Docker/WSL/Ollama/Playwright/HuggingFace 不是主要空间来源，实际大户是 `.gemini`、`.claude`、`opencode`、`.codex` 等 AI Agent 目录。因此 Phase 4 的下一轮目标是让 doctor 从“专项摘要”升级为“会钻进去分析的诊断层”。
 
@@ -142,6 +142,8 @@ Doctor V2 roadmap：
 | P3 | 动态 topic registry | 内置 `DoctorTopicSpec` registry 已集中 topic 名称、默认启用、matcher、建议和 probe metadata；外部化 topic metadata 仍是后续方向 | Completed |
 
 详细执行计划：`docs/plans/2026-06-03-doctor-v2-roadmap.md`。
+
+当前状态说明：`doctor --agents`、bounded breakdown、data-driven recommendations、tool presence detection、optional probes、growth-aware doctor、dynamic topic registry 均已落地。Doctor 的剩余工作不再是 Phase 4 / Doctor V2 收尾，而是后续 roadmap 中可能独立立项的外部 topic metadata 或新的诊断主题扩展。
 
 ## Phase 5: Skill Integration
 
@@ -162,6 +164,8 @@ Doctor V2 roadmap：
 - skill 可从 scan 结果中稳定提炼 top findings 和风险说明
 
 ## Phase 6: Hardening & Optimization
+
+Phase 8 status: Completed
 
 多视角审查（brainstorming / architecture / security）后加入的加固路线。
 
@@ -207,7 +211,7 @@ Doctor V2 roadmap：
 ### Immediate Next Steps
 
 1. Phase 7 P1 / P2 / P3 当前已全部完成；下一轮应先重新评估 roadmap，再决定新的产品切片。
-2. 若准备发版，统一同步 `CHANGELOG.md`、README、release notes 与 crate version，再执行 release smoke。
+2. v1.3.0 release readiness is complete；当前主线已同步 `CHANGELOG.md`、README、release notes、crate version，并已执行 release smoke。
 3. 继续保持 `doctor` 默认只读、`--probe-tools` 显式 opt-in、JSON 结构稳定、Markdown/Text 输出降噪。
 4. 每项完成后跑测试并本地提交。
 
@@ -262,6 +266,20 @@ Phase 9 status: Completed
 
 ### Phase 9 Immediate Next Steps
 
-1. 执行 v1.3.0 release readiness：同步 `CHANGELOG.md`、release notes、README、crate version 与 release smoke 覆盖。
-2. 下一轮 notifier adapter expansion 应先定义 adapter boundary，再绑定具体飞书 / Slack / 微信等平台。
-3. 下一轮 cross-platform scheduler adapters 可作为 Phase 10，按 cron / launchd / systemd timer 分平台落地。
+1. Phase 10 采用 scheduler-first 路线，先做 cross-platform scheduler adapters，按 cron / launchd / systemd timer 分平台落地。
+2. notifier adapter expansion 后置；应先定义 adapter boundary，再绑定具体飞书 / Slack / 微信等平台。
+3. 保持当前治理边界：继续复用 `run-governance.ps1` 与稳定事件契约，不把具体平台通知逻辑硬塞回 Rust 核心。
+
+## Phase 10: Cross-Platform Scheduler Adapters
+
+目标：
+
+- 把当前 Windows Task Scheduler 治理调度能力扩展到 cron / launchd / systemd timer。
+- 继续复用现有 `run-governance.ps1` / 治理事件契约，不改 Rust anomaly core。
+
+边界：
+
+- 先做本地调度适配层，不先做具体 IM notifier adapter。
+- 保持第一版只做注册 / 查看 / 卸载 / 测试运行，不引入后台常驻服务。
+
+详细执行计划：`docs/plans/2026-06-09-phase-10-cross-platform-scheduler-adapters.md`。

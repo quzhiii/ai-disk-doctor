@@ -14,6 +14,14 @@
 - `%USERPROFILE%\\.ollama\\models`
 - `%USERPROFILE%\\.cache\\huggingface`
 
+已完成覆盖：
+
+- Claude / Codex / Gemini / opencode roots
+- Playwright project browsers
+- Ollama / Hugging Face model caches
+- Docker build cache / Docker Desktop data / WSL `ext4.vhdx` 解释型诊断
+- 常见开发产物：`node_modules`、`target`、`.gradle`、`__pycache__`、`dist`、`.next`、`.turbo`
+
 后续会补充：
 
 - Docker build cache / volumes 更精细解释与原生命令联动

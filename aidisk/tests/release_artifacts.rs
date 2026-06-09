@@ -322,7 +322,8 @@ fn crate_version_and_readme_reference_release_artifacts() {
     let roadmap = read_repo_file("docs/execution-plan.md");
 
     assert!(cargo_toml.contains("version = \"1.3.0\""));
-    assert!(cargo_lock.contains("name = \"aidisk\"\nversion = \"1.3.0\""));
+    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.3.0\""));
     assert!(readme.contains("CHANGELOG.md"));
     assert!(readme.contains("docs/release-notes/v1.3.0.md"));
     assert!(readme_zh.contains("docs/release-notes/v1.3.0.md"));

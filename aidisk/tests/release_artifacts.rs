@@ -467,3 +467,40 @@ fn cron_adapter_scripts_exist_and_cover_scheduler_contract() {
     assert!(!test_run_script.contains("crontab"));
     assert!(!test_run_script.contains("rm -rf"));
 }
+
+#[test]
+fn launchd_adapter_scripts_exist_and_cover_scheduler_contract() {
+    let register_script = read_repo_file("scripts/governance/launchd/register-governance-launchd.sh");
+    let show_script = read_repo_file("scripts/governance/launchd/show-governance-launchd.sh");
+    let unregister_script = read_repo_file("scripts/governance/launchd/unregister-governance-launchd.sh");
+    let test_run_script = read_repo_file("scripts/governance/launchd/test-run-governance-launchd.sh");
+
+    // register script
+    assert!(register_script.contains("launchctl"));
+    assert!(register_script.contains("load"));
+    assert!(register_script.contains("TASK_NAME"));
+    assert!(register_script.contains("aidisk-governance"));
+    assert!(register_script.contains(".plist"));
+    assert!(register_script.contains("StartCalendarInterval"));
+    assert!(register_script.contains("run-governance.sh"));
+    assert!(!register_script.contains("rm -rf"));
+    assert!(!register_script.contains("clean --yes"));
+
+    // show script
+    assert!(show_script.contains("launchctl list"));
+    assert!(show_script.contains("grep"));
+    assert!(show_script.contains("TASK_NAME"));
+
+    // unregister script
+    assert!(unregister_script.contains("launchctl"));
+    assert!(unregister_script.contains("unload"));
+    assert!(unregister_script.contains("TASK_NAME"));
+    assert!(unregister_script.contains(".plist"));
+    assert!(!unregister_script.contains("rm -rf"));
+
+    // test-run script
+    assert!(test_run_script.contains("launchctl"));
+    assert!(test_run_script.contains("start"));
+    assert!(test_run_script.contains("TASK_NAME"));
+    assert!(!test_run_script.contains("rm -rf"));
+}

@@ -432,3 +432,38 @@ fn repository_uses_dual_license_files_without_duplicate_root_license() {
         "root LICENSE duplicates the dual-license tabs on GitHub"
     );
 }
+
+#[test]
+fn cron_adapter_scripts_exist_and_cover_scheduler_contract() {
+    let register_script = read_repo_file("scripts/governance/cron/register-governance-cron.sh");
+    let show_script = read_repo_file("scripts/governance/cron/show-governance-cron.sh");
+    let unregister_script = read_repo_file("scripts/governance/cron/unregister-governance-cron.sh");
+    let test_run_script = read_repo_file("scripts/governance/cron/test-run-governance-cron.sh");
+
+    // register script
+    assert!(register_script.contains("crontab"));
+    assert!(register_script.contains("TASK_NAME"));
+    assert!(register_script.contains("SCHEDULE"));
+    assert!(register_script.contains("aidisk-governance"));
+    assert!(register_script.contains("run-governance.sh"));
+    assert!(!register_script.contains("rm -rf"));
+    assert!(!register_script.contains("clean --yes"));
+
+    // show script
+    assert!(show_script.contains("crontab -l"));
+    assert!(show_script.contains("grep"));
+    assert!(show_script.contains("TASK_NAME"));
+
+    // unregister script
+    assert!(unregister_script.contains("crontab -l"));
+    assert!(unregister_script.contains("grep -v"));
+    assert!(unregister_script.contains("crontab -"));
+    assert!(unregister_script.contains("TASK_NAME"));
+    assert!(!unregister_script.contains("rm -rf"));
+
+    // test-run script
+    assert!(test_run_script.contains("run-governance.sh"));
+    assert!(test_run_script.contains("bash"));
+    assert!(!test_run_script.contains("crontab"));
+    assert!(!test_run_script.contains("rm -rf"));
+}

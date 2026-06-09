@@ -4,11 +4,12 @@ param(
     [string]$MinGrowth = "1GB",
     [double]$MinGrowthPercent = 30.0,
     [string]$NotifierAdapter = "local-file",
-    [string]$WebhookUrl = ""
+    [string]$WebhookUrl = "",
+    [int]$WebhookTimeoutSeconds = 15
 )
 
 # Usage: .\scripts\governance\run-governance.ps1 -NotifierAdapter local-file
-# Usage: .\scripts\governance\run-governance.ps1 -NotifierAdapter webhook -WebhookUrl https://example.test/webhook
+# Usage: .\scripts\governance\run-governance.ps1 -NotifierAdapter webhook -WebhookUrl https://example.test/webhook -WebhookTimeoutSeconds 15
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -106,7 +107,28 @@ if ($NotifierAdapter -eq "webhook") {
 
     if (Test-Path -LiteralPath $GovernanceEventPath) {
         $Payload = Get-Content -LiteralPath $GovernanceEventPath -Raw
-        Invoke-RestMethod -Method Post -Uri $WebhookUrl -Body $Payload -ContentType "application/json"
+        $FailureArtifactPath = Join-Path $ResolvedOutputDir "webhook-failure.json"
+        $EventObject = Get-Content -LiteralPath $GovernanceEventPath -Raw | ConvertFrom-Json
+        try {
+            Invoke-RestMethod -Method Post -Uri $WebhookUrl -Body $Payload -ContentType "application/json" -TimeoutSec $WebhookTimeoutSeconds
+            $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "delivered" -Force
+            $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
+        }
+        catch {
+            $Failure = @{
+                delivery_status = "failed"
+                failed_at = (Get-Date).ToString("o")
+                notifier_adapter = $NotifierAdapter
+                webhook_url = $WebhookUrl
+                webhook_timeout_seconds = $WebhookTimeoutSeconds
+                error_message = $_.Exception.Message
+                governance_event_path = $GovernanceEventPath
+            }
+            $Failure | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $FailureArtifactPath
+            $EventObject | Add-Member -NotePropertyName delivery_status -NotePropertyValue "failed" -Force
+            $EventObject | Add-Member -NotePropertyName webhook_failure_path -NotePropertyValue $FailureArtifactPath -Force
+            $EventObject | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 $GovernanceEventPath
+        }
     }
     else {
         "Webhook delivery skipped because no governance event artifact exists yet." |

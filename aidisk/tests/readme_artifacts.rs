@@ -37,6 +37,10 @@ fn readme_english_exists_and_has_required_sections() {
         "Should document generic webhook notifier usage"
     );
     assert!(
+        readme.contains("-WebhookTimeoutSeconds") && readme.contains("webhook-failure.json"),
+        "Should document webhook timeout tuning and failure artifact"
+    );
+    assert!(
         readme.contains("governance-event.json")
             && readme.contains("anomaly_found")
             && readme.contains("pending_history")
@@ -94,6 +98,10 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(
         readme.contains("-NotifierAdapter webhook") && readme.contains("-WebhookUrl"),
         "Should document generic webhook notifier usage"
+    );
+    assert!(
+        readme.contains("-WebhookTimeoutSeconds") && readme.contains("webhook-failure.json"),
+        "Should document webhook timeout tuning and failure artifact"
     );
     assert!(
         readme.contains("governance-event.json")

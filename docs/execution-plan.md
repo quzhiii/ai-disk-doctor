@@ -272,6 +272,8 @@ Phase 9 status: Completed
 
 ## Phase 10: Cross-Platform Scheduler Adapters
 
+Phase 10 status: Completed
+
 目标：
 
 - 把当前 Windows Task Scheduler 治理调度能力扩展到 cron / launchd / systemd timer。
@@ -283,3 +285,18 @@ Phase 9 status: Completed
 - 保持第一版只做注册 / 查看 / 卸载 / 测试运行，不引入后台常驻服务。
 
 详细执行计划：`docs/plans/2026-06-09-phase-10-cross-platform-scheduler-adapters.md`。
+
+实施成果：
+
+- cron adapter: `scripts/governance/cron/` (register, show, unregister, test-run)
+- launchd adapter: `scripts/governance/launchd/` (register, show, unregister, test-run)
+- systemd timer adapter: `scripts/governance/systemd/` (register, show, unregister, test-run)
+- 跨平台治理入口: `scripts/governance/run-governance.sh`
+- 所有平台遵循统一 scheduler adapter contract
+- 测试覆盖: `aidisk/tests/release_artifacts.rs` 包含三个平台的契约测试
+
+## Phase 10 Immediate Next Steps
+
+1. 用户手册：编写各平台的 scheduler 使用文档
+2. 示例配置：添加常见调度场景的配置示例
+3. 未来增强：考虑 notifier adapter 扩展（飞书 / Slack / 微信等）

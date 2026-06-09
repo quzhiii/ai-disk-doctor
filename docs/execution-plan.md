@@ -219,10 +219,13 @@ Doctor V2 roadmap：
 - `docs/release-notes/v1.0.0.md`
 - `docs/release-notes/v1.1.0.md`
 - `docs/release-notes/v1.2.0.md`
+- `docs/release-notes/v1.3.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.2.0`
+- `aidisk` crate version `1.3.0`
 
 ## Phase 9: Local Scheduled Governance
+
+Phase 9 status: Completed
 
 目标：
 
@@ -237,6 +240,18 @@ Doctor V2 roadmap：
 - 调度层先由 Windows PowerShell + Task Scheduler 落地，但接口应能映射到 cron / launchd / systemd timer。
 - 通知层采用可插拔 adapter，先支持 local file / generic webhook payload，后续扩展微信、企业微信、飞书、Slack、Telegram、Discord、email。
 
+当前已完成：
+
+- Rust 核心新增 `aidisk anomaly --latest`，可读取最近两个 scan snapshots 并输出增长异常报告。
+- `aidisk anomaly --before <FILE> --after <FILE>` 支持显式快照对比。
+- JSON 输出稳定，Markdown 输出适合直接投递到 IM / webhook。
+- `run-governance.ps1` 完成本地治理链路：scan → anomaly → report artifact。
+- `governance-event.json` 提供稳定事件封装，覆盖 `anomaly_found`、`pending_history`、`no_anomaly`。
+- 事件包含消息友好字段：`headline`、`summary_markdown`、`top_anomaly_path`、`top_anomaly_growth_bytes`。
+- generic webhook adapter 支持投递治理事件，并在失败时写出 `webhook-failure.json`。
+- Windows Task Scheduler 工具链已闭环：`register-governance-task.ps1`、`show-governance-task.ps1`、`unregister-governance-task.ps1`、`test-run-governance-task.ps1`。
+- 第一版保持边界：不做后台常驻、不自动清理、不绑定单一 IM 服务。
+
 验收标准：
 
 - `aidisk anomaly --latest` 可读取最近两个 scan snapshots 并输出增长异常报告。
@@ -244,3 +259,9 @@ Doctor V2 roadmap：
 - JSON 输出稳定，Markdown 输出适合直接投递到 IM / webhook。
 - Windows 脚本能完成一次本地治理 run：scan → anomaly → report artifact。
 - 第一版不做后台常驻、不自动清理、不绑定单一 IM 服务。
+
+### Phase 9 Immediate Next Steps
+
+1. 执行 v1.3.0 release readiness：同步 `CHANGELOG.md`、release notes、README、crate version 与 release smoke 覆盖。
+2. 下一轮 notifier adapter expansion 应先定义 adapter boundary，再绑定具体飞书 / Slack / 微信等平台。
+3. 下一轮 cross-platform scheduler adapters 可作为 Phase 10，按 cron / launchd / systemd timer 分平台落地。

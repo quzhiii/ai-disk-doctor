@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 1.3.0
+
+- Added Local Scheduled Governance for detecting scan snapshot growth anomalies without cleanup automation.
+- Added `aidisk anomaly` with `--latest` and explicit `--before` / `--after` workflows using absolute + relative growth thresholds.
+- Added `scripts/governance/run-governance.ps1` for the local governance chain: scan, anomaly, and report artifact generation.
+- Added stable `governance-event.json` payloads with `anomaly_found`, `pending_history`, and `no_anomaly` event types.
+- Added message-friendly governance fields including `headline`, `summary_markdown`, `top_anomaly_path`, and `top_anomaly_growth_bytes`.
+- Added generic webhook delivery for governance events, plus `webhook-failure.json` for failed delivery context.
+- Added Windows Task Scheduler helpers: `register-governance-task.ps1`, `show-governance-task.ps1`, `unregister-governance-task.ps1`, and `test-run-governance-task.ps1`.
+- Added `Start-ScheduledTask` test-run support so a registered governance task can be triggered immediately.
+- Governance scheduling does not perform cleanup, does not run as a daemon, and does not bind to a single IM platform.
+
 ## 1.2.0
 
 - Added `scan --large-files --min-size 500MB` for lightweight large file and directory discovery without classification or cleanup suggestions.

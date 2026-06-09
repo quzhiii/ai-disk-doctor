@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
@@ -45,13 +45,25 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.2.0
+**Current release:** v1.3.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
 ## What's New
+
+### v1.3.0
+
+Phase 9 adds Local Scheduled Governance while keeping the same no-cleanup safety boundary:
+
+- **Growth anomaly detection** — `aidisk anomaly` compares scan snapshots with absolute + relative thresholds.
+- **Local governance workflow** — `run-governance.ps1` runs scan → anomaly → report artifact generation.
+- **Stable governance events** — `governance-event.json` carries `anomaly_found`, `pending_history`, or `no_anomaly` plus message-friendly summary fields.
+- **Generic webhook delivery** — governance events can be posted to a generic webhook, with `webhook-failure.json` retained on delivery failure.
+- **Windows scheduler helpers** — register, show, unregister, and immediately test-run a local governance task.
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.3.0.md`](./docs/release-notes/v1.3.0.md).
 
 ### v1.2.0
 

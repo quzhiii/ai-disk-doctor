@@ -74,6 +74,47 @@ fn changelog_and_release_notes_cover_v1_2_scope() {
 }
 
 #[test]
+fn changelog_and_release_notes_cover_v1_3_scope() {
+    let changelog = read_repo_file("CHANGELOG.md");
+    let release_notes = read_repo_file("docs/release-notes/v1.3.0.md");
+    let required_terms = [
+        "Local Scheduled Governance",
+        "anomaly",
+        "absolute + relative",
+        "run-governance.ps1",
+        "governance-event.json",
+        "anomaly_found",
+        "pending_history",
+        "no_anomaly",
+        "generic webhook",
+        "webhook-failure.json",
+        "Windows Task Scheduler",
+        "test-run-governance-task.ps1",
+        "Start-ScheduledTask",
+    ];
+
+    assert!(changelog.contains("## 1.3.0"));
+    assert!(release_notes.contains("# Windows AI Space Manager v1.3.0"));
+    assert!(release_notes.contains("## Test Plan"));
+    assert!(release_notes.contains("## Safety Boundaries"));
+    assert!(release_notes.contains("## Known Limits"));
+
+    for term in required_terms {
+        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
+    }
+
+    assert!(
+        changelog.contains("does not perform cleanup")
+            && release_notes.contains("does not perform cleanup"),
+        "v1.3.0 release artifacts should preserve the no-cleanup governance boundary"
+    );
+}
+
+#[test]
 fn changelog_and_release_notes_cover_v1_scope() {
     let changelog = read_repo_file("CHANGELOG.md");
     let release_notes = read_repo_file("docs/release-notes/v1.0.0.md");
@@ -135,12 +176,16 @@ fn smoke_script_is_non_destructive_and_covers_core_commands() {
     let script = read_repo_file("scripts/release-smoke.ps1");
     let required_commands = [
         "cargo test",
+        "cargo build",
+        "target\\debug\\aidisk.exe",
         "scan --rules-repo",
         "scan --large-files --min-size 500MB",
+        "--root",
         "plan --safe-only",
         "clean --dry-run",
         "doctor --markdown",
         "diff --before",
+        "anomaly --before",
     ];
 
     for command in required_commands {
@@ -150,6 +195,12 @@ fn smoke_script_is_non_destructive_and_covers_core_commands() {
         );
     }
 
+    assert!(script.contains("tests\\fixtures\\windows-user"));
+    assert!(script.contains("$env:USERPROFILE"));
+    assert!(script.contains("$env:LOCALAPPDATA"));
+    assert!(script.contains("$env:APPDATA"));
+    assert!(script.contains("$env:HOME"));
+    assert!(!script.contains("cargo run"));
     assert!(!script.contains("--yes"));
     assert!(!script.contains("clean --yes"));
 }
@@ -230,15 +281,53 @@ fn scheduler_test_run_script_starts_existing_governance_task() {
 }
 
 #[test]
+fn phase_9_roadmap_marks_local_governance_complete() {
+    let roadmap = read_repo_file("docs/execution-plan.md");
+    let phase_plan = read_repo_file("docs/plans/2026-06-08-phase-9-local-scheduled-governance.md");
+
+    let required_terms = [
+        "Phase 9 status: Completed",
+        "`aidisk anomaly --latest`",
+        "`governance-event.json`",
+        "generic webhook",
+        "Windows Task Scheduler",
+        "register-governance-task.ps1",
+        "show-governance-task.ps1",
+        "unregister-governance-task.ps1",
+        "test-run-governance-task.ps1",
+        "不做后台常驻、不自动清理、不绑定单一 IM 服务",
+        "Phase 9 Immediate Next Steps",
+        "v1.3.0 release readiness",
+    ];
+
+    for term in required_terms {
+        assert!(roadmap.contains(term), "Phase 9 roadmap should mention {term}");
+    }
+
+    assert!(
+        phase_plan.contains("Extended completion notes")
+            && phase_plan.contains("test-run-governance-task.ps1")
+            && phase_plan.contains("webhook-failure.json")
+            && phase_plan.contains("Phase 9 status: Completed"),
+        "Phase 9 implementation plan should summarize the completed extended scope"
+    );
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
     let readme = read_repo_file("README.md");
     let readme_zh = read_repo_file("README.zh-CN.md");
+    let roadmap = read_repo_file("docs/execution-plan.md");
 
-    assert!(cargo_toml.contains("version = \"1.2.0\""));
+    assert!(cargo_toml.contains("version = \"1.3.0\""));
+    assert!(cargo_lock.contains("name = \"aidisk\"\nversion = \"1.3.0\""));
     assert!(readme.contains("CHANGELOG.md"));
-    assert!(readme.contains("docs/release-notes/v1.2.0.md"));
-    assert!(readme_zh.contains("docs/release-notes/v1.2.0.md"));
+    assert!(readme.contains("docs/release-notes/v1.3.0.md"));
+    assert!(readme_zh.contains("docs/release-notes/v1.3.0.md"));
+    assert!(roadmap.contains("docs/release-notes/v1.3.0.md"));
+    assert!(roadmap.contains("`aidisk` crate version `1.3.0`"));
     assert!(readme.contains("scripts/release-smoke.ps1"));
 }
 

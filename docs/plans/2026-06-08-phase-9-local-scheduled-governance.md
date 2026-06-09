@@ -178,3 +178,28 @@ Run:
 - `git diff`
 - `git add docs/execution-plan.md docs/plans/2026-06-08-phase-9-local-scheduled-governance.md aidisk/src/anomaly.rs aidisk/src/main.rs aidisk/src/reporter.rs aidisk/tests/anomaly_cli.rs scripts/governance/run-governance.ps1 README.md README.zh-CN.md docs/architecture.md aidisk/tests/release_artifacts.rs`
 - `git commit -m "feat: add local governance anomaly detection"`
+
+---
+
+## Extended completion notes
+
+Phase 9 status: Completed
+
+The first implementation plan landed the Rust anomaly core and the initial local governance script. Follow-up commits intentionally completed the first Windows governance slice without changing the Phase 9 safety boundary.
+
+Completed extended scope:
+
+- `run-governance.ps1` writes a stable `governance-event.json` envelope for `anomaly_found`, `pending_history`, and `no_anomaly`.
+- Governance events include message-friendly fields: `headline`, `summary_markdown`, `top_anomaly_path`, and `top_anomaly_growth_bytes`.
+- The generic webhook adapter posts the governance event payload and records failed deliveries in `webhook-failure.json`.
+- Windows Task Scheduler management scripts cover registration, inspection, unregistration, and immediate test runs.
+- `register-governance-task.ps1` registers the scheduled local governance entry.
+- `show-governance-task.ps1` displays task status and run timing.
+- `unregister-governance-task.ps1` removes the task without confirmation prompts.
+- `test-run-governance-task.ps1` calls `Start-ScheduledTask` on the existing task so the registered chain can be tested immediately.
+
+Remaining product directions are intentionally outside Phase 9:
+
+- v1.3.0 release readiness.
+- Concrete platform notifier adapters after the generic adapter boundary is stable.
+- Cross-platform scheduler adapters for cron, launchd, and systemd timer.

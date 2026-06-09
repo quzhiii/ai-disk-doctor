@@ -279,11 +279,14 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 # 查看已注册的治理任务
 .\scripts\governance\show-governance-task.ps1
 
+# 立即触发已注册的治理任务进行测试运行
+.\scripts\governance\test-run-governance-task.ps1
+
 # 卸载治理任务
 .\scripts\governance\unregister-governance-task.ps1
 ```
 
-调度注册脚本只会向 Windows Task Scheduler 注册一个调用 `run-governance.ps1` 的任务；它不会执行清理，也不会删除任何文件。
+调度注册脚本只会向 Windows Task Scheduler 注册一个调用 `run-governance.ps1` 的任务；它不会执行清理，也不会删除任何文件。需要立即验证已注册的本地治理链路时，可使用 `test-run-governance-task.ps1` 对现有任务调用 `Start-ScheduledTask`。
 
 ---
 

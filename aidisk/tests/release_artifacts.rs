@@ -214,6 +214,22 @@ fn scheduler_management_scripts_can_show_and_unregister_task() {
 }
 
 #[test]
+fn scheduler_test_run_script_starts_existing_governance_task() {
+    let script = read_repo_file("scripts/governance/test-run-governance-task.ps1");
+
+    assert!(script.contains("Start-ScheduledTask"));
+    assert!(script.contains("Get-ScheduledTask"));
+    assert!(script.contains("-TaskName"));
+    assert!(script.contains("AI Disk Doctor Governance"));
+    assert!(script.contains("Write-Host"));
+    assert!(script.contains("show-governance-task.ps1"));
+    assert!(!script.contains("Register-ScheduledTask"));
+    assert!(!script.contains("Unregister-ScheduledTask"));
+    assert!(!script.contains("Remove-Item"));
+    assert!(!script.contains("clean --yes"));
+}
+
+#[test]
 fn crate_version_and_readme_reference_release_artifacts() {
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let readme = read_repo_file("README.md");

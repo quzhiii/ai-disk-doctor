@@ -62,6 +62,10 @@ fn readme_english_exists_and_has_required_sections() {
         readme.contains("show-governance-task.ps1") && readme.contains("unregister-governance-task.ps1"),
         "Should document Windows scheduler management companion scripts"
     );
+    assert!(
+        readme.contains("test-run-governance-task.ps1") && readme.contains("Start-ScheduledTask"),
+        "Should document immediate Windows scheduler test run script"
+    );
 }
 
 #[test]
@@ -124,5 +128,9 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(
         readme.contains("show-governance-task.ps1") && readme.contains("unregister-governance-task.ps1"),
         "Should document Windows scheduler management companion scripts"
+    );
+    assert!(
+        readme.contains("test-run-governance-task.ps1") && readme.contains("Start-ScheduledTask"),
+        "Should document immediate Windows scheduler test run script"
     );
 }

@@ -277,11 +277,14 @@ The governance script keeps the workflow read-only: it runs `scan`, reuses scan 
 # Show the registered governance task
 .\scripts\governance\show-governance-task.ps1
 
+# Trigger the registered governance task immediately for a test run
+.\scripts\governance\test-run-governance-task.ps1
+
 # Unregister the governance task
 .\scripts\governance\unregister-governance-task.ps1
 ```
 
-The scheduler setup script only registers a Windows Task Scheduler entry that calls `run-governance.ps1`; it does not perform cleanup or delete any files.
+The scheduler setup script only registers a Windows Task Scheduler entry that calls `run-governance.ps1`; it does not perform cleanup or delete any files. Use `test-run-governance-task.ps1` to call `Start-ScheduledTask` on the existing task when you want to verify the registered local governance chain immediately.
 
 ---
 

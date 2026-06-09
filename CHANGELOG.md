@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added cross-platform scheduler adapters for cron, launchd, and systemd timer.
+- Added `scripts/governance/cron/` with register, show, unregister, and test-run scripts for cron-based scheduling.
+- Added `scripts/governance/launchd/` with register, show, unregister, and test-run scripts for macOS launchd scheduling.
+- Added `scripts/governance/systemd/` with register, show, unregister, and test-run scripts for systemd timer scheduling.
+- Added `scripts/governance/run-governance.sh` as cross-platform governance entry point for Unix-like systems.
+- All scheduler adapters follow unified contract: register/show/unregister/test-run operations.
+- Scheduler adapters remain script-level, platform-specific, with no background daemon or cleanup automation.
+
 ## 1.3.0
 
 - Added Local Scheduled Governance for detecting scan snapshot growth anomalies without cleanup automation.

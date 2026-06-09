@@ -504,3 +504,45 @@ fn launchd_adapter_scripts_exist_and_cover_scheduler_contract() {
     assert!(test_run_script.contains("TASK_NAME"));
     assert!(!test_run_script.contains("rm -rf"));
 }
+
+#[test]
+fn systemd_timer_adapter_scripts_exist_and_cover_scheduler_contract() {
+    let register_script = read_repo_file("scripts/governance/systemd/register-governance-systemd.sh");
+    let show_script = read_repo_file("scripts/governance/systemd/show-governance-systemd.sh");
+    let unregister_script = read_repo_file("scripts/governance/systemd/unregister-governance-systemd.sh");
+    let test_run_script = read_repo_file("scripts/governance/systemd/test-run-governance-systemd.sh");
+
+    // register script
+    assert!(register_script.contains("systemctl"));
+    assert!(register_script.contains("--user"));
+    assert!(register_script.contains("enable"));
+    assert!(register_script.contains("TASK_NAME"));
+    assert!(register_script.contains("aidisk-governance"));
+    assert!(register_script.contains(".service"));
+    assert!(register_script.contains(".timer"));
+    assert!(register_script.contains("OnCalendar"));
+    assert!(register_script.contains("run-governance.sh"));
+    assert!(!register_script.contains("rm -rf"));
+    assert!(!register_script.contains("clean --yes"));
+
+    // show script
+    assert!(show_script.contains("systemctl"));
+    assert!(show_script.contains("--user"));
+    assert!(show_script.contains("status"));
+    assert!(show_script.contains("TASK_NAME"));
+
+    // unregister script
+    assert!(unregister_script.contains("systemctl"));
+    assert!(unregister_script.contains("--user"));
+    assert!(unregister_script.contains("disable"));
+    assert!(unregister_script.contains("stop"));
+    assert!(unregister_script.contains("TASK_NAME"));
+    assert!(!unregister_script.contains("rm -rf"));
+
+    // test-run script
+    assert!(test_run_script.contains("systemctl"));
+    assert!(test_run_script.contains("--user"));
+    assert!(test_run_script.contains("start"));
+    assert!(test_run_script.contains("TASK_NAME"));
+    assert!(!test_run_script.contains("rm -rf"));
+}

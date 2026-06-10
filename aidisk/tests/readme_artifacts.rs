@@ -10,11 +10,11 @@ fn readme_english_exists_and_has_required_sections() {
     assert!(readme.contains("## Command Reference"), "Should have Command Reference section");
     assert!(readme.contains("[中文](./README.zh-CN.md)"), "Should link to Chinese readme");
     assert!(readme.contains("![Version]"), "Should have version badge");
-    assert!(readme.contains("version-1.3.0"), "Should show v1.3.0 badge");
-    assert!(readme.contains("**Current release:** v1.3.0"), "Should show v1.3.0 current release");
+    assert!(readme.contains("version-1.4.0"), "Should show v1.4.0 badge");
+    assert!(readme.contains("**Current release:** v1.4.0"), "Should show v1.4.0 current release");
     assert!(
-        readme.contains("### v1.3.0") && readme.contains("docs/release-notes/v1.3.0.md"),
-        "Should document v1.3.0 release notes"
+        readme.contains("### v1.4.0") && readme.contains("docs/release-notes/v1.4.0.md"),
+        "Should document v1.4.0 release notes"
     );
     assert!(readme.contains("policy snapshot"), "Should document policy snapshot report metadata");
     assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");
@@ -83,11 +83,11 @@ fn readme_chinese_exists_and_has_required_sections() {
     assert!(readme.contains("## 快速开始"), "Should have Quick Start section");
     assert!(readme.contains("## 命令参考"), "Should have Command Reference section");
     assert!(readme.contains("[English](./README.md)"), "Should link to English readme");
-    assert!(readme.contains("version-1.3.0"), "Should show v1.3.0 badge");
-    assert!(readme.contains("**当前版本：** v1.3.0"), "Should show v1.3.0 current release");
+    assert!(readme.contains("version-1.4.0"), "Should show v1.4.0 badge");
+    assert!(readme.contains("**当前版本：** v1.4.0"), "Should show v1.4.0 current release");
     assert!(
-        readme.contains("### v1.3.0") && readme.contains("docs/release-notes/v1.3.0.md"),
-        "Should document v1.3.0 release notes"
+        readme.contains("### v1.4.0") && readme.contains("docs/release-notes/v1.4.0.md"),
+        "Should document v1.4.0 release notes"
     );
     assert!(readme.contains("策略快照"), "Should document policy snapshot report metadata");
     assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");

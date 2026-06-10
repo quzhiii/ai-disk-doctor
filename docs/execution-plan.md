@@ -224,8 +224,9 @@ Phase 8 status: Completed
 - `docs/release-notes/v1.1.0.md`
 - `docs/release-notes/v1.2.0.md`
 - `docs/release-notes/v1.3.0.md`
+- `docs/release-notes/v1.4.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.3.0`
+- `aidisk` crate version `1.4.0`
 
 ## Phase 9: Local Scheduled Governance
 

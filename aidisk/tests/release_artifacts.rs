@@ -235,6 +235,35 @@ fn governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
 }
 
 #[test]
+fn unix_governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() {
+    let script = read_repo_file("scripts/governance/run-governance.sh");
+
+    assert!(script.contains("cargo run -- scan --json"));
+    assert!(script.contains("cargo run -- anomaly --latest"));
+    assert!(script.contains("--notifier-adapter"));
+    assert!(script.contains("--webhook-url"));
+    assert!(script.contains("--webhook-timeout-seconds"));
+    assert!(script.contains("cp"));
+    assert!(script.contains("requires at least two scan snapshots"));
+    assert!(script.contains("curl"));
+    assert!(script.contains("Content-Type: application/json"));
+    assert!(script.contains("governance-event.json"));
+    assert!(script.contains("anomaly_found"));
+    assert!(script.contains("pending_history"));
+    assert!(script.contains("no_anomaly"));
+    assert!(script.contains("headline"));
+    assert!(script.contains("summary_markdown"));
+    assert!(script.contains("top_anomaly_path"));
+    assert!(script.contains("top_anomaly_growth_bytes"));
+    assert!(script.contains("webhook-failure.json"));
+    assert!(script.contains("delivery_status"));
+    assert!(script.contains("new_governance_event"));
+    assert!(script.contains("send_notifier_event"));
+    assert!(!script.contains("clean --yes"));
+    assert!(!script.contains("rm -rf"));
+}
+
+#[test]
 fn scheduler_setup_script_registers_windows_task_for_governance() {
     let script = read_repo_file("scripts/governance/register-governance-task.ps1");
 

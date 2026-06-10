@@ -300,3 +300,19 @@ Phase 10 status: Completed
 1. 用户手册：编写各平台的 scheduler 使用文档
 2. 示例配置：添加常见调度场景的配置示例
 3. 未来增强：考虑 notifier adapter 扩展（飞书 / Slack / 微信等）
+
+## Phase 11: Unix Governance Entrypoint
+
+Phase 11 status: Completed
+
+目标：
+
+- 补齐 cron / launchd / systemd timer 脚本引用的 `scripts/governance/run-governance.sh`。
+- 在 Unix-like 平台提供与 Windows `run-governance.ps1` 对齐的 scan -> anomaly -> governance event -> notifier workflow。
+
+实施成果：
+
+- 新增 `scripts/governance/run-governance.sh`，支持 `--reports-dir`、`--output-dir`、`--min-growth`、`--min-growth-percent`、`--notifier-adapter`、`--webhook-url`、`--webhook-timeout-seconds`。
+- 使用 `jq` 生成稳定 `governance-event.json`，保留 `anomaly_found`、`pending_history`、`no_anomaly` 事件类型与关键字段。
+- 使用 `curl` 处理 generic webhook delivery，并保留 `webhook-failure.json` 与 `delivery_status` 字段。
+- 新增 release artifact 测试覆盖 Unix 治理入口脚本的关键模式与非破坏性边界。

@@ -1572,7 +1572,7 @@ git log --oneline --grep="Phase 10\|cron\|launchd\|systemd" | head -20
    - launchd_adapter_scripts_exist_and_cover_scheduler_contract
    - systemd_timer_adapter_scripts_exist_and_cover_scheduler_contract
    - All tests cover script existence, key pattern matching, security boundaries
-   - All tests passing: 119 passed (including 3 new scheduler adapter tests)
+   - All tests passing: 148 passed (including 3 scheduler adapter tests and the Unix governance entrypoint test)
 
 **Design Decisions:**
 
@@ -1589,11 +1589,10 @@ git log --oneline --grep="Phase 10\|cron\|launchd\|systemd" | head -20
 - Did not introduce background daemon services
 - Did not redesign governance-event.json contract
 
-**Note:** `run-governance.sh` was not created in this phase as the cron/launchd/systemd scripts reference it but it doesn't exist yet. This is intentional - the scripts are prepared for when run-governance.sh is implemented in a future task.
+**Phase 11 follow-up completed:** `scripts/governance/run-governance.sh` now exists as the Unix governance entrypoint used by the cron, launchd, and systemd timer adapters.
 
 **Future Work:**
 
-- Create run-governance.sh (Unix equivalent of run-governance.ps1)
 - Notifier adapter extensions (Feishu, Slack, WeChat, DingTalk, etc.)
 - User manual and usage examples
 - Cross-platform test automation

@@ -741,3 +741,28 @@ fn governance_event_dedup_script_covers_idempotency_contract() {
         "dispatcher or run-governance should reference dedup-governance-event.sh"
     );
 }
+
+#[test]
+fn governance_notify_retry_script_covers_contract() {
+    let retry_script = read_repo_file("scripts/governance/retry-governance-notify.sh");
+    let dispatcher = read_repo_file("scripts/governance/send-governance-event.sh");
+
+    for term in [
+        "--max-retries",
+        "--retry-delay",
+        "--event-path",
+        "--adapter",
+        "--output-dir",
+        "send-governance-event.sh",
+        "retry-failure.json",
+        "attempt",
+        "sleep",
+    ] {
+        assert!(retry_script.contains(term), "retry script should contain {term}");
+    }
+
+    assert!(!retry_script.contains("rm -rf"));
+    assert!(!retry_script.contains("clean --yes"));
+
+    assert!(dispatcher.contains("send-governance-event.sh"));
+}

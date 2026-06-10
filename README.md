@@ -60,7 +60,7 @@ v1.4.0 adds Cross-Platform Scheduled Governance while preserving the no-cleanup 
 - **Cross-Platform Scheduled Governance** — cron, launchd, and systemd timer adapters now mirror the Windows Task Scheduler register/show/unregister/test-run workflow.
 - **Unix governance entrypoint** — `run-governance.sh` runs the Unix scan -> anomaly -> `governance-event.json` -> generic webhook workflow alongside the Windows `run-governance.ps1` path.
 - **Scheduler-first boundary** — scheduler adapters remain script-level, platform-specific, and use no background daemon.
-- **Portable dependencies** — Unix governance uses bash, jq, curl, and cargo; concrete notifier adapter integrations remain a later extension.
+- **Portable dependencies** — Unix governance uses bash, jq, curl, and cargo; the release now includes local-file, generic webhook, and Feishu notifier adapters while keeping broader platform expansion for later.
 
 Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.4.0.md`](./docs/release-notes/v1.4.0.md).
 
@@ -129,7 +129,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
 | **Growth Anomaly Detection** | Detect paths whose growth exceeds both absolute and relative thresholds for local scheduled governance |
-| **Cross-Platform Scheduled Governance** | Schedule local governance via Windows Task Scheduler, cron, launchd, or systemd timer without adding a background daemon or concrete notifier adapter |
+| **Cross-Platform Scheduled Governance** | Schedule local governance via Windows Task Scheduler, cron, launchd, or systemd timer without adding a background daemon, and deliver stable governance events through local-file, generic webhook, or Feishu |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
 | **Operability Metadata** | Reports include the active policy snapshot and mark partial sizes as `best-effort, not exact` when depth limits or unreadable descendants prevent complete traversal |
@@ -338,7 +338,7 @@ The scheduler setup script only registers a Windows Task Scheduler entry that ca
 ./scripts/governance/systemd/unregister-governance-systemd.sh
 ```
 
-Unix-like governance requires `bash`, `jq`, `curl` for webhook delivery, and `cargo` for local runs. The cron, launchd, and systemd timer adapters only register native scheduler entries that call `run-governance.sh`; they do not add a background daemon, do not perform cleanup, and do not bind the release to a concrete notifier adapter.
+Unix-like governance requires `bash`, `jq`, `curl` for webhook or Feishu delivery, and `cargo` for local runs. The cron, launchd, and systemd timer adapters only register native scheduler entries that call `run-governance.sh`; they do not add a background daemon or perform cleanup. Phase 13 now includes a concrete Feishu notifier adapter while keeping broader adapter expansion for later.
 
 ### 10. Send Governance Events to Feishu
 

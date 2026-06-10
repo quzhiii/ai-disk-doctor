@@ -72,6 +72,15 @@ mark_delivery_status() {
     mv "$EVENT_PATH.tmp" "$EVENT_PATH"
 }
 
+mark_delivery_failure() {
+    local failure_path_key="$1"
+    local failure_path_value="$2"
+    jq --arg notifier_adapter "$ADAPTER" --arg failure_path_key "$failure_path_key" --arg failure_path_value "$failure_path_value" \
+        '. + {delivery_status: "failed", notifier_adapter: $notifier_adapter} + {($failure_path_key): $failure_path_value}' \
+        "$EVENT_PATH" > "$EVENT_PATH.tmp"
+    mv "$EVENT_PATH.tmp" "$EVENT_PATH"
+}
+
 send_webhook_event() {
     require_tool curl
     require_tool jq
@@ -109,10 +118,7 @@ send_webhook_event() {
                 error_message: $error_message,
                 governance_event_path: $governance_event_path
             }' > "$failure_artifact_path"
-        jq --arg webhook_failure_path "$failure_artifact_path" \
-            '. + {delivery_status: "failed", webhook_failure_path: $webhook_failure_path}' \
-            "$EVENT_PATH" > "$EVENT_PATH.tmp"
-        mv "$EVENT_PATH.tmp" "$EVENT_PATH"
+        mark_delivery_failure "webhook_failure_path" "$failure_artifact_path"
     fi
 }
 
@@ -129,7 +135,7 @@ require_event_inputs
 
 case "$ADAPTER" in
     local-file)
-        mark_delivery_status "local-file"
+        mark_delivery_status "delivered"
         ;;
     webhook)
         send_webhook_event

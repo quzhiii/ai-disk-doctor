@@ -325,13 +325,13 @@ Phase 11 status: Completed
 - v1.1.0：Doctor V2，覆盖 AI Agent / tooling 诊断、breakdown、probe、growth-aware doctor。
 - v1.2.0：规则覆盖扩展、大文件发现、跨平台规则路径、JSON 错误契约与可运维元数据。
 - v1.3.0：Windows 本地定时治理，包含 anomaly 核心、governance event、generic webhook、Windows Task Scheduler 闭环。
-- Unreleased / v1.4.0 candidate：cron / launchd / systemd timer adapters 与 Unix `run-governance.sh` 已完成。
+- v1.4.0：cron / launchd / systemd timer adapters 与 Unix `run-governance.sh` 已完成。
 
 当前不建议立刻进入具体 IM notifier adapter（飞书 / Slack / 微信等）。notifier 会引入密钥管理、平台 API、失败重试、幂等、限流和交付语义，应该作为 v1.5.0 之后的独立大切片，而不是混入 v1.4.0 release readiness。
 
 ## Phase 12: v1.4.0 Cross-Platform Governance Release Readiness
 
-Phase 12 status: Recommended next
+Phase 12 status: Completed
 
 目标：
 
@@ -347,8 +347,8 @@ Phase 12 status: Recommended next
 4. 运行并记录 v1.4.0 release smoke：Windows 原有测试 + Unix 脚本静态契约 + 可选 Linux/macOS 手工验证。
 5. 如决定正式发版，再 bump crate version、Cargo.lock、README badge 和 release references。
 
-v1.4.0 进度判断：
+v1.4.0 完成状态：
 
-- 功能开发：约 85% 完成。核心功能已完成，剩余主要是 release 文档、示例和跨平台 smoke。
-- 发布准备：约 60% 完成。CHANGELOG 与 roadmap 已更新，但 README、release notes、版本号和正式 release smoke 尚未完成。
-- 若以“一个大版本迭代”衡量，当前 v1.4.0 还剩约 15% 的功能收尾和约 40% 的发布工程。
+- 功能开发：Completed。核心跨平台调度治理能力已完成。
+- 发布准备：Completed。README、release notes、CHANGELOG、版本号、release artifact tests 和完整测试套件均已同步。
+- 后续大切片：具体 notifier adapter expansion（飞书 / Slack / 微信等）建议作为 v1.5.0 或更后的独立阶段。

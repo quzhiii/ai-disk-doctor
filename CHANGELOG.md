@@ -2,14 +2,18 @@
 
 ## Unreleased
 
-- Added `scripts/governance/run-governance.sh`, a Unix governance entrypoint matching the Windows scan -> anomaly -> governance event -> notifier workflow.
-- Added release artifact coverage for `run-governance.sh`, including scan/anomaly workflow markers, webhook delivery fields, and non-destructive safety checks.
-- Added cross-platform scheduler adapters for cron, launchd, and systemd timer.
+## 1.4.0
+
+- Added Cross-Platform Scheduled Governance for cron, launchd, and systemd timer.
+- Added `scripts/governance/run-governance.sh`, a Unix governance entrypoint matching the Windows `run-governance.ps1` scan -> anomaly -> governance event -> notifier workflow.
+- Added release artifact coverage for `run-governance.sh`, including scan/anomaly workflow markers, `governance-event.json`, generic webhook fields, and non-destructive safety checks.
 - Added `scripts/governance/cron/` with register, show, unregister, and test-run scripts for cron-based scheduling.
 - Added `scripts/governance/launchd/` with register, show, unregister, and test-run scripts for macOS launchd scheduling.
 - Added `scripts/governance/systemd/` with register, show, unregister, and test-run scripts for systemd timer scheduling.
+- Documented Unix governance dependencies: bash, jq, curl, and cargo.
 - All scheduler adapters follow unified contract: register/show/unregister/test-run operations.
 - Scheduler adapters remain script-level, platform-specific, with no background daemon or cleanup automation.
+- Concrete notifier adapter expansion remains out of scope for this release.
 
 ## 1.3.0
 

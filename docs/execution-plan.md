@@ -316,3 +316,39 @@ Phase 11 status: Completed
 - 使用 `jq` 生成稳定 `governance-event.json`，保留 `anomaly_found`、`pending_history`、`no_anomaly` 事件类型与关键字段。
 - 使用 `curl` 处理 generic webhook delivery，并保留 `webhook-failure.json` 与 `delivery_status` 字段。
 - 新增 release artifact 测试覆盖 Unix 治理入口脚本的关键模式与非破坏性边界。
+
+## Current Roadmap Snapshot
+
+当前主线已经完成从 v1.0.0 到 v1.3.0 的核心闭环，并在 Unreleased 中完成了下一轮跨平台本地治理能力：
+
+- v1.0.0：本地 scan / plan / clean / restore / doctor / diff 基础闭环。
+- v1.1.0：Doctor V2，覆盖 AI Agent / tooling 诊断、breakdown、probe、growth-aware doctor。
+- v1.2.0：规则覆盖扩展、大文件发现、跨平台规则路径、JSON 错误契约与可运维元数据。
+- v1.3.0：Windows 本地定时治理，包含 anomaly 核心、governance event、generic webhook、Windows Task Scheduler 闭环。
+- Unreleased / v1.4.0 candidate：cron / launchd / systemd timer adapters 与 Unix `run-governance.sh` 已完成。
+
+当前不建议立刻进入具体 IM notifier adapter（飞书 / Slack / 微信等）。notifier 会引入密钥管理、平台 API、失败重试、幂等、限流和交付语义，应该作为 v1.5.0 之后的独立大切片，而不是混入 v1.4.0 release readiness。
+
+## Phase 12: v1.4.0 Cross-Platform Governance Release Readiness
+
+Phase 12 status: Recommended next
+
+目标：
+
+- 将 Unreleased 中已完成的跨平台 scheduler + Unix governance entrypoint 固化为 v1.4.0 可发布版本。
+- 补齐用户能直接使用的文档、示例、release notes 和 smoke 验证。
+- 明确 v1.4.0 的边界：跨平台本地调度治理，不包含具体 IM notifier adapter。
+
+建议任务：
+
+1. 更新 README / README.zh-CN 的 What's New、Key Features 和 governance 使用说明，补充 cron / launchd / systemd timer 示例。
+2. 新增 `docs/release-notes/v1.4.0.md`，覆盖 scheduler adapters、`run-governance.sh`、依赖项（`bash` / `jq` / `curl` / `cargo`）和已知限制。
+3. 更新 release artifact 测试，要求 CHANGELOG、README、release notes 覆盖 v1.4.0 范围。
+4. 运行并记录 v1.4.0 release smoke：Windows 原有测试 + Unix 脚本静态契约 + 可选 Linux/macOS 手工验证。
+5. 如决定正式发版，再 bump crate version、Cargo.lock、README badge 和 release references。
+
+v1.4.0 进度判断：
+
+- 功能开发：约 85% 完成。核心功能已完成，剩余主要是 release 文档、示例和跨平台 smoke。
+- 发布准备：约 60% 完成。CHANGELOG 与 roadmap 已更新，但 README、release notes、版本号和正式 release smoke 尚未完成。
+- 若以“一个大版本迭代”衡量，当前 v1.4.0 还剩约 15% 的功能收尾和约 40% 的发布工程。

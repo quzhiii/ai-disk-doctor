@@ -16,3 +16,31 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Run tests
         run: cargo test
+
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aidisk
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check Bash syntax
+        run: |
+          find ../scripts/governance -name '*.sh' -type f -exec bash -n {} \;
+      - name: Run tests
+        run: cargo test
+
+  test-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: aidisk
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check Bash syntax
+        run: |
+          find ../scripts/governance -name '*.sh' -type f -exec bash -n {} \;
+      - name: Run tests
+        run: cargo test

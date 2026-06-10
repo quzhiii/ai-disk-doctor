@@ -164,6 +164,12 @@ send_notifier_event() {
             echo "Webhook delivery skipped because no governance event artifact exists yet." \
                 > "$RESOLVED_OUTPUT_DIR/webhook-pending.txt"
         fi
+    elif [[ "$NOTIFIER_ADAPTER" == "feishu" ]]; then
+        "$SCRIPT_DIR/send-governance-event.sh" \
+            --adapter feishu \
+            --event-path "$GOVERNANCE_EVENT_PATH" \
+            --output-dir "$RESOLVED_OUTPUT_DIR" \
+            --webhook-timeout-seconds "$WEBHOOK_TIMEOUT_SECONDS"
     elif [[ "$NOTIFIER_ADAPTER" != "local-file" ]]; then
         echo "Notifier adapter '$NOTIFIER_ADAPTER' is reserved for future webhook/IM delivery." \
             > "$RESOLVED_OUTPUT_DIR/notifier-placeholder.txt"

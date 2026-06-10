@@ -375,6 +375,15 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
     assert!(!feishu.contains("clean --yes"));
     assert!(!feishu.contains("open.feishu.cn/open-apis/bot/v2/hook"));
 
+    assert!(feishu.contains("--template"));
+    assert!(feishu.contains("msg_type"));
+
+    let template_path = repo_root().join("scripts/governance/templates/feishu-governance.tmpl");
+    assert!(template_path.is_file(), "template file should exist at scripts/governance/templates/feishu-governance.tmpl");
+    let template = read_repo_file("scripts/governance/templates/feishu-governance.tmpl");
+    assert!(template.contains("${headline}"));
+    assert!(template.contains("${summary_markdown}"));
+
     assert!(unix_governance.contains("feishu"));
     assert!(unix_governance.contains("retry-governance-notify.sh"));
     assert!(unix_governance.contains("--adapter \"$NOTIFIER_ADAPTER\""));

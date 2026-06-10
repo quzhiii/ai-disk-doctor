@@ -6,6 +6,7 @@ set -euo pipefail
 EVENT_PATH="${EVENT_PATH:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 WEBHOOK_TIMEOUT_SECONDS="${WEBHOOK_TIMEOUT_SECONDS:-15}"
+TEMPLATE_PATH="${TEMPLATE_PATH:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -19,6 +20,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --webhook-timeout-seconds)
             WEBHOOK_TIMEOUT_SECONDS="$2"
+            shift 2
+            ;;
+        --template)
+            TEMPLATE_PATH="$2"
             shift 2
             ;;
         *)
@@ -63,10 +68,26 @@ response_path="$OUTPUT_DIR/feishu-response.json"
 
 : > "$response_path"
 
-jq -n \
-    --arg text "$(jq -r '.headline + "\n\n" + .summary_markdown' "$EVENT_PATH")" \
-    '{msg_type: "text", content: {text: $text}}' \
-    > "$payload_path"
+if [[ -n "${TEMPLATE_PATH:-}" ]]; then
+    if [[ ! -f "$TEMPLATE_PATH" ]]; then
+        echo "template file not found at $TEMPLATE_PATH" >&2
+        exit 1
+    fi
+    headline_val="$(jq -r '.headline' "$EVENT_PATH")"
+    summary_val="$(jq -r '.summary_markdown' "$EVENT_PATH")"
+    template_content="$(cat "$TEMPLATE_PATH")"
+    template_content="${template_content//\$\{headline\}/$headline_val}"
+    template_content="${template_content//\$\{summary_markdown\}/$summary_val}"
+    jq -n \
+        --arg text "$template_content" \
+        '{msg_type: "text", content: {text: $text}}' \
+        > "$payload_path"
+else
+    jq -n \
+        --arg text "$(jq -r '.headline + "\n\n" + .summary_markdown' "$EVENT_PATH")" \
+        '{msg_type: "text", content: {text: $text}}' \
+        > "$payload_path"
+fi
 
 if curl \
     --request POST \

@@ -713,3 +713,31 @@ fn systemd_timer_adapter_scripts_exist_and_cover_scheduler_contract() {
     assert!(test_run_script.contains("TASK_NAME"));
     assert!(!test_run_script.contains("rm -rf"));
 }
+
+#[test]
+fn governance_event_dedup_script_covers_idempotency_contract() {
+    let dedup_script = read_repo_file("scripts/governance/dedup-governance-event.sh");
+    let dispatcher = read_repo_file("scripts/governance/send-governance-event.sh");
+    let run_governance = read_repo_file("scripts/governance/run-governance.sh");
+
+    for term in [
+        "--event-path",
+        "--dedup-dir",
+        "--output-dir",
+        "event_hash",
+        "jq",
+        "dedup-skipped.json",
+    ] {
+        assert!(dedup_script.contains(term), "dedup script should mention {term}");
+    }
+
+    assert!(!dedup_script.contains("rm -rf"));
+    assert!(!dedup_script.contains("clean --yes"));
+    assert!(!dedup_script.contains("https://"));
+
+    assert!(
+        dispatcher.contains("dedup-governance-event.sh")
+            || run_governance.contains("dedup-governance-event.sh"),
+        "dispatcher or run-governance should reference dedup-governance-event.sh"
+    );
+}

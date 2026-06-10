@@ -134,6 +134,15 @@ send_feishu_event() {
 require_event_inputs
 require_tool jq
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dedup_result=$("$script_dir/dedup-governance-event.sh" \
+    --event-path "$EVENT_PATH" \
+    --dedup-dir "$OUTPUT_DIR/dedup" \
+    --output-dir "$OUTPUT_DIR") || true
+if [[ "$dedup_result" == "SKIPPED" ]]; then
+    exit 0
+fi
+
 case "$ADAPTER" in
     local-file)
         mark_delivery_status "delivered"

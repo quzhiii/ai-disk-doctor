@@ -353,3 +353,26 @@ v1.4.0 完成状态：
 - 功能开发：Completed。核心跨平台调度治理能力已完成。
 - 发布准备：Completed。README、release notes、CHANGELOG、版本号、release artifact tests 和完整测试套件均已同步。
 - 后续大切片：具体 notifier adapter expansion（飞书 / Slack / 微信等）建议作为 v1.5.0 或更后的独立阶段。
+
+## Phase 13: Notifier Adapter Foundation
+
+Phase 13 status: Completed
+
+目标：
+
+- 在不改变 `governance-event.json` 契约的前提下，增加脚本层 Notifier Adapter Foundation。
+- 继续保留 generic webhook，同时新增第一个具体平台 adapter：Feishu。
+- 明确 secrets 处理边界：Feishu webhook URL 只通过 `FEISHU_WEBHOOK_URL` 环境变量注入，不写入命令行示例或失败产物。
+
+实施成果：
+
+- 新增 `scripts/governance/send-governance-event.sh`，通过 `--adapter`、`--event-path`、`--output-dir` 分发 `local-file`、`webhook`、`feishu`。
+- 新增 `scripts/governance/notifiers/feishu.sh`，从 `governance-event.json` 读取 `headline` 与 `summary_markdown`，向 Feishu 发送 text 消息。
+- Feishu 失败时写出 `feishu-failure.json`，但不保存 `FEISHU_WEBHOOK_URL` 或 resolved webhook URL。
+- `run-governance.sh` 支持 `--notifier-adapter feishu` 并委托 dispatcher 交付。
+- 文档入口：`docs/notifier-adapters.md`。
+
+后续方向：
+
+- Slack / WeChat / DingTalk / email 等 adapter 可复用该 dispatcher 和 `governance-event.json` 契约。
+- 重试、幂等、限流和消息模板可以作为后续独立阶段，而不是塞进 Phase 13。

@@ -342,6 +342,21 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 
 Unix-like 治理入口依赖 `bash`、`jq`、用于 webhook 投递的 `curl`，以及用于本地运行的 `cargo`。cron、launchd 和 systemd timer adapter 只会注册调用 `run-governance.sh` 的平台原生调度任务；它们不会引入后台 daemon，不会执行清理，也不会把当前版本绑定到具体 notifier adapter。
 
+### 10. 将治理事件发送到 Feishu
+
+```bash
+# 通过环境变量注入 Feishu webhook，不要写在命令行参数里
+export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
+
+# 用 notifier dispatcher 发送已有 governance-event.json
+./scripts/governance/send-governance-event.sh --adapter feishu --event-path .aidisk/governance/governance-event.json --output-dir .aidisk/governance
+
+# 或在一次治理运行中直接通过 Feishu 投递
+./scripts/governance/run-governance.sh --notifier-adapter feishu
+```
+
+更多 Notifier Adapter Foundation、Feishu adapter、`FEISHU_WEBHOOK_URL` secrets 处理、generic webhook 兼容性和 `feishu-failure.json` 行为，请查看 [`docs/notifier-adapters.md`](./docs/notifier-adapters.md)。
+
 ---
 
 ## 命令参考

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added Notifier Adapter Foundation for delivering stable `governance-event.json` payloads through `local-file`, generic webhook, or Feishu.
+- Added `scripts/governance/send-governance-event.sh` as the notifier dispatcher with `--adapter`, `--event-path`, and `--output-dir` arguments.
+- Added Feishu delivery via `scripts/governance/notifiers/feishu.sh`, using the `FEISHU_WEBHOOK_URL` environment variable for secrets and writing `feishu-failure.json` without storing webhook URLs.
+- Added docs for notifier adapter secrets handling and future platform adapters.
+
 ## 1.4.0
 
 - Added Cross-Platform Scheduled Governance for cron, launchd, and systemd timer.

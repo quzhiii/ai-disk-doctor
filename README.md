@@ -340,6 +340,21 @@ The scheduler setup script only registers a Windows Task Scheduler entry that ca
 
 Unix-like governance requires `bash`, `jq`, `curl` for webhook delivery, and `cargo` for local runs. The cron, launchd, and systemd timer adapters only register native scheduler entries that call `run-governance.sh`; they do not add a background daemon, do not perform cleanup, and do not bind the release to a concrete notifier adapter.
 
+### 10. Send Governance Events to Feishu
+
+```bash
+# Inject the Feishu webhook as an environment variable, not a command-line flag
+export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
+
+# Send an existing governance-event.json through the notifier dispatcher
+./scripts/governance/send-governance-event.sh --adapter feishu --event-path .aidisk/governance/governance-event.json --output-dir .aidisk/governance
+
+# Or run governance and deliver through Feishu in one step
+./scripts/governance/run-governance.sh --notifier-adapter feishu
+```
+
+See [`docs/notifier-adapters.md`](./docs/notifier-adapters.md) for the Notifier Adapter Foundation, Feishu adapter, `FEISHU_WEBHOOK_URL` secrets handling, generic webhook compatibility, and `feishu-failure.json` behavior.
+
 ---
 
 ## Command Reference

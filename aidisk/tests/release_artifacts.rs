@@ -336,6 +336,64 @@ fn unix_governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() 
 }
 
 #[test]
+fn notifier_adapter_foundation_covers_feishu_contract() {
+    let docs = read_repo_file("docs/notifier-adapters.md");
+    let dispatcher = read_repo_file("scripts/governance/send-governance-event.sh");
+    let feishu = read_repo_file("scripts/governance/notifiers/feishu.sh");
+    let unix_governance = read_repo_file("scripts/governance/run-governance.sh");
+    let changelog = read_repo_file("CHANGELOG.md");
+    let roadmap = read_repo_file("docs/execution-plan.md");
+
+    for term in [
+        "--adapter",
+        "--event-path",
+        "--output-dir",
+        "local-file",
+        "webhook",
+        "feishu",
+        "send_feishu_event",
+        "FEISHU_WEBHOOK_URL",
+    ] {
+        assert!(dispatcher.contains(term), "dispatcher should mention {term}");
+    }
+
+    for term in [
+        "FEISHU_WEBHOOK_URL",
+        "curl",
+        "Content-Type: application/json",
+        "msg_type",
+        "summary_markdown",
+        "governance-event.json",
+        "feishu-failure.json",
+    ] {
+        assert!(feishu.contains(term), "Feishu adapter should mention {term}");
+    }
+    assert!(!feishu.contains("rm -rf"));
+    assert!(!feishu.contains("clean --yes"));
+    assert!(!feishu.contains("open.feishu.cn/open-apis/bot/v2/hook"));
+
+    assert!(unix_governance.contains("feishu"));
+    assert!(unix_governance.contains("send-governance-event.sh"));
+
+    for term in [
+        "Notifier Adapter Foundation",
+        "Feishu",
+        "FEISHU_WEBHOOK_URL",
+        "secrets",
+        "generic webhook",
+        "governance-event.json",
+        "feishu-failure.json",
+    ] {
+        assert!(docs.contains(term), "notifier docs should mention {term}");
+        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+    }
+
+    assert!(roadmap.contains("Phase 13"));
+    assert!(roadmap.contains("Notifier Adapter Foundation"));
+    assert!(roadmap.contains("Feishu"));
+}
+
+#[test]
 fn scheduler_setup_script_registers_windows_task_for_governance() {
     let script = read_repo_file("scripts/governance/register-governance-task.ps1");
 

@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
@@ -45,13 +45,24 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.3.0
+**Current release:** v1.4.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
 ## What's New
+
+### v1.4.0
+
+v1.4.0 adds Cross-Platform Scheduled Governance while preserving the no-cleanup governance boundary:
+
+- **Cross-Platform Scheduled Governance** — cron, launchd, and systemd timer adapters now mirror the Windows Task Scheduler register/show/unregister/test-run workflow.
+- **Unix governance entrypoint** — `run-governance.sh` runs the Unix scan -> anomaly -> `governance-event.json` -> generic webhook workflow alongside the Windows `run-governance.ps1` path.
+- **Scheduler-first boundary** — scheduler adapters remain script-level, platform-specific, and use no background daemon.
+- **Portable dependencies** — Unix governance uses bash, jq, curl, and cargo; concrete notifier adapter integrations remain a later extension.
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.4.0.md`](./docs/release-notes/v1.4.0.md).
 
 ### v1.3.0
 
@@ -118,6 +129,7 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`]
 | **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
 | **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
 | **Growth Anomaly Detection** | Detect paths whose growth exceeds both absolute and relative thresholds for local scheduled governance |
+| **Cross-Platform Scheduled Governance** | Schedule local governance via Windows Task Scheduler, cron, launchd, or systemd timer without adding a background daemon or concrete notifier adapter |
 | **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
 | **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
 | **Operability Metadata** | Reports include the active policy snapshot and mark partial sizes as `best-effort, not exact` when depth limits or unreadable descendants prevent complete traversal |

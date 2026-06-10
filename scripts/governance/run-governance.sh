@@ -11,6 +11,8 @@ MIN_GROWTH_PERCENT="${MIN_GROWTH_PERCENT:-30.0}"
 NOTIFIER_ADAPTER="${NOTIFIER_ADAPTER:-local-file}"
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 WEBHOOK_TIMEOUT_SECONDS="${WEBHOOK_TIMEOUT_SECONDS:-15}"
+NOTIFY_MAX_RETRIES="${NOTIFY_MAX_RETRIES:-3}"
+NOTIFY_RETRY_DELAY="${NOTIFY_RETRY_DELAY:-60}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -131,7 +133,9 @@ send_notifier_event() {
             return
         fi
 
-        dispatcher_args=(
+        retry_args=(
+            --max-retries "$NOTIFY_MAX_RETRIES"
+            --retry-delay "$NOTIFY_RETRY_DELAY"
             --adapter "$NOTIFIER_ADAPTER"
             --event-path "$GOVERNANCE_EVENT_PATH"
             --output-dir "$RESOLVED_OUTPUT_DIR"
@@ -139,10 +143,10 @@ send_notifier_event() {
         )
 
         if [[ "$NOTIFIER_ADAPTER" == "webhook" ]]; then
-            dispatcher_args+=(--webhook-url "$WEBHOOK_URL")
+            retry_args+=(--webhook-url "$WEBHOOK_URL")
         fi
 
-        "$SCRIPT_DIR/send-governance-event.sh" "${dispatcher_args[@]}"
+        "$SCRIPT_DIR/retry-governance-notify.sh" "${retry_args[@]}"
     elif [[ "$NOTIFIER_ADAPTER" != "local-file" ]]; then
         echo "Notifier adapter '$NOTIFIER_ADAPTER' is reserved for future webhook/IM delivery." \
             > "$RESOLVED_OUTPUT_DIR/notifier-placeholder.txt"

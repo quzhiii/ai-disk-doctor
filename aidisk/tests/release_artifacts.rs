@@ -318,9 +318,10 @@ fn unix_governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() 
     assert!(script.contains("--webhook-timeout-seconds"));
     assert!(script.contains("cp"));
     assert!(script.contains("requires at least two scan snapshots"));
-    assert!(script.contains("send-governance-event.sh"));
+    assert!(script.contains("retry-governance-notify.sh"));
     assert!(script.contains("--adapter \"$NOTIFIER_ADAPTER\""));
-    assert!(script.contains("dispatcher_args+=(--webhook-url \"$WEBHOOK_URL\")"));
+    assert!(script.contains("--webhook-url \"$WEBHOOK_URL\""));
+    assert!(script.contains("NOTIFY_MAX_RETRIES"));
     assert!(script.contains("governance-event.json"));
     assert!(script.contains("anomaly_found"));
     assert!(script.contains("pending_history"));
@@ -375,7 +376,7 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
     assert!(!feishu.contains("open.feishu.cn/open-apis/bot/v2/hook"));
 
     assert!(unix_governance.contains("feishu"));
-    assert!(unix_governance.contains("send-governance-event.sh"));
+    assert!(unix_governance.contains("retry-governance-notify.sh"));
     assert!(unix_governance.contains("--adapter \"$NOTIFIER_ADAPTER\""));
     assert!(unix_governance.contains("--webhook-url \"$WEBHOOK_URL\""));
 

@@ -45,7 +45,7 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     let roadmap = read_repo_file("docs/execution-plan.md");
     let cargo_toml = read_repo_file("aidisk/Cargo.toml");
     let cargo_lock = read_repo_file("aidisk/Cargo.lock");
-+
+
     let required_terms = [
         "Cross-Platform Scheduled Governance",
         "cron",

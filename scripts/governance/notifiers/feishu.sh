@@ -59,6 +59,9 @@ mkdir -p "$OUTPUT_DIR"
 
 failure_artifact_path="$OUTPUT_DIR/feishu-failure.json"
 payload_path="$OUTPUT_DIR/feishu-payload.json"
+response_path="$OUTPUT_DIR/feishu-response.json"
+
+: > "$response_path"
 
 jq -n \
     --arg text "$(jq -r '.headline + "\n\n" + .summary_markdown' "$EVENT_PATH")" \
@@ -73,9 +76,34 @@ if curl \
     --fail \
     --silent \
     --show-error \
-    "$FEISHU_WEBHOOK_URL" >/dev/null; then
-    jq '. + {delivery_status: "delivered", notifier_adapter: "feishu"}' "$EVENT_PATH" > "$EVENT_PATH.tmp"
-    mv "$EVENT_PATH.tmp" "$EVENT_PATH"
+    --output "$response_path" \
+    "$FEISHU_WEBHOOK_URL"; then
+    if jq -e '((has("code") or has("StatusCode")) and ((has("code") | not) or .code == 0) and ((has("StatusCode") | not) or .StatusCode == 0))' "$response_path" >/dev/null 2>&1; then
+        jq 'del(.webhook_failure_path, .feishu_failure_path) + {delivery_status: "delivered", notifier_adapter: "feishu"}' "$EVENT_PATH" > "$EVENT_PATH.tmp"
+        mv "$EVENT_PATH.tmp" "$EVENT_PATH"
+    else
+        jq -n \
+            --arg delivery_status "failed" \
+            --arg failed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg notifier_adapter "feishu" \
+            --argjson webhook_timeout_seconds "$WEBHOOK_TIMEOUT_SECONDS" \
+            --arg error_message "Feishu delivery returned a non-zero response code" \
+            --arg governance_event_path "$EVENT_PATH" \
+            --arg feishu_response_path "$response_path" \
+            '{
+                delivery_status: $delivery_status,
+                failed_at: $failed_at,
+                notifier_adapter: $notifier_adapter,
+                webhook_timeout_seconds: $webhook_timeout_seconds,
+                error_message: $error_message,
+                governance_event_path: $governance_event_path,
+                feishu_response_path: $feishu_response_path
+            }' > "$failure_artifact_path"
+        jq --arg feishu_failure_path "$failure_artifact_path" \
+            'del(.webhook_failure_path, .feishu_failure_path) + {delivery_status: "failed", notifier_adapter: "feishu", feishu_failure_path: $feishu_failure_path}' \
+            "$EVENT_PATH" > "$EVENT_PATH.tmp"
+        mv "$EVENT_PATH.tmp" "$EVENT_PATH"
+    fi
 else
     jq -n \
         --arg delivery_status "failed" \
@@ -84,16 +112,18 @@ else
         --argjson webhook_timeout_seconds "$WEBHOOK_TIMEOUT_SECONDS" \
         --arg error_message "Feishu delivery failed" \
         --arg governance_event_path "$EVENT_PATH" \
+        --arg feishu_response_path "$response_path" \
         '{
             delivery_status: $delivery_status,
             failed_at: $failed_at,
             notifier_adapter: $notifier_adapter,
             webhook_timeout_seconds: $webhook_timeout_seconds,
             error_message: $error_message,
-            governance_event_path: $governance_event_path
+            governance_event_path: $governance_event_path,
+            feishu_response_path: $feishu_response_path
         }' > "$failure_artifact_path"
     jq --arg feishu_failure_path "$failure_artifact_path" \
-        '. + {delivery_status: "failed", notifier_adapter: "feishu", feishu_failure_path: $feishu_failure_path}' \
+        'del(.webhook_failure_path, .feishu_failure_path) + {delivery_status: "failed", notifier_adapter: "feishu", feishu_failure_path: $feishu_failure_path}' \
         "$EVENT_PATH" > "$EVENT_PATH.tmp"
     mv "$EVENT_PATH.tmp" "$EVENT_PATH"
 fi

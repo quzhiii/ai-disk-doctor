@@ -117,59 +117,32 @@ new_governance_event() {
 }
 
 send_notifier_event() {
-    if [[ "$NOTIFIER_ADAPTER" == "webhook" ]]; then
-        if [[ -z "$WEBHOOK_URL" ]]; then
+    if [[ "$NOTIFIER_ADAPTER" == "webhook" || "$NOTIFIER_ADAPTER" == "local-file" || "$NOTIFIER_ADAPTER" == "feishu" ]]; then
+        if [[ "$NOTIFIER_ADAPTER" == "webhook" && -z "$WEBHOOK_URL" ]]; then
             echo "Webhook notifier requires --webhook-url" >&2
             exit 1
         fi
 
-        if [[ -f "$GOVERNANCE_EVENT_PATH" ]]; then
-            local failure_artifact_path="$RESOLVED_OUTPUT_DIR/webhook-failure.json"
-            if curl \
-                --request POST \
-                --header "Content-Type: application/json" \
-                --data-binary "@$GOVERNANCE_EVENT_PATH" \
-                --max-time "$WEBHOOK_TIMEOUT_SECONDS" \
-                --fail \
-                --silent \
-                --show-error \
-                "$WEBHOOK_URL" >/dev/null; then
-                jq '. + {delivery_status: "delivered"}' "$GOVERNANCE_EVENT_PATH" > "$GOVERNANCE_EVENT_PATH.tmp"
-                mv "$GOVERNANCE_EVENT_PATH.tmp" "$GOVERNANCE_EVENT_PATH"
-            else
-                jq -n \
-                    --arg delivery_status "failed" \
-                    --arg failed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-                    --arg notifier_adapter "$NOTIFIER_ADAPTER" \
-                    --arg webhook_url "$WEBHOOK_URL" \
-                    --argjson webhook_timeout_seconds "$WEBHOOK_TIMEOUT_SECONDS" \
-                    --arg error_message "Webhook delivery failed" \
-                    --arg governance_event_path "$GOVERNANCE_EVENT_PATH" \
-                    '{
-                        delivery_status: $delivery_status,
-                        failed_at: $failed_at,
-                        notifier_adapter: $notifier_adapter,
-                        webhook_url: $webhook_url,
-                        webhook_timeout_seconds: $webhook_timeout_seconds,
-                        error_message: $error_message,
-                        governance_event_path: $governance_event_path
-                    }' > "$failure_artifact_path"
-
-                jq --arg webhook_failure_path "$failure_artifact_path" \
-                    '. + {delivery_status: "failed", webhook_failure_path: $webhook_failure_path}' \
-                    "$GOVERNANCE_EVENT_PATH" > "$GOVERNANCE_EVENT_PATH.tmp"
-                mv "$GOVERNANCE_EVENT_PATH.tmp" "$GOVERNANCE_EVENT_PATH"
+        if [[ ! -f "$GOVERNANCE_EVENT_PATH" ]]; then
+            if [[ "$NOTIFIER_ADAPTER" == "webhook" ]]; then
+                echo "Webhook delivery skipped because no governance event artifact exists yet." \
+                    > "$RESOLVED_OUTPUT_DIR/webhook-pending.txt"
             fi
-        else
-            echo "Webhook delivery skipped because no governance event artifact exists yet." \
-                > "$RESOLVED_OUTPUT_DIR/webhook-pending.txt"
+            return
         fi
-    elif [[ "$NOTIFIER_ADAPTER" == "feishu" ]]; then
-        "$SCRIPT_DIR/send-governance-event.sh" \
-            --adapter feishu \
-            --event-path "$GOVERNANCE_EVENT_PATH" \
-            --output-dir "$RESOLVED_OUTPUT_DIR" \
+
+        dispatcher_args=(
+            --adapter "$NOTIFIER_ADAPTER"
+            --event-path "$GOVERNANCE_EVENT_PATH"
+            --output-dir "$RESOLVED_OUTPUT_DIR"
             --webhook-timeout-seconds "$WEBHOOK_TIMEOUT_SECONDS"
+        )
+
+        if [[ "$NOTIFIER_ADAPTER" == "webhook" ]]; then
+            dispatcher_args+=(--webhook-url "$WEBHOOK_URL")
+        fi
+
+        "$SCRIPT_DIR/send-governance-event.sh" "${dispatcher_args[@]}"
     elif [[ "$NOTIFIER_ADAPTER" != "local-file" ]]; then
         echo "Notifier adapter '$NOTIFIER_ADAPTER' is reserved for future webhook/IM delivery." \
             > "$RESOLVED_OUTPUT_DIR/notifier-placeholder.txt"

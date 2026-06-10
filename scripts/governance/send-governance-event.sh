@@ -67,7 +67,7 @@ require_event_inputs() {
 mark_delivery_status() {
     local status="$1"
     jq --arg delivery_status "$status" --arg notifier_adapter "$ADAPTER" \
-        '. + {delivery_status: $delivery_status, notifier_adapter: $notifier_adapter}' \
+        'del(.webhook_failure_path, .feishu_failure_path) + {delivery_status: $delivery_status, notifier_adapter: $notifier_adapter}' \
         "$EVENT_PATH" > "$EVENT_PATH.tmp"
     mv "$EVENT_PATH.tmp" "$EVENT_PATH"
 }
@@ -76,7 +76,7 @@ mark_delivery_failure() {
     local failure_path_key="$1"
     local failure_path_value="$2"
     jq --arg notifier_adapter "$ADAPTER" --arg failure_path_key "$failure_path_key" --arg failure_path_value "$failure_path_value" \
-        '. + {delivery_status: "failed", notifier_adapter: $notifier_adapter} + {($failure_path_key): $failure_path_value}' \
+        'del(.webhook_failure_path, .feishu_failure_path) + {delivery_status: "failed", notifier_adapter: $notifier_adapter} + {($failure_path_key): $failure_path_value}' \
         "$EVENT_PATH" > "$EVENT_PATH.tmp"
     mv "$EVENT_PATH.tmp" "$EVENT_PATH"
 }
@@ -132,6 +132,7 @@ send_feishu_event() {
 }
 
 require_event_inputs
+require_tool jq
 
 case "$ADAPTER" in
     local-file)

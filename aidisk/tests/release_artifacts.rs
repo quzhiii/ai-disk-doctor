@@ -317,8 +317,9 @@ fn unix_governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() 
     assert!(script.contains("--webhook-timeout-seconds"));
     assert!(script.contains("cp"));
     assert!(script.contains("requires at least two scan snapshots"));
-    assert!(script.contains("curl"));
-    assert!(script.contains("Content-Type: application/json"));
+    assert!(script.contains("send-governance-event.sh"));
+    assert!(script.contains("--adapter \"$NOTIFIER_ADAPTER\""));
+    assert!(script.contains("dispatcher_args+=(--webhook-url \"$WEBHOOK_URL\")"));
     assert!(script.contains("governance-event.json"));
     assert!(script.contains("anomaly_found"));
     assert!(script.contains("pending_history"));
@@ -327,8 +328,6 @@ fn unix_governance_script_is_non_destructive_and_covers_scan_anomaly_workflow() 
     assert!(script.contains("summary_markdown"));
     assert!(script.contains("top_anomaly_path"));
     assert!(script.contains("top_anomaly_growth_bytes"));
-    assert!(script.contains("webhook-failure.json"));
-    assert!(script.contains("delivery_status"));
     assert!(script.contains("new_governance_event"));
     assert!(script.contains("send_notifier_event"));
     assert!(!script.contains("clean --yes"));
@@ -356,6 +355,8 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
     ] {
         assert!(dispatcher.contains(term), "dispatcher should mention {term}");
     }
+    assert!(dispatcher.contains("del(.webhook_failure_path, .feishu_failure_path)"));
+    assert!(dispatcher.contains("delivery_status: \"failed\""));
 
     for term in [
         "FEISHU_WEBHOOK_URL",
@@ -374,6 +375,12 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
 
     assert!(unix_governance.contains("feishu"));
     assert!(unix_governance.contains("send-governance-event.sh"));
+    assert!(unix_governance.contains("--adapter \"$NOTIFIER_ADAPTER\""));
+    assert!(unix_governance.contains("--webhook-url \"$WEBHOOK_URL\""));
+
+    assert!(feishu.contains("has(\"code\") or has(\"StatusCode\")"));
+    assert!(feishu.contains("del(.webhook_failure_path, .feishu_failure_path)"));
+    assert!(feishu.contains("delivery_status: \"failed\""));
 
     for term in [
         "Notifier Adapter Foundation",

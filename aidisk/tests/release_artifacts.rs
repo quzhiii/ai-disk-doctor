@@ -115,6 +115,58 @@ fn changelog_and_release_notes_cover_v1_3_scope() {
 }
 
 #[test]
+fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
+    let changelog = read_repo_file("CHANGELOG.md");
+    let release_notes = read_repo_file("docs/release-notes/v1.4.0.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let roadmap = read_repo_file("docs/execution-plan.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
+
+    let required_terms = [
+        "Cross-Platform Scheduled Governance",
+        "cron",
+        "launchd",
+        "systemd timer",
+        "run-governance.sh",
+        "run-governance.ps1",
+        "governance-event.json",
+        "generic webhook",
+        "bash",
+        "jq",
+        "curl",
+        "no background daemon",
+        "notifier adapter",
+    ];
+
+    assert!(changelog.contains("## 1.4.0"));
+    assert!(release_notes.contains("# Windows AI Space Manager v1.4.0"));
+    assert!(release_notes.contains("## Test Plan"));
+    assert!(release_notes.contains("## Safety Boundaries"));
+    assert!(release_notes.contains("## Known Limits"));
+    assert!(readme.contains("v1.4.0"));
+    assert!(readme_zh.contains("v1.4.0"));
+    assert!(roadmap.contains("Phase 12 status: Completed"));
+    assert!(cargo_toml.contains("version = \"1.4.0\""));
+    assert!(cargo_lock.contains("name = \"aidisk\"\nversion = \"1.4.0\""));
+
+    for term in required_terms {
+        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(release_notes.contains(term), "release notes should mention {term}");
+        assert!(readme.contains(term), "README.md should mention {term}");
+    }
+
+    assert!(
+        readme_zh.contains("cron")
+            && readme_zh.contains("launchd")
+            && readme_zh.contains("systemd timer")
+            && readme_zh.contains("run-governance.sh"),
+        "Chinese README should cover v1.4.0 scheduler and Unix governance entrypoint"
+    );
+}
+
+#[test]
 fn changelog_and_release_notes_cover_v1_scope() {
     let changelog = read_repo_file("CHANGELOG.md");
     let release_notes = read_repo_file("docs/release-notes/v1.0.0.md");

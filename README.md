@@ -310,6 +310,36 @@ The governance script keeps the workflow read-only: it runs `scan`, reuses scan 
 
 The scheduler setup script only registers a Windows Task Scheduler entry that calls `run-governance.ps1`; it does not perform cleanup or delete any files. Use `test-run-governance-task.ps1` to call `Start-ScheduledTask` on the existing task when you want to verify the registered local governance chain immediately.
 
+### 9. Register Cross-Platform Governance Schedulers
+
+```bash
+# Run one Unix-like governance cycle directly
+./scripts/governance/run-governance.sh --notifier-adapter local-file
+
+# Send a Unix governance event to a generic webhook
+./scripts/governance/run-governance.sh --notifier-adapter webhook --webhook-url https://example.test/webhook
+
+# cron: register, show, test-run, unregister
+./scripts/governance/cron/register-governance-cron.sh --schedule "0 9 * * *"
+./scripts/governance/cron/show-governance-cron.sh
+./scripts/governance/cron/test-run-governance-cron.sh
+./scripts/governance/cron/unregister-governance-cron.sh
+
+# launchd: register, show, test-run, unregister
+./scripts/governance/launchd/register-governance-launchd.sh --schedule-hour 9 --schedule-minute 0
+./scripts/governance/launchd/show-governance-launchd.sh
+./scripts/governance/launchd/test-run-governance-launchd.sh
+./scripts/governance/launchd/unregister-governance-launchd.sh
+
+# systemd timer: register, show, test-run, unregister
+./scripts/governance/systemd/register-governance-systemd.sh --schedule "*-*-* 09:00:00"
+./scripts/governance/systemd/show-governance-systemd.sh
+./scripts/governance/systemd/test-run-governance-systemd.sh
+./scripts/governance/systemd/unregister-governance-systemd.sh
+```
+
+Unix-like governance requires `bash`, `jq`, `curl` for webhook delivery, and `cargo` for local runs. The cron, launchd, and systemd timer adapters only register native scheduler entries that call `run-governance.sh`; they do not add a background daemon, do not perform cleanup, and do not bind the release to a concrete notifier adapter.
+
 ---
 
 ## Command Reference

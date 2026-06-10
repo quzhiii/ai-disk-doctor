@@ -312,6 +312,36 @@ aidisk diff --before scan-20260101-120000.json --after scan-20260102-120000.json
 
 调度注册脚本只会向 Windows Task Scheduler 注册一个调用 `run-governance.ps1` 的任务；它不会执行清理，也不会删除任何文件。需要立即验证已注册的本地治理链路时，可使用 `test-run-governance-task.ps1` 对现有任务调用 `Start-ScheduledTask`。
 
+### 9. 注册跨平台治理调度器
+
+```bash
+# 直接执行一次 Unix-like 治理周期
+./scripts/governance/run-governance.sh --notifier-adapter local-file
+
+# 将 Unix 治理事件投递到通用 webhook
+./scripts/governance/run-governance.sh --notifier-adapter webhook --webhook-url https://example.test/webhook
+
+# cron：注册、查看、测试运行、卸载
+./scripts/governance/cron/register-governance-cron.sh --schedule "0 9 * * *"
+./scripts/governance/cron/show-governance-cron.sh
+./scripts/governance/cron/test-run-governance-cron.sh
+./scripts/governance/cron/unregister-governance-cron.sh
+
+# launchd：注册、查看、测试运行、卸载
+./scripts/governance/launchd/register-governance-launchd.sh --schedule-hour 9 --schedule-minute 0
+./scripts/governance/launchd/show-governance-launchd.sh
+./scripts/governance/launchd/test-run-governance-launchd.sh
+./scripts/governance/launchd/unregister-governance-launchd.sh
+
+# systemd timer：注册、查看、测试运行、卸载
+./scripts/governance/systemd/register-governance-systemd.sh --schedule "*-*-* 09:00:00"
+./scripts/governance/systemd/show-governance-systemd.sh
+./scripts/governance/systemd/test-run-governance-systemd.sh
+./scripts/governance/systemd/unregister-governance-systemd.sh
+```
+
+Unix-like 治理入口依赖 `bash`、`jq`、用于 webhook 投递的 `curl`，以及用于本地运行的 `cargo`。cron、launchd 和 systemd timer adapter 只会注册调用 `run-governance.sh` 的平台原生调度任务；它们不会引入后台 daemon，不会执行清理，也不会把当前版本绑定到具体 notifier adapter。
+
 ---
 
 ## 命令参考

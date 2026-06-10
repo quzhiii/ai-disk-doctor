@@ -320,7 +320,7 @@ Phase 11 status: Completed
 
 ## Current Roadmap Snapshot
 
-当前主线已经完成从 v1.0.0 到 v1.3.0 的核心闭环，并在 Unreleased 中完成了下一轮跨平台本地治理能力：
+当前主线已经完成从 v1.0.0 到 v1.4.0 的核心闭环，并完成了下一轮跨平台本地治理能力：
 
 - v1.0.0：本地 scan / plan / clean / restore / doctor / diff 基础闭环。
 - v1.1.0：Doctor V2，覆盖 AI Agent / tooling 诊断、breakdown、probe、growth-aware doctor。

@@ -157,6 +157,26 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
         assert!(readme.contains(term), "README.md should mention {term}");
     }
 
+    let scheduler_scripts = [
+        "register-governance-cron.sh",
+        "show-governance-cron.sh",
+        "test-run-governance-cron.sh",
+        "unregister-governance-cron.sh",
+        "register-governance-launchd.sh",
+        "show-governance-launchd.sh",
+        "test-run-governance-launchd.sh",
+        "unregister-governance-launchd.sh",
+        "register-governance-systemd.sh",
+        "show-governance-systemd.sh",
+        "test-run-governance-systemd.sh",
+        "unregister-governance-systemd.sh",
+    ];
+
+    for script in scheduler_scripts {
+        assert!(readme.contains(script), "README.md should mention {script}");
+        assert!(readme_zh.contains(script), "README.zh-CN.md should mention {script}");
+    }
+
     assert!(
         readme_zh.contains("cron")
             && readme_zh.contains("launchd")

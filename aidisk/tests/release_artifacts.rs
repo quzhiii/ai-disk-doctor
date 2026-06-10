@@ -776,3 +776,34 @@ fn governance_notify_retry_script_covers_contract() {
 
     assert!(dispatcher.contains("send-governance-event.sh"));
 }
+
+#[test]
+fn governance_manual_covers_all_platforms_and_adapters() {
+    let manual = read_repo_file("docs/governance-manual.md");
+    let readme = read_repo_file("README.md");
+
+    for term in [
+        "cron",
+        "launchd",
+        "systemd timer",
+        "Windows Task Scheduler",
+        "Feishu",
+        "generic webhook",
+        "local-file",
+        "FEISHU_WEBHOOK_URL",
+        "prerequisites",
+        "idempotency",
+        "retry",
+        "troubleshooting",
+    ] {
+        assert!(
+            manual.to_lowercase().contains(&term.to_lowercase()),
+            "governance manual should cover {term}"
+        );
+    }
+
+    assert!(
+        readme.contains("docs/governance-manual.md"),
+        "README.md should link to governance manual"
+    );
+}

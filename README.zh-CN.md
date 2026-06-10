@@ -367,6 +367,8 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 
 更多 Notifier Adapter Foundation、Feishu adapter、`FEISHU_WEBHOOK_URL` secrets 处理、generic webhook 兼容性和 `feishu-failure.json` 行为，请查看 [`docs/notifier-adapters.md`](./docs/notifier-adapters.md)。
 
+完整的跨平台治理文档（覆盖四个平台、去重、重试、notifier adapter 及故障排查），请查看 [`docs/governance-manual.md`](./docs/governance-manual.md)。
+
 ---
 
 ## 命令参考

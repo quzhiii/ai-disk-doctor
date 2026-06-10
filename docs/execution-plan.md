@@ -376,3 +376,36 @@ Phase 13 status: Completed
 
 - Slack / WeChat / DingTalk / email 等 adapter 可复用该 dispatcher 和 `governance-event.json` 契约。
 - 重试、幂等、限流和消息模板可以作为后续独立阶段，而不是塞进 Phase 13。
+
+## Phase 14: Governance Reliability, Documentation, and Cross-Platform Verification
+
+Phase 14 status: M1 Completed, M2 Completed
+
+目标：
+
+- 加固 notifier foundation：添加重试和幂等（dedup），不改变 dispatcher/adapter 边界。
+- 创建跨平台治理用户手册：覆盖 Windows/cron/launchd/systemd timer 使用说明及 Feishu/webhook 投递。
+- 扩展 CI 到 Ubuntu/macOS runner，并编写手工验证 checklist。
+
+### M1: Notifier Reliability Enhancements — Completed
+
+- `scripts/governance/dedup-governance-event.sh`：基于 event hash 的幂等去重，防止重复投递。
+- `scripts/governance/retry-governance-notify.sh`：最多 3 次重试，60s 线性延迟，写出 `retry-failure.json`。
+- 已将 dedup + retry 集成到 `run-governance.sh` 治理流程中。
+- 新增 `scripts/governance/templates/feishu-governance.tmpl` 可自定义 Feishu 消息模板。
+
+### M2: Cross-Platform User Manual — Completed
+
+- 新增 `docs/governance-manual.md`：覆盖 Prerequisites、Quick Start（四平台）、Governance Flow、Notifier Adapters、Reliability（dedup + retry）、Troubleshooting。
+- 更新 `docs/notifier-adapters.md` 添加 Reliability 小节。
+- README 双语文档新增 governance manual 链接。
+- CHANGELOG 新增 M1/M2 条目。
+
+### M3: Cross-Platform Real Environment Verification — Pending
+
+- 扩展 `.github/workflows/ci.yml` 以包含 Ubuntu 和 macOS runner。
+- 编写 `docs/cross-platform-verification.md` 手动验证 checklist。
+
+后续方向：
+
+- M3 完成 real environment CI 和手动验证后，准备下一版本发布。

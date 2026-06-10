@@ -43,6 +43,18 @@ The existing generic webhook path still accepts `--webhook-url` for backwards co
 - Feishu delivery failure writes `feishu-failure.json` with timing, adapter, timeout, and event-path context, but no secret URL.
 - Generic webhook delivery failure keeps `webhook-failure.json` behavior unchanged.
 
+## Reliability
+
+### Dedup (Idempotency)
+
+`dedup-governance-event.sh` prevents duplicate delivery of the same governance event. It computes a hash from key event fields (`event_type`, `headline`, `top_anomaly_path`, `top_anomaly_growth_bytes`, `anomaly_count`) and checks against stored hashes in the dedup directory. If the hash is already present, the event is skipped and `dedup-skipped.json` is written. Otherwise, the hash is stored and delivery proceeds.
+
+### Retry
+
+`retry-governance-notify.sh` wraps the notifier dispatcher with up to 3 retries and a 60-second linear delay between attempts. On success it exits immediately. After all retries are exhausted, it writes `retry-failure.json` with retry count, timings, and adapter name.
+
+Both dedup and retry sit between the governance event and the notifier dispatcher — they never change the Rust anomaly core or the `governance-event.json` contract.
+
 ## Future Adapters
 
 Slack, WeChat, DingTalk, email, Telegram, and Discord can reuse the same `governance-event.json` contract and dispatcher shape. They should follow the Feishu pattern: secrets from environment variables, no daemon, no cleanup automation, and no secrets in failure artifacts.

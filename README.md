@@ -365,6 +365,8 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 
 See [`docs/notifier-adapters.md`](./docs/notifier-adapters.md) for the Notifier Adapter Foundation, Feishu adapter, `FEISHU_WEBHOOK_URL` secrets handling, generic webhook compatibility, and `feishu-failure.json` behavior.
 
+For comprehensive governance documentation covering all four platforms, deduplication, retry, notifier adapters, and troubleshooting, see [`docs/governance-manual.md`](./docs/governance-manual.md).
+
 ---
 
 ## Command Reference

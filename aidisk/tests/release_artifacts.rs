@@ -149,7 +149,8 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     assert!(readme_zh.contains("v1.4.0"));
     assert!(roadmap.contains("Phase 12 status: Completed"));
     assert!(cargo_toml.contains("version = \"1.4.0\""));
-    assert!(cargo_lock.contains("name = \"aidisk\"\nversion = \"1.4.0\""));
+    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.4.0\""));
 
     for term in required_terms {
         assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");

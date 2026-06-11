@@ -379,7 +379,7 @@ Phase 13 status: Completed
 
 ## Phase 14: Governance Reliability, Documentation, and Cross-Platform Verification
 
-Phase 14 status: M1 Completed, M2 Completed
+Phase 14 status: Completed
 
 目标：
 
@@ -401,11 +401,13 @@ Phase 14 status: M1 Completed, M2 Completed
 - README 双语文档新增 governance manual 链接。
 - CHANGELOG 新增 M1/M2 条目。
 
-### M3: Cross-Platform Real Environment Verification — Pending
+### M3: Cross-Platform Real Environment Verification — Completed
 
 - 扩展 `.github/workflows/ci.yml` 以包含 Ubuntu 和 macOS runner。
 - 编写 `docs/cross-platform-verification.md` 手动验证 checklist。
 
 后续方向：
 
-- M3 完成 real environment CI 和手动验证后，准备下一版本发布。
+- 建议将 Unreleased 中的 Phase 13 + 14 成果固化为 v1.5.0 发布。
+- v1.5.0 边界：跨平台治理 + Feishu + dedup/retry/模板 + 用户手册 + 三平台 CI。
+- Slack / WeChat / DingTalk / 企业微信 / email / Telegram / Discord 仍作为后续独立 adapter。

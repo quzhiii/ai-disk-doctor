@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Rule {
     pub id: String,
     pub name: String,
     pub category: String,
     pub platform: String,
+    #[serde(deserialize_with = "deserialize_paths")]
     pub paths: Vec<String>,
     pub risk: RiskLevel,
     pub cleanup: Cleanup,
@@ -19,6 +20,82 @@ pub struct Rule {
     pub reason: String,
     #[serde(default)]
     pub warnings: Vec<String>,
+}
+
+impl<'de> Deserialize<'de> for Rule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawRule {
+            id: String,
+            name: String,
+            category: String,
+            #[serde(default)]
+            platform: Option<String>,
+            #[serde(default)]
+            platforms: Option<Vec<String>>,
+            #[serde(deserialize_with = "deserialize_paths")]
+            paths: Vec<String>,
+            risk: RiskLevel,
+            cleanup: Cleanup,
+            #[serde(default)]
+            exclusions: Vec<String>,
+            reason: String,
+            #[serde(default)]
+            warnings: Vec<String>,
+        }
+
+        let raw = RawRule::deserialize(deserializer)?;
+
+        let platform = raw.platform.unwrap_or_else(|| {
+            raw.platforms
+                .map(|p| p.join(", "))
+                .unwrap_or_else(|| "cross-platform".to_string())
+        });
+
+        Ok(Rule {
+            id: raw.id,
+            name: raw.name,
+            category: raw.category,
+            platform,
+            paths: raw.paths,
+            risk: raw.risk,
+            cleanup: raw.cleanup,
+            exclusions: raw.exclusions,
+            reason: raw.reason,
+            warnings: raw.warnings,
+        })
+    }
+}
+
+fn deserialize_paths<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum PathsValue {
+        Flat(Vec<String>),
+        PlatformMap(std::collections::HashMap<String, Vec<String>>),
+    }
+
+    match PathsValue::deserialize(deserializer)? {
+        PathsValue::Flat(paths) => Ok(paths),
+        PathsValue::PlatformMap(map) => {
+            #[cfg(target_os = "windows")]
+            let key = "windows";
+            #[cfg(target_os = "macos")]
+            let key = "macos";
+            #[cfg(target_os = "linux")]
+            let key = "linux";
+
+            Ok(map.get(key).cloned().unwrap_or_default())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

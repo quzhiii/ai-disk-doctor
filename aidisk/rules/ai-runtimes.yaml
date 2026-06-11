@@ -18,7 +18,7 @@ paths:
     - '/usr/local/cuda*'
     - '~/.conda/envs/*/lib/python*/site-packages/torch'
     - '~/.conda/pkgs/cuda-*'
-risk: careful
+risk: review
 cleanup:
   method: report-only
 exclusions: []

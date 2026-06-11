@@ -9,6 +9,7 @@ mod reporter;
 mod rules;
 mod rules_repo;
 mod scanner;
+mod visualize;
 #[cfg(test)]
 mod test_support;
 
@@ -182,6 +183,16 @@ enum Command {
         rules_repo: Option<String>,
         #[arg(long)]
         policy: Option<PathBuf>,
+    },
+    Visualize {
+        #[arg(long, default_value = "true")]
+        html: bool,
+
+        #[arg(long, default_value = ".aidisk/reports")]
+        reports_dir: PathBuf,
+
+        #[arg(long, default_value = "aidisk-footprint.html")]
+        output: PathBuf,
     },
 }
 
@@ -514,6 +525,14 @@ fn run(cli: Cli) -> Result<()> {
                 reporter::render_doctor(&doctor_report, effective_format)?
             );
         }
+        Command::Visualize {
+            html,
+            reports_dir,
+            output,
+        } => {
+            let _ = html;
+            visualize::generate_dashboard(&reports_dir, &output)?;
+        }
     }
 
     Ok(())
@@ -553,6 +572,7 @@ impl ErrorContext {
                 "diff" => Some("diff"),
                 "anomaly" => Some("anomaly"),
                 "doctor" => Some("doctor"),
+                "visualize" => Some("visualize"),
                 _ => None,
             })
             .unwrap_or("aidisk");
@@ -629,6 +649,10 @@ impl ErrorContext {
             } => Self {
                 command: "doctor",
                 format: effective_format(*format, *json, *markdown),
+            },
+            Command::Visualize { .. } => Self {
+                command: "visualize",
+                format: OutputFormat::Text,
             },
         }
     }

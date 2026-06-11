@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 磁盘足迹</title>
+<style>
+:root {
+  --ink: #1a1a1a;
+  --paper: #ffffff;
+  --accent: #1a5276;
+  --accent-light: #e8f0f6;
+  --muted: #888888;
+  --safe: #1e8449;
+  --safe-bg: #eafaf1;
+  --review: #d4ac0d;
+  --review-bg: #fef9e7;
+  --dangerous: #c0392b;
+  --dangerous-bg: #fdedec;
+  --system: #5b5b5b;
+  --sp-xs: 4px;
+  --sp-s: 8px;
+  --sp-m: 16px;
+  --sp-l: 24px;
+  --sp-xl: 40px;
+  --sp-xxl: 64px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--sp-xxl) var(--sp-xl);
+  line-height: 1.5;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--sp-xxl);
+  flex-wrap: wrap;
+  gap: var(--sp-m);
+}
+
+header h1 {
+  font-size: min(5vw, 42px);
+  font-weight: 200;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-m);
+}
+
+.header-right time {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#lang-toggle {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  padding: var(--sp-xs) var(--sp-m);
+  cursor: pointer;
+}
+
+#lang-toggle:hover {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-xl);
+  margin-bottom: var(--sp-xl);
+}
+
+.kpi-card {
+  border-top: 2px solid var(--accent-light);
+  padding-top: var(--sp-m);
+  position: relative;
+  cursor: help;
+}
+
+.kpi-value {
+  font-size: min(8vw, 96px);
+  font-weight: 200;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: var(--sp-xs);
+}
+
+.kpi-label {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.kpi-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  padding: var(--sp-s) var(--sp-m);
+  max-width: 280px;
+  line-height: 1.4;
+  z-index: 10;
+}
+
+.kpi-card:hover .kpi-tooltip {
+  display: block;
+}
+
+.risk-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-m);
+  margin-bottom: var(--sp-xxl);
+}
+
+.risk-card {
+  padding: var(--sp-m);
+  border-left: 3px solid;
+  cursor: pointer;
+}
+
+.risk-card.safe {
+  background: var(--safe-bg);
+  border-left-color: var(--safe);
+}
+
+.risk-card.review {
+  background: var(--review-bg);
+  border-left-color: var(--review);
+}
+
+.risk-card.dangerous {
+  background: var(--dangerous-bg);
+  border-left-color: var(--dangerous);
+}
+
+.risk-card.active {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.risk-card-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--sp-xs);
+}
+
+.risk-card-value {
+  font-size: 28px;
+  font-weight: 200;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.risk-card-count {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: var(--sp-xs);
+}
+
+.section-title {
+  font-size: min(3vw, 24px);
+  font-weight: 300;
+  color: var(--ink);
+  margin-bottom: var(--sp-l);
+  padding-bottom: var(--sp-s);
+  border-bottom: 1px solid var(--accent-light);
+}
+
+.treemap {
+  display: flex;
+  gap: var(--sp-s);
+  margin-bottom: var(--sp-xxl);
+  min-height: 80px;
+  flex-wrap: wrap;
+}
+
+.treemap-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--sp-m);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  flex: 1;
+  min-width: 120px;
+}
+
+.treemap-block.safe {
+  background: var(--safe-bg);
+  border-left-color: var(--safe);
+}
+
+.treemap-block.review {
+  background: var(--review-bg);
+  border-left-color: var(--review);
+}
+
+.treemap-block.dangerous {
+  background: var(--dangerous-bg);
+  border-left-color: var(--dangerous);
+}
+
+.treemap-block.system {
+  background: #f4f4f4;
+  border-left-color: var(--system);
+}
+
+.treemap-block.active {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.treemap-block-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: var(--sp-xs);
+}
+
+.treemap-block-size {
+  font-size: min(3vw, 32px);
+  font-weight: 200;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.bar-chart {
+  margin-bottom: var(--sp-xxl);
+}
+
+.bar-group.filtered {
+  display: none;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 80px;
+  gap: var(--sp-m);
+  align-items: center;
+  padding: var(--sp-s) 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.bar-row.bar-clickable {
+  cursor: pointer;
+}
+
+.bar-row.bar-clickable:hover {
+  background: #fafafa;
+}
+
+.bar-row.expanded {
+  background: var(--accent-light);
+}
+
+.bar-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-track {
+  height: 16px;
+  background: var(--accent-light);
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.bar-fill.safe { background: var(--safe); }
+.bar-fill.review { background: var(--review); }
+.bar-fill.dangerous { background: var(--dangerous); }
+.bar-fill.system { background: var(--system); }
+
+.bar-size {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: right;
+}
+
+.tool-detail {
+  display: none;
+  padding: var(--sp-m);
+  background: #fafafa;
+  border-left: 3px solid var(--accent);
+  margin-bottom: var(--sp-s);
+}
+
+.tool-detail.expanded {
+  display: block;
+}
+
+.tool-detail-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: var(--sp-s);
+  padding: var(--sp-xs) 0;
+  font-size: 13px;
+}
+
+.tool-detail-label {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tool-detail-value {
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.tool-detail-suggestion {
+  margin-top: var(--sp-m);
+  padding-top: var(--sp-s);
+  border-top: 1px solid var(--accent-light);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.safe-reclaim {
+  margin-bottom: var(--sp-xxl);
+}
+
+.reclaim-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-m);
+  margin-bottom: var(--sp-m);
+  flex-wrap: wrap;
+}
+
+.reclaim-controls button {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  padding: var(--sp-xs) var(--sp-m);
+  cursor: pointer;
+}
+
+.reclaim-controls button:hover {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+.selected-summary {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.reclaim-list {
+  list-style: none;
+  margin-bottom: var(--sp-m);
+}
+
+.reclaim-item {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.reclaim-item:last-child {
+  border-bottom: none;
+}
+
+.reclaim-item label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-m);
+  padding: var(--sp-s) 0;
+  cursor: pointer;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.reclaim-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.reclaim-name {
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 120px;
+}
+
+.reclaim-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.reclaim-path {
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reclaim-size {
+  color: var(--accent);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.disclaimer {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  padding: var(--sp-m);
+  background: #fafafa;
+}
+
+.no-data {
+  font-size: 14px;
+  color: var(--muted);
+  padding: var(--sp-xl) 0;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: var(--sp-l);
+  }
+
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+
+  .risk-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row {
+    grid-template-columns: 120px 1fr 60px;
+    gap: var(--sp-s);
+  }
+
+  .treemap {
+    flex-direction: column;
+  }
+
+  .tool-detail-row {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .reclaim-item label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-xs);
+  }
+}
+
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title">AI 磁盘足迹</h1>
+  <div class="header-right">
+    <button id="lang-toggle">🌐 EN</button>
+    <time><span data-i18n="generated">生成时间</span>: 2026-06-11 18:17:20</time>
+  </div>
+</header>
+
+<section class="kpi-row">
+  <div class="kpi-card" id="kpi-total">
+    <div class="kpi-value">32 B</div>
+    <div class="kpi-label" data-i18n="total_footprint">AI 总占用</div>
+    <div class="kpi-tooltip" data-i18n="kpi_total_tip">这是你电脑上所有 AI 工具占用的总空间</div>
+  </div>
+  <div class="kpi-card" id="kpi-safe">
+    <div class="kpi-value">32 B</div>
+    <div class="kpi-label" data-i18n="safe_to_reclaim">可安全回收</div>
+    <div class="kpi-tooltip" data-i18n="kpi_safe_tip">可以安全清理的缓存和临时文件总大小</div>
+  </div>
+  <div class="kpi-card" id="kpi-tools">
+    <div class="kpi-value">1</div>
+    <div class="kpi-label" data-i18n="tools_detected">已检测工具</div>
+    <div class="kpi-tooltip" data-i18n="kpi_tools_tip">检测到的 AI 相关工具数量</div>
+  </div>
+</section>
+
+<section class="risk-cards">
+  <div class="risk-card safe" data-risk="safe"><div class="risk-card-name" data-i18n="risk_safe">安全</div><div class="risk-card-value">32 B</div><div class="risk-card-count">1 items</div></div>
+  <div class="risk-card review" data-risk="review"><div class="risk-card-name" data-i18n="risk_review">需评估</div><div class="risk-card-value">0 B</div><div class="risk-card-count">0 items</div></div>
+  <div class="risk-card dangerous" data-risk="dangerous"><div class="risk-card-name" data-i18n="risk_dangerous">危险</div><div class="risk-card-value">0 B</div><div class="risk-card-count">0 items</div></div>
+</section>
+
+<section class="treemap-section">
+  <h2 class="section-title" data-i18n="by_category">按类别</h2>
+  <div class="treemap" id="treemap">
+    <div class="treemap-block safe" data-category="test" data-risk="safe" style="flex:100"><div class="treemap-block-name" data-raw-name="test">test</div><div class="treemap-block-size">32 B</div></div>
+  </div>
+</section>
+
+<section class="bar-section">
+  <h2 class="section-title" data-i18n="tool_breakdown">工具明细</h2>
+  <div class="bar-chart" id="bar-chart">
+    <div class="bar-group" data-category="test" data-risk="safe"><div class="bar-row bar-clickable" data-tool-index="0"><span class="bar-label" data-raw-name="Test cache">Test cache</span><div class="bar-track"><div class="bar-fill safe" style="width:100%"></div></div><span class="bar-size">32 B</span></div></div>
+
+  </div>
+</section>
+
+<section class="safe-reclaim" id="safe-reclaim">
+  <h2 class="section-title" data-i18n="safe_reclaim_title">可安全回收</h2>
+  <div class="reclaim-controls">
+    <button id="select-all-btn" data-i18n="select_all">全部选中</button>
+    <div class="selected-summary" id="reclaim-summary">已选 0 项，可回收 0 B</div>
+  </div>
+  <ul class="reclaim-list" id="reclaim-list">
+    <li class="reclaim-item" data-size="32" data-tool-name="Test cache"><label><input type="checkbox" class="reclaim-checkbox"><span class="reclaim-name" data-raw-name="Test cache">Test cache</span><span class="reclaim-count">1 items</span><span class="reclaim-size">32 B</span></label></li>
+  </ul>
+  <p class="disclaimer" data-i18n="disclaimer">以上均为只读报告，不会自动删除任何文件。如需清理，请手动操作。</p>
+</section>
+
+<script>
+window.I18N = {"en":{"by_category":"By Category","category_label":"Category","deselect_all":"Deselect All","disclaimer":"This is a read-only report. No files will be automatically deleted. To clean up, please do so manually.","generated":"Generated","kpi_safe_tip":"Total size of cache and temporary files that can be safely cleaned","kpi_tools_tip":"Number of detected AI-related tools","kpi_total_tip":"This is the total space used by all AI tools on your computer","no_data":"No data","path_label":"Path","risk_dangerous":"Dangerous","risk_label":"Risk","risk_review":"Review","risk_safe":"Safe","safe_reclaim_title":"Safe to Reclaim","safe_to_reclaim":"Safe to Reclaim","select_all":"Select All","selected_summary":"{n} items selected, {size} reclaimable","size_label":"Size","suggestion_label":"Suggestion","title":"AI Disk Footprint","tool_breakdown":"Tool Breakdown","tool_names":{"AI CLI state":"AI CLI state","AI IDE and editor state":"AI IDE and editor state","AI coding agent CLI state":"AI coding agent CLI state","AI evaluation and runtime caches":"AI evaluation and runtime caches","AI installed app roots":"AI installed app roots","AI model weight files":"AI model weight files","AI project test and evaluation artifacts":"AI project test and evaluation artifacts","AI runtime environments and SDKs":"AI runtime environments and SDKs","AI tool installers in Downloads":"AI tool installers in Downloads","Aider, Continue, and AI CLI state":"Aider, Continue, and AI CLI state","Browser login data sample":"Browser login data sample","Chrome default cache":"Chrome default cache","Claude home directory":"Claude home directory","Common development artifacts":"Common development artifacts","Docker Desktop local data root":"Docker Desktop local data root","Docker build cache root":"Docker build cache root","Docker volumes sample path":"Docker volumes sample path","GPU inference runner caches and models":"GPU inference runner caches and models","Hugging Face cache":"Hugging Face cache","Installed AI application roots":"Installed AI application roots","LiteSandbox audit logs":"LiteSandbox audit logs","MCP server installations and caches":"MCP server installations and caches","Next-gen AI IDE and extension state":"Next-gen AI IDE and extension state","Ollama model store":"Ollama model store","OneDrive root":"OneDrive root","Playwright project browser cache":"Playwright project browser cache","WSL ext4 virtual disk":"WSL ext4 virtual disk","npm cache":"npm cache"},"tools_detected":"Tools Detected","total_footprint":"Total AI Footprint"},"zh":{"by_category":"按类别","category_label":"类别","deselect_all":"取消全选","disclaimer":"以上均为只读报告，不会自动删除任何文件。如需清理，请手动操作。","generated":"生成时间","kpi_safe_tip":"可以安全清理的缓存和临时文件总大小","kpi_tools_tip":"检测到的 AI 相关工具数量","kpi_total_tip":"这是你电脑上所有 AI 工具占用的总空间","no_data":"暂无数据","path_label":"路径","risk_dangerous":"危险","risk_label":"风险","risk_review":"需评估","risk_safe":"安全","safe_reclaim_title":"可安全回收","safe_to_reclaim":"可安全回收","select_all":"全部选中","selected_summary":"已选 {n} 项，可回收 {size}","size_label":"大小","suggestion_label":"建议","title":"AI 磁盘足迹","tool_breakdown":"工具明细","tool_names":{"AI CLI state":"AI CLI 状态","AI IDE and editor state":"AI IDE 状态","AI coding agent CLI state":"AI 编程助手状态","AI evaluation and runtime caches":"AI 运行时缓存","AI installed app roots":"AI 应用安装目录","AI model weight files":"AI 模型文件","AI project test and evaluation artifacts":"AI 测试评测产物","AI runtime environments and SDKs":"AI 运行时环境","AI tool installers in Downloads":"AI 工具安装包","Aider, Continue, and AI CLI state":"AI CLI 状态","Browser login data sample":"浏览器登录数据","Chrome default cache":"Chrome 浏览器缓存","Claude home directory":"Claude 桌面端数据","Common development artifacts":"开发产物缓存","Docker Desktop local data root":"Docker 本地数据","Docker build cache root":"Docker 构建缓存","Docker volumes sample path":"Docker 卷示例路径","GPU inference runner caches and models":"GPU 推理运行器","Hugging Face cache":"Hugging Face 缓存","Installed AI application roots":"AI 应用安装目录","LiteSandbox audit logs":"LiteSandbox 审计日志","MCP server installations and caches":"MCP 服务器","Next-gen AI IDE and extension state":"新一代 IDE 扩展","Ollama model store":"Ollama 模型仓库","OneDrive root":"OneDrive 根目录","Playwright project browser cache":"Playwright 浏览器缓存","WSL ext4 virtual disk":"WSL 虚拟磁盘","npm cache":"npm 缓存"},"tools_detected":"已检测工具","total_footprint":"AI 总占用"}};
+window.TOOL_DATA = [{"index":0,"name":"Test cache","category":"test","path":"C:\\Users\\quzhi\\AppData\\Local\\Temp\\.tmpg9vA2o\\cache-root","size_bytes":32,"size_display":"32 B","risk":"safe","exists":true,"suggestion_zh":"可以安全清理的缓存或临时文件。建议使用 aidisk clean --safe-only --quarantine-root C:\\Quarantine\\ai-footprint 清理。","suggestion_en":"Cache or temporary files that can be safely cleaned. Use aidisk clean --safe-only --quarantine-root C:\\Quarantine\\ai-footprint to reclaim."}];
+
+(function() {
+  var currentLang = (navigator.language || 'en').startsWith('zh') ? 'zh' : 'en';
+  var activeCategory = null;
+  var activeRisk = null;
+
+  function translateToolName(name) {
+    var names = window.I18N[currentLang] && window.I18N[currentLang].tool_names;
+    return (names && names[name]) || name;
+  }
+
+  function applyLang(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    var els = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < els.length; i++) {
+      var key = els[i].getAttribute('data-i18n');
+      var text = window.I18N[lang] && window.I18N[lang][key];
+      if (text !== undefined) els[i].textContent = text;
+    }
+    var btn = document.getElementById('lang-toggle');
+    if (btn) btn.textContent = lang === 'zh' ? "\u{1f310} EN" : "\u{1f310} \u{4e2d}\u{6587}";
+    updateOpenToolDetails();
+    updateReclaimSummary();
+    var cardLabels = document.querySelectorAll('.risk-card-name');
+    for (var i = 0; i < cardLabels.length; i++) {
+      var k = cardLabels[i].getAttribute('data-i18n');
+      if (k && window.I18N[lang] && window.I18N[lang][k]) cardLabels[i].textContent = window.I18N[lang][k];
+    }
+    var barLabels = document.querySelectorAll('.bar-label');
+    for (var i = 0; i < barLabels.length; i++) {
+      var raw = barLabels[i].getAttribute('data-raw-name');
+      if (raw) barLabels[i].textContent = translateToolName(raw);
+    }
+    var tmNames = document.querySelectorAll('.treemap-block-name');
+    for (var i = 0; i < tmNames.length; i++) {
+      var raw = tmNames[i].getAttribute('data-raw-name');
+      if (raw) tmNames[i].textContent = translateToolName(raw);
+    }
+    var reclaimNames = document.querySelectorAll('.reclaim-name');
+    for (var i = 0; i < reclaimNames.length; i++) {
+      var raw = reclaimNames[i].getAttribute('data-raw-name');
+      if (raw) reclaimNames[i].textContent = translateToolName(raw);
+    }
+  }
+
+  function updateOpenToolDetails() {
+    var details = document.querySelectorAll('.tool-detail.expanded');
+    for (var i = 0; i < details.length; i++) {
+      var idx = parseInt(details[i].getAttribute('data-tool-index'));
+      renderToolDetail(details[i], idx);
+    }
+  }
+
+  function renderToolDetail(container, idx) {
+    var tool = window.TOOL_DATA[idx];
+    if (!tool) return;
+    var L = window.I18N[currentLang] || window.I18N['zh'];
+    var toolName = translateToolName(tool.name);
+    container.innerHTML =
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.path_label) + '</span><span class="tool-detail-value">' + esc(tool.path) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.category_label) + '</span><span class="tool-detail-value">' + esc(tool.category) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.risk_label) + '</span><span class="tool-detail-value">' + esc(tool.risk) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.size_label) + '</span><span class="tool-detail-value">' + esc(tool.size_display) + '</span></div>' +
+      '<div class="tool-detail-suggestion"><strong>' + esc(L.suggestion_label) + '</strong>: ' + esc(currentLang === 'en' ? tool.suggestion_en : tool.suggestion_zh) + '</div>';
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+  }
+
+  function formatSizeHuman(bytes) {
+    if (bytes === 0) return '0 B';
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = 0, val = bytes;
+    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+    return i === 0 ? bytes + ' B' : val.toFixed(1) + ' ' + units[i];
+  }
+
+  function updateReclaimSummary() {
+    var cbs = document.querySelectorAll('.reclaim-checkbox:checked');
+    var count = cbs.length;
+    var total = 0;
+    for (var i = 0; i < cbs.length; i++) {
+      var item = cbs[i].closest('.reclaim-item');
+      if (item) total += parseInt(item.getAttribute('data-size')) || 0;
+    }
+    var sum = document.getElementById('reclaim-summary');
+    if (sum) {
+      var tmpl = (window.I18N[currentLang] || {}).selected_summary || 'Selected {n} items, {size} reclaimable';
+      sum.textContent = tmpl.replace('{n}', count).replace('{size}', formatSizeHuman(total));
+    }
+  }
+
+  function applyFilters() {
+    var groups = document.querySelectorAll('.bar-group');
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      if (!g.hasAttribute('data-category') && !g.hasAttribute('data-risk')) continue;
+      var catOk = !activeCategory || g.getAttribute('data-category') === activeCategory;
+      var riskOk = !activeRisk || g.getAttribute('data-risk') === activeRisk;
+      if (catOk && riskOk) g.classList.remove('filtered');
+      else g.classList.add('filtered');
+    }
+    var blocks = document.querySelectorAll('.treemap-block');
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b.hasAttribute('data-category') && activeCategory) {
+        if (b.getAttribute('data-category') === activeCategory) b.classList.add('active');
+        else b.classList.remove('active');
+      } else {
+        b.classList.remove('active');
+      }
+      if (activeRisk && b.getAttribute('data-risk') !== activeRisk) b.style.opacity = '0.3';
+      else b.style.opacity = '1';
+    }
+  }
+
+  // --- init ---
+  applyLang(currentLang);
+
+  // --- lang toggle ---
+  document.getElementById('lang-toggle').addEventListener('click', function() {
+    applyLang(currentLang === 'zh' ? 'en' : 'zh');
+  });
+
+  // --- treemap filtering ---
+  var tblocks = document.querySelectorAll('.treemap-block');
+  for (var i = 0; i < tblocks.length; i++) {
+    tblocks[i].addEventListener('click', function() {
+      var cat = this.getAttribute('data-category');
+      if (!cat) return;
+      if (activeCategory === cat) {
+        activeCategory = null;
+        this.classList.remove('active');
+      } else {
+        var prev = document.querySelector('.treemap-block.active');
+        if (prev) prev.classList.remove('active');
+        activeCategory = cat;
+        this.classList.add('active');
+      }
+      applyFilters();
+    });
+  }
+
+  // --- risk card filtering ---
+  var rcards = document.querySelectorAll('.risk-card');
+  for (var i = 0; i < rcards.length; i++) {
+    rcards[i].addEventListener('click', function() {
+      var risk = this.getAttribute('data-risk');
+      if (!risk) return;
+      if (activeRisk === risk) {
+        activeRisk = null;
+        this.classList.remove('active');
+      } else {
+        var prev = document.querySelector('.risk-card.active');
+        if (prev) prev.classList.remove('active');
+        activeRisk = risk;
+        this.classList.add('active');
+      }
+      applyFilters();
+    });
+  }
+
+  // --- bar chart expansion ---
+  var brows = document.querySelectorAll('.bar-clickable');
+  for (var i = 0; i < brows.length; i++) {
+    brows[i].addEventListener('click', function() {
+      var group = this.parentElement;
+      var detail = group.querySelector('.tool-detail');
+      var wasExpanded = this.classList.contains('expanded');
+
+      var allExp = document.querySelectorAll('.bar-clickable.expanded');
+      for (var j = 0; j < allExp.length; j++) {
+        allExp[j].classList.remove('expanded');
+        var pg = allExp[j].parentElement;
+        var pd = pg.querySelector('.tool-detail');
+        if (pd) pd.classList.remove('expanded');
+      }
+
+      if (!wasExpanded) {
+        this.classList.add('expanded');
+        if (!detail) {
+          detail = document.createElement('div');
+          detail.className = 'tool-detail expanded';
+          detail.setAttribute('data-tool-index', this.getAttribute('data-tool-index'));
+          group.appendChild(detail);
+        } else {
+          detail.classList.add('expanded');
+        }
+        renderToolDetail(detail, parseInt(this.getAttribute('data-tool-index')));
+      }
+    });
+  }
+
+  // --- safe reclaim checkboxes ---
+  var cbs2 = document.querySelectorAll('.reclaim-checkbox');
+  for (var i = 0; i < cbs2.length; i++) {
+    cbs2[i].addEventListener('change', updateReclaimSummary);
+  }
+
+  // --- select all button ---
+  var sab = document.getElementById('select-all-btn');
+  if (sab) {
+    sab.addEventListener('click', function() {
+      var allCbs = document.querySelectorAll('.reclaim-checkbox');
+      var allChecked = true;
+      for (var i = 0; i < allCbs.length; i++) {
+        if (!allCbs[i].checked) { allChecked = false; break; }
+      }
+      for (var i = 0; i < allCbs.length; i++) allCbs[i].checked = !allChecked;
+      var L = window.I18N[currentLang] || {};
+      this.textContent = allChecked ? (L.select_all || 'Select All') : (L.deselect_all || 'Deselect All');
+      updateReclaimSummary();
+    });
+  }
+})();
+
+</script>
+</body>
+</html>

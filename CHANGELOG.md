@@ -1,14 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.6.0
 
-### Phase 16 M1: New AI Tool Coverage Rules
-
-- Added `gpu-runners.yaml` — GPU inference runner caches (LM Studio, llama.cpp) with cross-platform paths.
-- Added `ai-coding-agents.yaml` — AI coding agent CLI state (Claude Code, Codex CLI, Gemini CLI).
-- Added `mcp-servers.yaml` — MCP server installations and runtime caches with cross-platform paths.
-- Added `ai-ides-next.yaml` — Next-gen AI IDE and extension state (Roo Code, Codeium).
-- Updated category map to include `ai-model` for GPU runner rules.
+- Added `aidisk visualize --html` to generate an interactive Swiss Style HTML dashboard with bilingual Chinese/English support, category filtering, tool detail expansion, KPI tooltips, and a safe reclaim checklist.
+- Added `aidisk doctor --ai-footprint` to aggregate all AI-related findings across 10 categories with actionable recommendations.
+- Added 5 new AI tool rules: GPU runners, coding agents, MCP servers, next-gen AI IDEs, and CUDA/cuDNN runtime environments.
+- Added model file format detection (`.gguf`, `.safetensors`, `.onnx`, `.mlx`) with `risk: safe`.
+- Upgraded 6 existing rules to cross-platform format supporting Windows, Linux, and macOS.
+- Fixed multi-platform YAML rule parsing to handle both `platform:` string and `platforms:` array formats.
+- Expanded `release_artifacts` test suite from 26 to 29 tests.
 
 ## 1.5.0
 

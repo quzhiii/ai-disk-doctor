@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
@@ -45,13 +45,25 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.5.0
+**Current release:** v1.6.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
 ## What's New
+
+### v1.6.0
+
+v1.6.0 adds AI-aware diagnostics and a visual dashboard:
+
+- **Visual dashboard** — `aidisk visualize --html` generates an interactive Swiss Style HTML dashboard with bilingual support, category filtering, and safe reclaim checklist.
+- **AI footprint** — `aidisk doctor --ai-footprint` aggregates all AI-related findings across 10 categories.
+- **5 new AI rules** — GPU runners, coding agents, MCP servers, next-gen IDEs, CUDA/cuDNN runtime environments.
+- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: safe`.
+- **Cross-platform rules** — 6 rules upgraded to Windows/Linux/macOS paths.
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`](./docs/release-notes/v1.6.0.md).
 
 ### v1.5.0
 

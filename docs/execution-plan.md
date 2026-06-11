@@ -226,8 +226,9 @@ Phase 8 status: Completed
 - `docs/release-notes/v1.3.0.md`
 - `docs/release-notes/v1.4.0.md`
 - `docs/release-notes/v1.5.0.md`
+- `docs/release-notes/v1.6.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.5.0`
+- `aidisk` crate version `1.6.0`
 
 ## Phase 9: Local Scheduled Governance
 
@@ -329,6 +330,7 @@ Phase 11 status: Completed
 - v1.3.0：Windows 本地定时治理，包含 anomaly 核心、governance event、generic webhook、Windows Task Scheduler 闭环。
 - v1.4.0：cron / launchd / systemd timer adapters 与 Unix `run-governance.sh` 已完成。
 - v1.5.0：Feishu notifier adapter + governance reliability (dedup + retry + templates) + 用户手册 + 三平台 CI 已完成。
+- v1.6.0：AI 工具覆盖扩展 + doctor --ai-footprint + visualize --html 交互仪表盘 + 跨平台规则解析修复 已完成。
 
 当前不建议立刻进入具体 IM notifier adapter（飞书 / Slack / 微信等）。notifier 会引入密钥管理、平台 API、失败重试、幂等、限流和交付语义，应该作为 v1.5.0 之后的独立大切片，而不是混入 v1.4.0 release readiness。
 
@@ -469,3 +471,60 @@ Phase 16 status: Completed
 
 - 持续关注新兴 AI 工具的规则覆盖
 - 考虑添加 `scan --model-files` 专用子命令
+
+## Phase 17: AI Footprint Visual Dashboard
+
+Phase 17 status: Completed
+
+目标：
+
+- 新增 `aidisk visualize --html` 命令，生成交互式可视化仪表盘。
+- 新增 `aidisk doctor --ai-footprint` 聚合所有 AI 类别发现。
+
+### M1: 数据可视化引擎 — Completed
+
+- 新增 `aidisk/src/visualize.rs`：读取 scan 数据，生成自包含 HTML。
+- 设计遵循瑞士国际主义风格（Inter 字体、IKB accent、无圆角/阴影）。
+- KPI 大字报 + 风险三色卡片 + 类别 treemap + 工具柱状图 + 可安全回收清单。
+
+### M2: 交互与本地化 — Completed
+
+- 中英双语切换（浏览器自动检测 + 28 个工具名映射表）。
+- 类别筛选（点击 treemap 块过滤柱状图）。
+- 工具展开（点击柱状图显示详细路径和建议）。
+- KPI tooltip 悬停说明。
+- 可安全回收清单（按工具聚合 + checkbox + 动态统计）。
+- 响应式设计。
+
+### M3: doctor --ai-footprint — Completed
+
+- 新增 `DoctorTopicKey::AiFootprint` 聚合 10 个 AI 类别。
+- 非默认启用，需显式 `--ai-footprint` 参数。
+
+测试覆盖：release_artifacts 从 26 增至 29 测试，全量 185 tests passed。
+
+后续方向：
+
+- v1.6.0 发布准备
+
+## Phase 18: v1.6.0 AI-Aware Diagnostics Release Readiness
+
+Phase 18 status: Completed
+
+目标：
+
+- 将 Phase 16（AI 工具覆盖 + 规则解析修复）和 Phase 17（visualize + doctor --ai-footprint）固化为 v1.6.0 发布版本。
+
+实施成果：
+
+- Release notes: `docs/release-notes/v1.6.0.md`
+- CHANGELOG 从 Unreleased 提升为 `## 1.6.0`
+- README 版本 badge、What's New 更新到 v1.6.0
+- Crate version bump: `1.5.0` → `1.6.0`
+- 新增 `visualize --html` 交互仪表盘
+- 新增 `doctor --ai-footprint` 聚合报告
+- 新增 5 条 AI 规则 + 模型文件检测 + 跨平台规则解析修复
+
+后续方向：
+
+- v1.7.0+ 可考虑 Slack notifier adapter、性能优化、或 TUI 界面。

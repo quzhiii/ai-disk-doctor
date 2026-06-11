@@ -1,17 +1,38 @@
 id: ai-cli-state
 name: Aider, Continue, and AI CLI state
 category: ai-cli
-platform: windows
+platforms: [windows, linux, macos]
 paths:
-  - '%USERPROFILE%\.aider*'
-  - '%USERPROFILE%\.continue'
-  - '%USERPROFILE%\.config\aider'
-  - '%USERPROFILE%\.config\continue'
-  - '%USERPROFILE%\.config\opencode'
-  - '%USERPROFILE%\.config\promptfoo'
-  - '%USERPROFILE%\.cache\aider'
-  - '%USERPROFILE%\.cache\continue'
-  - '%USERPROFILE%\.cache\opencode'
+  windows:
+    - '%USERPROFILE%\.aider*'
+    - '%USERPROFILE%\.continue'
+    - '%USERPROFILE%\.config\aider'
+    - '%USERPROFILE%\.config\continue'
+    - '%USERPROFILE%\.config\opencode'
+    - '%USERPROFILE%\.config\promptfoo'
+    - '%USERPROFILE%\.cache\aider'
+    - '%USERPROFILE%\.cache\continue'
+    - '%USERPROFILE%\.cache\opencode'
+  linux:
+    - '~/.aider*'
+    - '~/.continue'
+    - '~/.config/aider'
+    - '~/.config/continue'
+    - '~/.config/opencode'
+    - '~/.config/promptfoo'
+    - '~/.cache/aider'
+    - '~/.cache/continue'
+    - '~/.cache/opencode'
+  macos:
+    - '~/.aider*'
+    - '~/.continue'
+    - '~/.config/aider'
+    - '~/.config/continue'
+    - '~/.config/opencode'
+    - '~/.config/promptfoo'
+    - '~/.cache/aider'
+    - '~/.cache/continue'
+    - '~/.cache/opencode'
 risk: review
 cleanup:
   method: report-only

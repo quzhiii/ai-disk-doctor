@@ -1,19 +1,44 @@
 id: ai-eval-and-runtime-caches
 name: AI evaluation and runtime caches
 category: ai-cache
-platform: windows
+platforms: [windows, linux, macos]
 paths:
-  - '%USERPROFILE%\.cache\promptfoo'
-  - '%USERPROFILE%\.promptfoo'
-  - '%USERPROFILE%\.cache\evals'
-  - '%USERPROFILE%\.cache\langchain'
-  - '%USERPROFILE%\.cache\llama_index'
-  - '%USERPROFILE%\.cache\litellm'
-  - '%USERPROFILE%\.cache\semantic-kernel'
-  - '%USERPROFILE%\.cache\transformers'
-  - '%USERPROFILE%\.cache\torch'
-  - '%USERPROFILE%\.cache\uv'
-  - '%LOCALAPPDATA%\pip\Cache'
+  windows:
+    - '%USERPROFILE%\.cache\promptfoo'
+    - '%USERPROFILE%\.promptfoo'
+    - '%USERPROFILE%\.cache\evals'
+    - '%USERPROFILE%\.cache\langchain'
+    - '%USERPROFILE%\.cache\llama_index'
+    - '%USERPROFILE%\.cache\litellm'
+    - '%USERPROFILE%\.cache\semantic-kernel'
+    - '%USERPROFILE%\.cache\transformers'
+    - '%USERPROFILE%\.cache\torch'
+    - '%USERPROFILE%\.cache\uv'
+    - '%LOCALAPPDATA%\pip\Cache'
+  linux:
+    - '~/.cache/promptfoo'
+    - '~/.promptfoo'
+    - '~/.cache/evals'
+    - '~/.cache/langchain'
+    - '~/.cache/llama_index'
+    - '~/.cache/litellm'
+    - '~/.cache/semantic-kernel'
+    - '~/.cache/transformers'
+    - '~/.cache/torch'
+    - '~/.cache/uv'
+    - '~/.cache/pip'
+  macos:
+    - '~/Library/Caches/promptfoo'
+    - '~/.promptfoo'
+    - '~/.cache/evals'
+    - '~/.cache/langchain'
+    - '~/.cache/llama_index'
+    - '~/.cache/litellm'
+    - '~/.cache/semantic-kernel'
+    - '~/.cache/transformers'
+    - '~/.cache/torch'
+    - '~/.cache/uv'
+    - '~/Library/Caches/pip'
 risk: review
 cleanup:
   method: report-only

@@ -1,0 +1,27 @@
+id: ai-ide-next-caches
+name: Next-gen AI IDE and extension state
+category: ai-ide
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - '%APPDATA%\Roo Code'
+    - '%APPDATA%\Codeium'
+    - '%USERPROFILE%\.roo-code'
+    - '%USERPROFILE%\.codeium'
+    - '%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline'
+    - '%APPDATA%\Code\User\globalStorage\codeium.codeium'
+  linux:
+    - '~/.roo-code'
+    - '~/.codeium'
+    - '~/.config/Roo Code'
+  macos:
+    - '~/.roo-code'
+    - '~/.codeium'
+    - '~/Library/Application Support/Roo Code'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Next-gen AI IDE extensions may store indexes, chat history, and workspace metadata. Review before cleanup."
+warnings:
+  - "Extension data may include useful project context; prefer extension-managed cleanup."

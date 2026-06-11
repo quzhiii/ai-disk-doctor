@@ -124,3 +124,10 @@ fn loads_mcp_server_rule_yaml() {
     assert!(content.contains(".mcp"));
     assert!(content.contains("category: ai-agent"));
 }
+
+#[test]
+fn loads_ai_ides_next_rule_yaml() {
+    let content = fs::read_to_string("rules/ai-ides-next.yaml").expect("ai ides next rule should exist");
+    assert!(content.contains("Roo Code"));
+    assert!(content.contains("Codeium"));
+}

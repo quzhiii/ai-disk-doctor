@@ -437,3 +437,35 @@ Phase 15 status: Completed
 
 - 下一个大版本 (v1.6.0+) 可考虑 Slack / WeChat / DingTalk 等更多具体 notifier adapter。
 - 也可考虑 notifier 可靠性增强：exponential backoff、jitter、限流。
+
+## Phase 16: AI Tool Coverage, Detection Accuracy, and Cross-Platform Rules
+
+Phase 16 status: Completed
+
+目标：
+
+- 扩大 AI 工具磁盘占用的识别覆盖，优先补齐 2025-2026 年新工具、模型文件格式检测、和跨平台规则。
+
+### M1: 新 AI 工具覆盖 — Completed
+
+- 新增 `aidisk/rules/gpu-runners.yaml`：LM Studio、llama.cpp 等本地 GPU 推理缓存
+- 新增 `aidisk/rules/ai-coding-agents.yaml`：Claude Code、Codex CLI、Gemini CLI
+- 新增 `aidisk/rules/mcp-servers.yaml`：MCP server 安装和运行时缓存
+- 新增 `aidisk/rules/ai-ides-next.yaml`：Roo Code、Codeium 等新一代 AI IDE
+
+### M2: 检测精度提升 — Completed
+
+- 新增 `aidisk/rules/model-files.yaml`：glob 匹配 GGUF/SafeTensors/ONNX/MLX 格式的模型文件，标记为 `risk: safe`
+- 增强 `models.yaml` 和 `huggingface.yaml` 的 actionable 清理建议
+
+### M3: Linux/macOS 规则补全 — Completed
+
+- 将 6 个 Windows-only 规则升级为 `platforms: [windows, linux, macos]` 多平台格式
+- 覆盖：ai-agents / ai-ides / ai-clis / ai-caches / ai-installed-apps / ai-installers
+
+测试覆盖：scan_smoke 从 8 个测试增至 13 个，全量 159 tests passed。
+
+后续方向：
+
+- 持续关注新兴 AI 工具的规则覆盖
+- 考虑添加 `scan --model-files` 专用子命令

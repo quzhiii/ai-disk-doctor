@@ -1,0 +1,25 @@
+id: mcp-server-caches
+name: MCP server installations and caches
+category: ai-agent
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - '%USERPROFILE%\.mcp'
+    - '%USERPROFILE%\.config\mcp'
+    - '%USERPROFILE%\.cache\mcp'
+    - '%APPDATA%\mcp'
+  linux:
+    - '~/.mcp'
+    - '~/.config/mcp'
+    - '~/.cache/mcp'
+  macos:
+    - '~/.mcp'
+    - '~/Library/Application Support/mcp'
+    - '~/Library/Caches/mcp'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "MCP server installations and runtime caches may include downloaded tools and session state."
+warnings:
+  - "MCP server packages can usually be reinstalled; check for custom server configurations before removing."

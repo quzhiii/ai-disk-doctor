@@ -1,0 +1,29 @@
+id: ai-runtimes
+name: AI runtime environments and SDKs
+category: ai-runtime
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - 'C:\Program Files\NVIDIA GPU Computing Toolkit'
+    - 'C:\Program Files\NVIDIA Corporation'
+    - '%LOCALAPPDATA%\NVIDIA\ComputeCache'
+    - '%PROGRAMFILES%\NVIDIA GPU Computing Toolkit'
+  linux:
+    - '/usr/local/cuda*'
+    - '/usr/lib/cuda*'
+    - '/opt/cuda*'
+    - '~/.conda/envs/*/lib/python*/site-packages/torch'
+    - '~/.conda/pkgs/cuda-*'
+  macos:
+    - '/usr/local/cuda*'
+    - '~/.conda/envs/*/lib/python*/site-packages/torch'
+    - '~/.conda/pkgs/cuda-*'
+risk: careful
+cleanup:
+  method: report-only
+exclusions: []
+reason: "AI runtime SDKs like CUDA and cuDNN can occupy 5-15 GB. Old versions often remain after upgrading. Use official NVIDIA uninstallers or package managers before manual removal."
+warnings:
+  - "CUDA installations may be shared across multiple AI tools. Verify with 'nvcc --version' and 'nvidia-smi' before removing."
+  - "Prefer NVIDIA's official uninstaller or your system package manager (apt/yum/brew) to remove CUDA versions."
+  - "Conda environments with PyTorch/TensorFlow may include bundled CUDA libraries. Use 'conda clean --all' to reclaim conda package cache space."

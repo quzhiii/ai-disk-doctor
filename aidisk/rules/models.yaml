@@ -4,7 +4,9 @@ category: models
 platform: cross-platform
 paths:
   - "%USERPROFILE%\\.ollama\\models"
+  - "%USERPROFILE%\\.ollama\\models\\blobs"
   - "~/.ollama/models"
+  - "~/.ollama/models/blobs"
 risk: review
 cleanup:
   method: guide

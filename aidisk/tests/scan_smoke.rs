@@ -177,3 +177,11 @@ fn loads_model_files_rule_yaml() {
     assert!(content.contains(".onnx"));
     assert!(content.contains("category: ai-model"));
 }
+
+#[test]
+fn loads_ai_runtimes_rule_yaml() {
+    let content = fs::read_to_string("rules/ai-runtimes.yaml").expect("ai runtimes rule should exist");
+    assert!(content.contains("CUDA"));
+    assert!(content.contains("NVIDIA"));
+    assert!(content.contains("category: ai-runtime"));
+}

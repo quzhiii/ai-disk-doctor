@@ -42,15 +42,77 @@ fn visualize_html_generates_valid_output() {
 
     let html = fs::read_to_string(&output).expect("output should be readable");
     assert!(html.contains("<!DOCTYPE html>"));
-    assert!(html.contains("AI Disk Footprint"));
-    assert!(html.contains("Total AI Footprint"));
-    assert!(html.contains("Safe to Reclaim"));
-    assert!(html.contains("Tools Detected"));
     assert!(!html.contains("cdn"));
     assert!(!html.contains("http://"));
     assert!(!html.contains("https://"));
     assert!(!html.contains("border-radius"));
     assert!(!html.contains("box-shadow"));
+}
+
+#[test]
+fn visualize_html_has_bilingual_support() {
+    let temp = tempdir().expect("tempdir should exist");
+    let reports_dir = temp.path().join("reports");
+    fs::create_dir_all(&reports_dir).expect("reports dir should exist");
+
+    fs::write(
+        reports_dir.join("scan-20260611-103000-000.json"),
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+    )
+    .expect("scan json should be written");
+
+    let output = temp.path().join("dashboard.html");
+
+    let result = Command::new(aidisk_bin())
+        .arg("visualize")
+        .arg("--html")
+        .arg("--reports-dir")
+        .arg(reports_dir)
+        .arg("--output")
+        .arg(&output)
+        .output()
+        .expect("command should run");
+
+    assert!(result.status.success());
+
+    let html = fs::read_to_string(&output).expect("output should be readable");
+    assert!(html.contains("data-i18n"), "should have data-i18n attributes");
+    assert!(html.contains("window.I18N"), "should have window.I18N object");
+    assert!(html.contains(r#"button id="lang-toggle""#), "should have lang toggle button");
+}
+
+#[test]
+fn visualize_html_has_interactive_js() {
+    let temp = tempdir().expect("tempdir should exist");
+    let reports_dir = temp.path().join("reports");
+    fs::create_dir_all(&reports_dir).expect("reports dir should exist");
+
+    fs::write(
+        reports_dir.join("scan-20260611-103000-000.json"),
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+    )
+    .expect("scan json should be written");
+
+    let output = temp.path().join("dashboard.html");
+
+    let result = Command::new(aidisk_bin())
+        .arg("visualize")
+        .arg("--html")
+        .arg("--reports-dir")
+        .arg(reports_dir)
+        .arg("--output")
+        .arg(&output)
+        .output()
+        .expect("command should run");
+
+    assert!(result.status.success());
+
+    let html = fs::read_to_string(&output).expect("output should be readable");
+    assert!(html.contains("addEventListener"), "should have interactive JS");
+    assert!(html.contains("treemap-block"), "should have treemap blocks");
+    assert!(html.contains("bar-clickable"), "should have clickable bars");
+    assert!(html.contains("risk-card"), "should have risk cards");
+    assert!(html.contains("reclaim-checkbox"), "should have reclaim checkboxes");
 }
 
 #[test]

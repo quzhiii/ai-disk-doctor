@@ -1,0 +1,200 @@
+window.I18N = __I18N__;
+window.TOOL_DATA = __TOOL_DATA__;
+
+(function() {
+  var currentLang = (navigator.language || 'en').startsWith('zh') ? 'zh' : 'en';
+  var activeCategory = null;
+  var activeRisk = null;
+
+  function applyLang(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    var els = document.querySelectorAll('[data-i18n]');
+    for (var i = 0; i < els.length; i++) {
+      var key = els[i].getAttribute('data-i18n');
+      var text = window.I18N[lang] && window.I18N[lang][key];
+      if (text !== undefined) els[i].textContent = text;
+    }
+    var btn = document.getElementById('lang-toggle');
+    if (btn) btn.textContent = lang === 'zh' ? "\u{1f310} EN" : "\u{1f310} \u{4e2d}\u{6587}";
+    updateOpenToolDetails();
+    updateReclaimSummary();
+    var cardLabels = document.querySelectorAll('.risk-card-name');
+    for (var i = 0; i < cardLabels.length; i++) {
+      var k = cardLabels[i].getAttribute('data-i18n');
+      if (k && window.I18N[lang] && window.I18N[lang][k]) cardLabels[i].textContent = window.I18N[lang][k];
+    }
+  }
+
+  function updateOpenToolDetails() {
+    var details = document.querySelectorAll('.tool-detail.expanded');
+    for (var i = 0; i < details.length; i++) {
+      var idx = parseInt(details[i].getAttribute('data-tool-index'));
+      renderToolDetail(details[i], idx);
+    }
+  }
+
+  function renderToolDetail(container, idx) {
+    var tool = window.TOOL_DATA[idx];
+    if (!tool) return;
+    var L = window.I18N[currentLang] || window.I18N['zh'];
+    container.innerHTML =
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.path_label) + '</span><span class="tool-detail-value">' + esc(tool.path) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.category_label) + '</span><span class="tool-detail-value">' + esc(tool.category) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.risk_label) + '</span><span class="tool-detail-value">' + esc(tool.risk) + '</span></div>' +
+      '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.size_label) + '</span><span class="tool-detail-value">' + esc(tool.size_display) + '</span></div>' +
+      '<div class="tool-detail-suggestion"><strong>' + esc(L.suggestion_label) + '</strong>: ' + esc(currentLang === 'en' ? tool.suggestion_en : tool.suggestion_zh) + '</div>';
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+  }
+
+  function formatSizeHuman(bytes) {
+    if (bytes === 0) return '0 B';
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = 0, val = bytes;
+    while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+    return i === 0 ? bytes + ' B' : val.toFixed(1) + ' ' + units[i];
+  }
+
+  function updateReclaimSummary() {
+    var cbs = document.querySelectorAll('.reclaim-checkbox:checked');
+    var count = cbs.length;
+    var total = 0;
+    for (var i = 0; i < cbs.length; i++) {
+      var item = cbs[i].closest('.reclaim-item');
+      if (item) total += parseInt(item.getAttribute('data-size')) || 0;
+    }
+    var sum = document.getElementById('reclaim-summary');
+    if (sum) {
+      var tmpl = (window.I18N[currentLang] || {}).selected_summary || 'Selected {n} items, {size} reclaimable';
+      sum.textContent = tmpl.replace('{n}', count).replace('{size}', formatSizeHuman(total));
+    }
+  }
+
+  function applyFilters() {
+    var groups = document.querySelectorAll('.bar-group');
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      if (!g.hasAttribute('data-category') && !g.hasAttribute('data-risk')) continue;
+      var catOk = !activeCategory || g.getAttribute('data-category') === activeCategory;
+      var riskOk = !activeRisk || g.getAttribute('data-risk') === activeRisk;
+      if (catOk && riskOk) g.classList.remove('filtered');
+      else g.classList.add('filtered');
+    }
+    var blocks = document.querySelectorAll('.treemap-block');
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b.hasAttribute('data-category') && activeCategory) {
+        if (b.getAttribute('data-category') === activeCategory) b.classList.add('active');
+        else b.classList.remove('active');
+      } else {
+        b.classList.remove('active');
+      }
+      if (activeRisk && b.getAttribute('data-risk') !== activeRisk) b.style.opacity = '0.3';
+      else b.style.opacity = '1';
+    }
+  }
+
+  // --- init ---
+  applyLang(currentLang);
+
+  // --- lang toggle ---
+  document.getElementById('lang-toggle').addEventListener('click', function() {
+    applyLang(currentLang === 'zh' ? 'en' : 'zh');
+  });
+
+  // --- treemap filtering ---
+  var tblocks = document.querySelectorAll('.treemap-block');
+  for (var i = 0; i < tblocks.length; i++) {
+    tblocks[i].addEventListener('click', function() {
+      var cat = this.getAttribute('data-category');
+      if (!cat) return;
+      if (activeCategory === cat) {
+        activeCategory = null;
+        this.classList.remove('active');
+      } else {
+        var prev = document.querySelector('.treemap-block.active');
+        if (prev) prev.classList.remove('active');
+        activeCategory = cat;
+        this.classList.add('active');
+      }
+      applyFilters();
+    });
+  }
+
+  // --- risk card filtering ---
+  var rcards = document.querySelectorAll('.risk-card');
+  for (var i = 0; i < rcards.length; i++) {
+    rcards[i].addEventListener('click', function() {
+      var risk = this.getAttribute('data-risk');
+      if (!risk) return;
+      if (activeRisk === risk) {
+        activeRisk = null;
+        this.classList.remove('active');
+      } else {
+        var prev = document.querySelector('.risk-card.active');
+        if (prev) prev.classList.remove('active');
+        activeRisk = risk;
+        this.classList.add('active');
+      }
+      applyFilters();
+    });
+  }
+
+  // --- bar chart expansion ---
+  var brows = document.querySelectorAll('.bar-clickable');
+  for (var i = 0; i < brows.length; i++) {
+    brows[i].addEventListener('click', function() {
+      var group = this.parentElement;
+      var detail = group.querySelector('.tool-detail');
+      var wasExpanded = this.classList.contains('expanded');
+
+      var allExp = document.querySelectorAll('.bar-clickable.expanded');
+      for (var j = 0; j < allExp.length; j++) {
+        allExp[j].classList.remove('expanded');
+        var pg = allExp[j].parentElement;
+        var pd = pg.querySelector('.tool-detail');
+        if (pd) pd.classList.remove('expanded');
+      }
+
+      if (!wasExpanded) {
+        this.classList.add('expanded');
+        if (!detail) {
+          detail = document.createElement('div');
+          detail.className = 'tool-detail expanded';
+          detail.setAttribute('data-tool-index', this.getAttribute('data-tool-index'));
+          group.appendChild(detail);
+        } else {
+          detail.classList.add('expanded');
+        }
+        renderToolDetail(detail, parseInt(this.getAttribute('data-tool-index')));
+      }
+    });
+  }
+
+  // --- safe reclaim checkboxes ---
+  var cbs2 = document.querySelectorAll('.reclaim-checkbox');
+  for (var i = 0; i < cbs2.length; i++) {
+    cbs2[i].addEventListener('change', updateReclaimSummary);
+  }
+
+  // --- select all button ---
+  var sab = document.getElementById('select-all-btn');
+  if (sab) {
+    sab.addEventListener('click', function() {
+      var allCbs = document.querySelectorAll('.reclaim-checkbox');
+      var allChecked = true;
+      for (var i = 0; i < allCbs.length; i++) {
+        if (!allCbs[i].checked) { allChecked = false; break; }
+      }
+      for (var i = 0; i < allCbs.length; i++) allCbs[i].checked = !allChecked;
+      var L = window.I18N[currentLang] || {};
+      this.textContent = allChecked ? (L.select_all || 'Select All') : (L.deselect_all || 'Deselect All');
+      updateReclaimSummary();
+    });
+  }
+})();

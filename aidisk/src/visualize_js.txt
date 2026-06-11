@@ -6,6 +6,11 @@ window.TOOL_DATA = __TOOL_DATA__;
   var activeCategory = null;
   var activeRisk = null;
 
+  function translateToolName(name) {
+    var names = window.I18N[currentLang] && window.I18N[currentLang].tool_names;
+    return (names && names[name]) || name;
+  }
+
   function applyLang(lang) {
     currentLang = lang;
     document.documentElement.lang = lang;
@@ -24,6 +29,21 @@ window.TOOL_DATA = __TOOL_DATA__;
       var k = cardLabels[i].getAttribute('data-i18n');
       if (k && window.I18N[lang] && window.I18N[lang][k]) cardLabels[i].textContent = window.I18N[lang][k];
     }
+    var barLabels = document.querySelectorAll('.bar-label');
+    for (var i = 0; i < barLabels.length; i++) {
+      var raw = barLabels[i].getAttribute('data-raw-name');
+      if (raw) barLabels[i].textContent = translateToolName(raw);
+    }
+    var tmNames = document.querySelectorAll('.treemap-block-name');
+    for (var i = 0; i < tmNames.length; i++) {
+      var raw = tmNames[i].getAttribute('data-raw-name');
+      if (raw) tmNames[i].textContent = translateToolName(raw);
+    }
+    var reclaimNames = document.querySelectorAll('.reclaim-name');
+    for (var i = 0; i < reclaimNames.length; i++) {
+      var raw = reclaimNames[i].getAttribute('data-raw-name');
+      if (raw) reclaimNames[i].textContent = translateToolName(raw);
+    }
   }
 
   function updateOpenToolDetails() {
@@ -38,6 +58,7 @@ window.TOOL_DATA = __TOOL_DATA__;
     var tool = window.TOOL_DATA[idx];
     if (!tool) return;
     var L = window.I18N[currentLang] || window.I18N['zh'];
+    var toolName = translateToolName(tool.name);
     container.innerHTML =
       '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.path_label) + '</span><span class="tool-detail-value">' + esc(tool.path) + '</span></div>' +
       '<div class="tool-detail-row"><span class="tool-detail-label">' + esc(L.category_label) + '</span><span class="tool-detail-value">' + esc(tool.category) + '</span></div>' +

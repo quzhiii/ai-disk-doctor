@@ -194,59 +194,126 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
         .collect();
     let entries_json = serde_json::to_string(&json_entries).unwrap_or_else(|_| "[]".to_string());
 
+    let zh_tool_names = serde_json::json!({
+        "Common development artifacts": "开发产物缓存",
+        "Chrome default cache": "Chrome 浏览器缓存",
+        "Ollama model store": "Ollama 模型仓库",
+        "GPU inference runner caches and models": "GPU 推理运行器",
+        "AI coding agent CLI state": "AI 编程助手状态",
+        "Claude home directory": "Claude 桌面端数据",
+        "AI IDE and editor state": "AI IDE 状态",
+        "AI CLI state": "AI CLI 状态",
+        "AI runtime environments and SDKs": "AI 运行时环境",
+        "MCP server installations and caches": "MCP 服务器",
+        "Next-gen AI IDE and extension state": "新一代 IDE 扩展",
+        "AI evaluation and runtime caches": "AI 运行时缓存",
+        "Installed AI application roots": "AI 应用安装目录",
+        "AI tool installers in Downloads": "AI 工具安装包",
+        "Hugging Face cache": "Hugging Face 缓存",
+        "Docker Desktop local data root": "Docker 本地数据",
+        "AI model weight files": "AI 模型文件",
+        "AI project test and evaluation artifacts": "AI 测试评测产物",
+        "WSL ext4 virtual disk": "WSL 虚拟磁盘",
+        "LiteSandbox audit logs": "LiteSandbox 审计日志",
+        "Playwright project browser cache": "Playwright 浏览器缓存",
+        "Browser login data sample": "浏览器登录数据",
+        "OneDrive root": "OneDrive 根目录",
+        "npm cache": "npm 缓存",
+        "AI installed app roots": "AI 应用安装目录",
+        "Aider, Continue, and AI CLI state": "AI CLI 状态",
+        "Docker volumes sample path": "Docker 卷示例路径",
+        "Docker build cache root": "Docker 构建缓存"
+    });
+    let en_tool_names = serde_json::json!({
+        "Common development artifacts": "Common development artifacts",
+        "Chrome default cache": "Chrome default cache",
+        "Ollama model store": "Ollama model store",
+        "GPU inference runner caches and models": "GPU inference runner caches and models",
+        "AI coding agent CLI state": "AI coding agent CLI state",
+        "Claude home directory": "Claude home directory",
+        "AI IDE and editor state": "AI IDE and editor state",
+        "AI CLI state": "AI CLI state",
+        "AI runtime environments and SDKs": "AI runtime environments and SDKs",
+        "MCP server installations and caches": "MCP server installations and caches",
+        "Next-gen AI IDE and extension state": "Next-gen AI IDE and extension state",
+        "AI evaluation and runtime caches": "AI evaluation and runtime caches",
+        "Installed AI application roots": "Installed AI application roots",
+        "AI tool installers in Downloads": "AI tool installers in Downloads",
+        "Hugging Face cache": "Hugging Face cache",
+        "Docker Desktop local data root": "Docker Desktop local data root",
+        "AI model weight files": "AI model weight files",
+        "AI project test and evaluation artifacts": "AI project test and evaluation artifacts",
+        "WSL ext4 virtual disk": "WSL ext4 virtual disk",
+        "LiteSandbox audit logs": "LiteSandbox audit logs",
+        "Playwright project browser cache": "Playwright project browser cache",
+        "Browser login data sample": "Browser login data sample",
+        "OneDrive root": "OneDrive root",
+        "npm cache": "npm cache",
+        "AI installed app roots": "AI installed app roots",
+        "Aider, Continue, and AI CLI state": "Aider, Continue, and AI CLI state",
+        "Docker volumes sample path": "Docker volumes sample path",
+        "Docker build cache root": "Docker build cache root"
+    });
+
+    let mut zh = serde_json::json!({
+        "title": "AI 磁盘足迹",
+        "generated": "生成时间",
+        "total_footprint": "AI 总占用",
+        "safe_to_reclaim": "可安全回收",
+        "tools_detected": "已检测工具",
+        "by_category": "按类别",
+        "tool_breakdown": "工具明细",
+        "safe_reclaim_title": "可安全回收",
+        "select_all": "全部选中",
+        "deselect_all": "取消全选",
+        "selected_summary": "已选 {n} 项，可回收 {size}",
+        "disclaimer": "以上均为只读报告，不会自动删除任何文件。如需清理，请手动操作。",
+        "kpi_total_tip": "这是你电脑上所有 AI 工具占用的总空间",
+        "kpi_safe_tip": "可以安全清理的缓存和临时文件总大小",
+        "kpi_tools_tip": "检测到的 AI 相关工具数量",
+        "risk_safe": "安全",
+        "risk_review": "需评估",
+        "risk_dangerous": "危险",
+        "path_label": "路径",
+        "category_label": "类别",
+        "risk_label": "风险",
+        "size_label": "大小",
+        "suggestion_label": "建议",
+        "no_data": "暂无数据"
+    });
+    zh["tool_names"] = zh_tool_names;
+
+    let mut en = serde_json::json!({
+        "title": "AI Disk Footprint",
+        "generated": "Generated",
+        "total_footprint": "Total AI Footprint",
+        "safe_to_reclaim": "Safe to Reclaim",
+        "tools_detected": "Tools Detected",
+        "by_category": "By Category",
+        "tool_breakdown": "Tool Breakdown",
+        "safe_reclaim_title": "Safe to Reclaim",
+        "select_all": "Select All",
+        "deselect_all": "Deselect All",
+        "selected_summary": "{n} items selected, {size} reclaimable",
+        "disclaimer": "This is a read-only report. No files will be automatically deleted. To clean up, please do so manually.",
+        "kpi_total_tip": "This is the total space used by all AI tools on your computer",
+        "kpi_safe_tip": "Total size of cache and temporary files that can be safely cleaned",
+        "kpi_tools_tip": "Number of detected AI-related tools",
+        "risk_safe": "Safe",
+        "risk_review": "Review",
+        "risk_dangerous": "Dangerous",
+        "path_label": "Path",
+        "category_label": "Category",
+        "risk_label": "Risk",
+        "size_label": "Size",
+        "suggestion_label": "Suggestion",
+        "no_data": "No data"
+    });
+    en["tool_names"] = en_tool_names;
+
     let i18n = serde_json::json!({
-        "zh": {
-            "title": "AI 磁盘足迹",
-            "generated": "生成时间",
-            "total_footprint": "AI 总占用",
-            "safe_to_reclaim": "可安全回收",
-            "tools_detected": "已检测工具",
-            "by_category": "按类别",
-            "tool_breakdown": "工具明细",
-            "safe_reclaim_title": "可安全回收",
-            "select_all": "全部选中",
-            "deselect_all": "取消全选",
-            "selected_summary": "已选 {n} 项，可回收 {size}",
-            "disclaimer": "以上均为只读报告，不会自动删除任何文件。如需清理，请手动操作。",
-            "kpi_total_tip": "这是你电脑上所有 AI 工具占用的总空间",
-            "kpi_safe_tip": "可以安全清理的缓存和临时文件总大小",
-            "kpi_tools_tip": "检测到的 AI 相关工具数量",
-            "risk_safe": "安全",
-            "risk_review": "需评估",
-            "risk_dangerous": "危险",
-            "path_label": "路径",
-            "category_label": "类别",
-            "risk_label": "风险",
-            "size_label": "大小",
-            "suggestion_label": "建议",
-            "no_data": "暂无数据"
-        },
-        "en": {
-            "title": "AI Disk Footprint",
-            "generated": "Generated",
-            "total_footprint": "Total AI Footprint",
-            "safe_to_reclaim": "Safe to Reclaim",
-            "tools_detected": "Tools Detected",
-            "by_category": "By Category",
-            "tool_breakdown": "Tool Breakdown",
-            "safe_reclaim_title": "Safe to Reclaim",
-            "select_all": "Select All",
-            "deselect_all": "Deselect All",
-            "selected_summary": "{n} items selected, {size} reclaimable",
-            "disclaimer": "This is a read-only report. No files will be automatically deleted. To clean up, please do so manually.",
-            "kpi_total_tip": "This is the total space used by all AI tools on your computer",
-            "kpi_safe_tip": "Total size of cache and temporary files that can be safely cleaned",
-            "kpi_tools_tip": "Number of detected AI-related tools",
-            "risk_safe": "Safe",
-            "risk_review": "Review",
-            "risk_dangerous": "Dangerous",
-            "path_label": "Path",
-            "category_label": "Category",
-            "risk_label": "Risk",
-            "size_label": "Size",
-            "suggestion_label": "Suggestion",
-            "no_data": "No data"
-        }
+        "zh": zh,
+        "en": en
     });
     let i18n_json = serde_json::to_string(&i18n).unwrap_or_else(|_| "{}".to_string());
 
@@ -369,9 +436,10 @@ fn build_treemap_html(entries: &[ToolEntry]) -> String {
                 1.0
             };
             format!(
-                r#"<div class="treemap-block {risk}" data-category="{name}" data-risk="{risk}" style="flex:{flex:.0}"><div class="treemap-block-name">{name}</div><div class="treemap-block-size">{size_display}</div></div>"#,
+                r#"<div class="treemap-block {risk}" data-category="{name}" data-risk="{risk}" style="flex:{flex:.0}"><div class="treemap-block-name" data-raw-name="{name_raw}">{name}</div><div class="treemap-block-size">{size_display}</div></div>"#,
                 risk = risk,
                 name = html_escape(&name),
+                name_raw = html_escape(&name),
                 flex = flex,
                 size_display = format_size(size),
             )
@@ -422,11 +490,12 @@ fn build_bar_chart_html(entries: &[ToolEntry]) -> String {
 
     for (idx, e, pct) in shown.iter().take(max_display) {
         rows.push_str(&format!(
-            r#"<div class="bar-group" data-category="{cat}" data-risk="{risk}"><div class="bar-row bar-clickable" data-tool-index="{idx}"><span class="bar-label">{name}</span><div class="bar-track"><div class="bar-fill {risk}" style="width:{pct}%"></div></div><span class="bar-size">{size}</span></div></div>
+            r#"<div class="bar-group" data-category="{cat}" data-risk="{risk}"><div class="bar-row bar-clickable" data-tool-index="{idx}"><span class="bar-label" data-raw-name="{name_raw}">{name}</span><div class="bar-track"><div class="bar-fill {risk}" style="width:{pct}%"></div></div><span class="bar-size">{size}</span></div></div>
 "#,
             cat = html_escape(&e.category),
             risk = e.risk,
             idx = idx,
+            name_raw = html_escape(&e.tool_name),
             name = html_escape(&e.tool_name),
             pct = pct,
             size = format_size(e.size_bytes),
@@ -477,6 +546,8 @@ fn build_risk_cards_html(entries: &[ToolEntry]) -> String {
 }
 
 fn build_reclaim_html(entries: &[ToolEntry]) -> String {
+    use std::collections::BTreeMap;
+
     let safe_entries: Vec<&ToolEntry> = entries
         .iter()
         .filter(|e| e.risk == "safe" && e.exists)
@@ -486,15 +557,30 @@ fn build_reclaim_html(entries: &[ToolEntry]) -> String {
         return r#"<li class="reclaim-item"><span class="no-data" data-i18n="no_data">暂无数据</span></li>"#.to_string();
     }
 
-    safe_entries
+    #[derive(Default)]
+    struct Agg {
+        count: usize,
+        total_size: u64,
+    }
+
+    let mut groups: BTreeMap<&str, Agg> = BTreeMap::new();
+    for e in &safe_entries {
+        let agg = groups.entry(&e.tool_name).or_default();
+        agg.count += 1;
+        agg.total_size = agg.total_size.saturating_add(e.size_bytes);
+    }
+
+    groups
         .iter()
-        .map(|e| {
+        .map(|(tool_name, agg)| {
             format!(
-                r#"<li class="reclaim-item" data-size="{size}"><label><input type="checkbox" class="reclaim-checkbox"><span class="reclaim-name">{name}</span><span class="reclaim-path">{path}</span><span class="reclaim-size">{size_display}</span></label></li>"#,
-                size = e.size_bytes,
-                name = html_escape(&e.tool_name),
-                path = html_escape(&e.path),
-                size_display = format_size(e.size_bytes),
+                r#"<li class="reclaim-item" data-size="{size}" data-tool-name="{tool_name}"><label><input type="checkbox" class="reclaim-checkbox"><span class="reclaim-name" data-raw-name="{name_raw}">{name}</span><span class="reclaim-count">{count} items</span><span class="reclaim-size">{size_display}</span></label></li>"#,
+                size = agg.total_size,
+                tool_name = html_escape(tool_name),
+                name_raw = html_escape(tool_name),
+                name = html_escape(tool_name),
+                count = agg.count,
+                size_display = format_size(agg.total_size),
             )
         })
         .collect::<Vec<_>>()

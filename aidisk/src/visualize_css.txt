@@ -423,6 +423,12 @@ header h1 {
   min-width: 120px;
 }
 
+.reclaim-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .reclaim-path {
   color: var(--muted);
   flex: 1;

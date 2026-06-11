@@ -1,0 +1,31 @@
+id: ai-coding-agents
+name: AI coding agent CLI state
+category: ai-agent
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - '%APPDATA%\Claude Code'
+    - '%APPDATA%\Codex CLI'
+    - '%APPDATA%\Gemini CLI'
+    - '%USERPROFILE%\.claude-code'
+    - '%USERPROFILE%\.codex-cli'
+    - '%USERPROFILE%\.gemini-cli'
+  linux:
+    - '~/.claude-code'
+    - '~/.config/claude-code'
+    - '~/.codex-cli'
+    - '~/.config/codex-cli'
+    - '~/.gemini-cli'
+    - '~/.config/gemini-cli'
+  macos:
+    - '~/.claude-code'
+    - '~/Library/Application Support/claude-code'
+    - '~/.codex-cli'
+    - '~/.gemini-cli'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "AI coding agent state may contain chat history, workspace context, and cached models that should be reviewed before cleanup."
+warnings:
+  - "Agent state directories may contain active project context; do not remove while agent is running."

@@ -109,3 +109,11 @@ fn loads_gpu_runner_rule_yaml() {
     assert!(content.contains("llama.cpp"));
     assert!(content.contains("category: ai-model"));
 }
+
+#[test]
+fn loads_ai_coding_agent_rule_yaml() {
+    let content = fs::read_to_string("rules/ai-coding-agents.yaml").expect("ai coding agent rule should exist");
+    assert!(content.contains("Claude Code"));
+    assert!(content.contains("Codex CLI"));
+    assert!(content.contains("Gemini CLI"));
+}

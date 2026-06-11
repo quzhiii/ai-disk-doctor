@@ -99,6 +99,7 @@ pub struct DoctorOptions {
     pub playwright: bool,
     pub huggingface: bool,
     pub agents: bool,
+    pub ai_footprint: bool,
     pub probe_tools: bool,
 }
 
@@ -112,6 +113,7 @@ impl DoctorOptions {
             playwright: false,
             huggingface: false,
             agents: false,
+            ai_footprint: false,
             probe_tools: false,
         }
     }
@@ -125,6 +127,7 @@ enum DoctorTopicKey {
     HuggingFace,
     Playwright,
     Agents,
+    AiFootprint,
 }
 
 struct DoctorTopicSpec {
@@ -223,6 +226,21 @@ const DOCTOR_TOPIC_SPECS: &[DoctorTopicSpec] = &[
         ],
         probe: None,
     },
+    DoctorTopicSpec {
+        key: DoctorTopicKey::AiFootprint,
+        name: "ai-footprint",
+        default_enabled: false,
+        matcher: is_ai_footprint_finding,
+        recommendations: &[
+            "AI model files (GGUF, SafeTensors, ONNX, MLX) can usually be re-downloaded safely.",
+            "GPU inference runner caches (LM Studio, llama.cpp) may contain large model files.",
+            "AI IDE and editor state may include chat history, indexes, and workspace metadata—review before cleanup.",
+            "CUDA and cuDNN runtimes: old versions often remain after driver upgrades. Use official uninstallers.",
+            "Use `ollama list` to identify unused models that can be safely removed.",
+            "HuggingFace cache can be cleaned with `huggingface-cli scan-cache` and `huggingface-cli delete-cache`.",
+        ],
+        probe: None,
+    },
 ];
 
 fn doctor_topic_specs() -> &'static [DoctorTopicSpec] {
@@ -237,6 +255,7 @@ fn doctor_topic_enabled(options: DoctorOptions, key: DoctorTopicKey) -> bool {
         DoctorTopicKey::HuggingFace => options.huggingface,
         DoctorTopicKey::Playwright => options.playwright,
         DoctorTopicKey::Agents => options.agents,
+        DoctorTopicKey::AiFootprint => options.ai_footprint,
     }
 }
 
@@ -248,6 +267,7 @@ fn set_doctor_topic_enabled(options: &mut DoctorOptions, key: DoctorTopicKey) {
         DoctorTopicKey::HuggingFace => options.huggingface = true,
         DoctorTopicKey::Playwright => options.playwright = true,
         DoctorTopicKey::Agents => options.agents = true,
+        DoctorTopicKey::AiFootprint => options.ai_footprint = true,
     }
 }
 
@@ -608,6 +628,12 @@ fn enrich_recommendations(
                     .to_string(),
             );
         }
+        "ai-footprint" => {
+            recommendations.push(
+                "Total AI footprint can be reviewed holistically — model files and caches are the easiest to reclaim safely."
+                    .to_string(),
+            );
+        }
         _ => {}
     }
 
@@ -645,6 +671,15 @@ fn is_ai_tooling_finding(finding: &Finding) -> bool {
             | "ai-installed-app"
             | "ai-test-artifact"
     ) || finding.id.contains("agent")
+}
+
+fn is_ai_footprint_finding(finding: &Finding) -> bool {
+    matches!(
+        finding.category.as_str(),
+        "ai-agent" | "ai-cache" | "ai-cli" | "ai-ide" 
+        | "ai-installer" | "ai-installed-app" | "ai-model" 
+        | "ai-test-artifact" | "ai-runtime" | "models"
+    )
 }
 
 fn has_cache_like_child(finding: &DoctorFinding) -> bool {
@@ -774,7 +809,8 @@ mod tests {
                 "ollama",
                 "huggingface",
                 "playwright",
-                "agents"
+                "agents",
+                "ai-footprint"
             ]
         );
     }
@@ -800,6 +836,7 @@ mod tests {
             playwright: false,
             huggingface: true,
             agents: false,
+            ai_footprint: false,
             probe_tools: false,
         };
         let enabled = super::doctor_topic_specs()
@@ -896,8 +933,9 @@ mod tests {
             ollama: false,
             playwright: false,
             huggingface: false,
-            agents: true,
-            probe_tools: true,
+                agents: true,
+                ai_footprint: false,
+                probe_tools: true,
         };
 
         super::apply_default_topics_if_none_selected(&mut options);
@@ -918,6 +956,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -961,6 +1000,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1004,6 +1044,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1052,6 +1093,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1094,6 +1136,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: true,
             },
             &test_policy(),
@@ -1149,6 +1192,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: true,
             },
             &test_policy(),
@@ -1230,6 +1274,7 @@ mod tests {
                 playwright: false,
                 huggingface: true,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1281,6 +1326,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1338,6 +1384,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1409,6 +1456,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1455,6 +1503,7 @@ mod tests {
                 playwright: false,
                 huggingface: true,
                 agents: false,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1503,6 +1552,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1612,6 +1662,7 @@ mod tests {
                 playwright: false,
                 huggingface: false,
                 agents: true,
+                ai_footprint: false,
                 probe_tools: false,
             },
             &test_policy(),
@@ -1621,5 +1672,71 @@ mod tests {
         assert!(doctor.latest_diff.is_some());
         assert_eq!(doctor.latest_diff.as_ref().unwrap().top_changes.len(), 1);
         assert_eq!(doctor.latest_diff.as_ref().unwrap().summary.grew, 1);
+    }
+
+    #[test]
+    fn doctor_ai_footprint_topic_aggregates_across_categories() {
+        let categories = [
+            "ai-agent",
+            "ai-cache",
+            "ai-cli",
+            "ai-ide",
+            "ai-installer",
+            "ai-installed-app",
+            "ai-model",
+            "ai-test-artifact",
+            "ai-runtime",
+            "models",
+        ];
+        let report = ScanReport {
+            scan_time: Local::now(),
+            policy: None,
+            volumes: Vec::<Volume>::new(),
+            findings: categories
+                .into_iter()
+                .enumerate()
+                .map(|(index, category)| Finding {
+                    id: format!("{category}-demo"),
+                    name: "AI footprint demo".to_string(),
+                    category: category.to_string(),
+                    path: format!("C:\\Users\\demo\\{category}"),
+                    exists: true,
+                    size_bytes: ((index as u64) + 1) * 100,
+                    partial: false,
+                    partial_reasons: Vec::new(),
+                    risk: RiskLevel::Review,
+                    action: "report-only".to_string(),
+                    reason: "ai footprint test".to_string(),
+                    warnings: Vec::new(),
+                })
+                .collect(),
+            summary: Summary::default(),
+        };
+
+        let doctor = build_doctor(
+            &report,
+            DoctorOptions {
+                docker: false,
+                wsl: false,
+                ollama: false,
+                playwright: false,
+                huggingface: false,
+                agents: false,
+                ai_footprint: true,
+                probe_tools: false,
+            },
+            &test_policy(),
+        );
+
+        assert_eq!(doctor.topics.len(), 1);
+        assert_eq!(doctor.topics[0].name, "ai-footprint");
+        assert_eq!(doctor.topics[0].status, "active");
+        assert_eq!(doctor.topics[0].findings.len(), categories.len());
+        assert!(doctor.topics[0].summary.contains("10 matching items"));
+        assert!(!doctor.topics[0].recommendations.is_empty());
+        assert!(doctor.topics[0]
+            .recommendations
+            .iter()
+            .any(|r| r.contains("GGUF")));
     }
 }

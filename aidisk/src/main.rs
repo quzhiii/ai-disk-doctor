@@ -169,6 +169,8 @@ enum Command {
         #[arg(long)]
         agents: bool,
         #[arg(long)]
+        ai_footprint: bool,
+        #[arg(long)]
         probe_tools: bool,
         #[arg(long)]
         latest: bool,
@@ -458,6 +460,7 @@ fn run(cli: Cli) -> Result<()> {
             playwright,
             huggingface,
             agents,
+            ai_footprint,
             probe_tools,
             latest,
             reports_dir,
@@ -492,6 +495,7 @@ fn run(cli: Cli) -> Result<()> {
                 playwright,
                 huggingface,
                 agents,
+                ai_footprint,
                 probe_tools,
             };
             doctor::apply_default_topics_if_none_selected(&mut doctor_options);

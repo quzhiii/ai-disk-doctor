@@ -1,0 +1,29 @@
+id: model-files
+name: AI model weight files
+category: ai-model
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - '%USERPROFILE%\**\*.gguf'
+    - '%USERPROFILE%\**\*.safetensors'
+    - '%USERPROFILE%\**\*.onnx'
+    - '%USERPROFILE%\**\*.mlx'
+  linux:
+    - '~/**/*.gguf'
+    - '~/**/*.safetensors'
+    - '~/**/*.onnx'
+    - '~/**/*.mlx'
+  macos:
+    - '~/**/*.gguf'
+    - '~/**/*.safetensors'
+    - '~/**/*.onnx'
+    - '~/**/*.mlx'
+risk: safe
+cleanup:
+  method: report-only
+exclusions: []
+reason: "Model weight files in standard formats can be safely removed and re-downloaded from HuggingFace or the original source. Use caution with fine-tuned or custom models."
+warnings:
+  - "GGUF files are used by Ollama, llama.cpp, and LM Studio for local inference. Default models can be re-downloaded."
+  - "SafeTensors files are downloaded from HuggingFace and can be re-fetched. Check for custom fine-tuned models."
+  - "ONNX files are cross-platform model weights. Verify the original source is available before removal."

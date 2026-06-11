@@ -9,6 +9,7 @@ risk: review
 cleanup:
   method: guide
 exclusions: []
-reason: "Ollama models can occupy tens of GB and should be reviewed with model-aware commands before removal."
+reason: "Ollama models can occupy tens of GB and should be reviewed with model-aware commands before removal. Use `ollama list` to see all installed models and their sizes."
 warnings:
   - "Prefer `ollama list` and model-specific removal workflows."
+  - "Ollama models in ~/.ollama/models can be re-downloaded with `ollama pull <model>` if needed. Delete safely to free space, then repull only the models you actively use."

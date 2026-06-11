@@ -131,3 +131,12 @@ fn loads_ai_ides_next_rule_yaml() {
     assert!(content.contains("Roo Code"));
     assert!(content.contains("Codeium"));
 }
+
+#[test]
+fn loads_model_files_rule_yaml() {
+    let content = fs::read_to_string("rules/model-files.yaml").expect("model files rule should exist");
+    assert!(content.contains(".gguf"));
+    assert!(content.contains(".safetensors"));
+    assert!(content.contains(".onnx"));
+    assert!(content.contains("category: ai-model"));
+}

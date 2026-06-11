@@ -9,6 +9,7 @@ risk: review
 cleanup:
   method: guide
 exclusions: []
-reason: "Hugging Face cache may contain reusable model downloads and should be reviewed before cleanup."
+reason: "Hugging Face cache may contain reusable model downloads and should be reviewed before cleanup. Use `huggingface-cli scan-cache` to see what is stored and estimate reclaimable space."
 warnings:
   - "Prefer cache-aware cleanup over direct deletion when shared across projects."
+  - "HuggingFace cache can be safely cleaned: models and datasets are re-downloadable via `huggingface-cli download` or `pip install`. Use `huggingface-cli delete-cache` for selective cleanup."

@@ -1,16 +1,35 @@
 id: ai-installed-app-roots
 name: Installed AI application roots
 category: ai-installed-app
-platform: windows
+platforms: [windows, linux, macos]
 paths:
-  - '%LOCALAPPDATA%\Programs\Cursor'
-  - '%LOCALAPPDATA%\Programs\Windsurf'
-  - '%LOCALAPPDATA%\Programs\Trae'
-  - '%LOCALAPPDATA%\Programs\Claude'
-  - '%LOCALAPPDATA%\Programs\Codeium'
-  - '%LOCALAPPDATA%\Programs\LM Studio'
-  - '%LOCALAPPDATA%\Programs\Ollama'
-  - '%LOCALAPPDATA%\Programs\Continue'
+  windows:
+    - '%LOCALAPPDATA%\Programs\Cursor'
+    - '%LOCALAPPDATA%\Programs\Windsurf'
+    - '%LOCALAPPDATA%\Programs\Trae'
+    - '%LOCALAPPDATA%\Programs\Claude'
+    - '%LOCALAPPDATA%\Programs\Codeium'
+    - '%LOCALAPPDATA%\Programs\LM Studio'
+    - '%LOCALAPPDATA%\Programs\Ollama'
+    - '%LOCALAPPDATA%\Programs\Continue'
+  linux:
+    - '/opt/Cursor'
+    - '/opt/Windsurf'
+    - '/opt/Trae'
+    - '/opt/Claude'
+    - '/opt/Codeium'
+    - '/opt/LM Studio'
+    - '/opt/Ollama'
+    - '/opt/Continue'
+  macos:
+    - '/Applications/Cursor.app'
+    - '/Applications/Windsurf.app'
+    - '/Applications/Trae.app'
+    - '/Applications/Claude.app'
+    - '/Applications/Codeium.app'
+    - '/Applications/LM Studio.app'
+    - '/Applications/Ollama.app'
+    - '/Applications/Continue.app'
 risk: review
 cleanup:
   method: report-only

@@ -42,6 +42,7 @@ fn loads_expanded_ai_tooling_rule_yamls() {
     let cache = fs::read_to_string("rules/ai-caches.yaml").expect("ai cache rule should exist");
     let installers = fs::read_to_string("rules/ai-installers.yaml").expect("ai installer rule should exist");
     let installed_apps = fs::read_to_string("rules/ai-installed-apps.yaml").expect("ai installed app rule should exist");
+    let agents = fs::read_to_string("rules/ai-agents.yaml").expect("ai agents rule should exist");
     let test_artifacts = fs::read_to_string("rules/ai-test-artifacts.yaml").expect("ai test artifact rule should exist");
 
     assert!(ide.contains("Cursor"));
@@ -56,6 +57,27 @@ fn loads_expanded_ai_tooling_rule_yamls() {
     assert!(installed_apps.contains("LM Studio"));
     assert!(test_artifacts.contains("playwright-report"));
     assert!(test_artifacts.contains("test-results"));
+    assert!(agents.contains("~/.claude"));
+    assert!(agents.contains("platforms: [windows, linux, macos]"));
+
+    // Verify multi-platform format is present in updated ai-* rules
+    assert!(ide.contains("platforms: [windows, linux, macos]"));
+    assert!(cli.contains("platforms: [windows, linux, macos]"));
+    assert!(cache.contains("platforms: [windows, linux, macos]"));
+    assert!(installers.contains("platforms: [windows, linux, macos]"));
+    assert!(installed_apps.contains("platforms: [windows, linux, macos]"));
+
+    // Verify linux/macos path sections exist
+    assert!(ide.contains("~/.config/Cursor"), "ai-ides should include linux Cursor path");
+    assert!(ide.contains("~/Library/Application Support/Cursor"), "ai-ides should include macos Cursor path");
+    assert!(cli.contains("~/.aider*"), "ai-clis should include unix aider path");
+    assert!(cli.contains("~/.config/opencode"), "ai-clis should include unix opencode path");
+    assert!(cache.contains("~/.cache/transformers"), "ai-caches should include unix transformers cache");
+    assert!(cache.contains("~/Library/Caches/promptfoo"), "ai-caches should include macos promptfoo cache");
+    assert!(installers.contains("AppImage"), "ai-installers should include linux AppImage patterns");
+    assert!(installers.contains(".dmg"), "ai-installers should include macos dmg patterns");
+    assert!(installed_apps.contains("/Applications/"), "ai-installed-apps should include macos /Applications paths");
+    assert!(installed_apps.contains("/opt/"), "ai-installed-apps should include linux /opt paths");
 }
 
 #[test]
@@ -67,6 +89,21 @@ fn loads_cross_platform_rule_paths() {
     assert!(models.contains("~/.ollama"), "models should include unix ollama path");
     assert!(huggingface.contains("~/.cache/huggingface"), "huggingface should include unix path");
     assert!(docker.contains("~/.docker"), "docker should include unix path");
+
+    // Verify ai-* rules include cross-platform paths
+    let agents = fs::read_to_string("rules/ai-agents.yaml").expect("ai agents rule should exist");
+    let ide = fs::read_to_string("rules/ai-ides.yaml").expect("ai ide rule should exist");
+    let cli = fs::read_to_string("rules/ai-clis.yaml").expect("ai cli rule should exist");
+    let cache = fs::read_to_string("rules/ai-caches.yaml").expect("ai cache rule should exist");
+    assert!(agents.contains("~/.claude"), "ai-agents should include linux claude path");
+    assert!(agents.contains("~/Library/Application Support/Claude"), "ai-agents should include macos claude path");
+    assert!(agents.contains("~/.codex"), "ai-agents should include linux codex path");
+    assert!(ide.contains("~/.config/Cursor"), "ai-ides should include linux Cursor path");
+    assert!(ide.contains("~/Library/Application Support/Cursor"), "ai-ides should include macos Cursor path");
+    assert!(cli.contains("~/.aider*"), "ai-clis should include unix aider path");
+    assert!(cli.contains("~/.config/opencode"), "ai-clis should include unix opencode path");
+    assert!(cache.contains("~/.cache/transformers"), "ai-caches should include unix transformers cache");
+    assert!(cache.contains("~/Library/Caches/promptfoo"), "ai-caches should include macos promptfoo cache");
 }
 
 #[test]

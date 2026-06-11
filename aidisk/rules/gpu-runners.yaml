@@ -1,0 +1,27 @@
+id: gpu-runner-caches
+name: GPU inference runner caches and models
+category: ai-model
+platforms: [windows, linux, macos]
+paths:
+  windows:
+    - '%USERPROFILE%\.cache\lm-studio'
+    - '%USERPROFILE%\.cache\llama.cpp'
+    - '%USERPROFILE%\.lm-studio'
+    - '%APPDATA%\LM Studio'
+    - '%LOCALAPPDATA%\lm-studio'
+  linux:
+    - '~/.cache/lm-studio'
+    - '~/.cache/llama.cpp'
+    - '~/.config/lm-studio'
+    - '~/lm-studio'
+  macos:
+    - '~/Library/Caches/lm-studio'
+    - '~/.cache/lm-studio'
+    - '~/.lm-studio'
+risk: review
+cleanup:
+  method: report-only
+exclusions: []
+reason: "GPU inference runner caches and downloaded models may be large but can be re-downloaded."
+warnings:
+  - "Check if any custom fine-tuned models are present before removing."

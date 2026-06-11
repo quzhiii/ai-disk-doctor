@@ -101,3 +101,11 @@ fn example_glob_fixture_can_be_created() {
 
     assert!(fixture.exists());
 }
+
+#[test]
+fn loads_gpu_runner_rule_yaml() {
+    let content = fs::read_to_string("rules/gpu-runners.yaml").expect("gpu runner rule should exist");
+    assert!(content.contains("lm-studio"));
+    assert!(content.contains("llama.cpp"));
+    assert!(content.contains("category: ai-model"));
+}

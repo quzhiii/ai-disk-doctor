@@ -121,8 +121,6 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     let readme = read_repo_file("README.md");
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
-    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
-    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
 
     let required_terms = [
         "Cross-Platform Scheduled Governance",
@@ -148,9 +146,6 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     assert!(readme.contains("v1.4.0"));
     assert!(readme_zh.contains("v1.4.0"));
     assert!(roadmap.contains("Phase 12 status: Completed"));
-    assert!(cargo_toml.contains("version = \"1.4.0\""));
-    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.4.0\""));
 
     for term in required_terms {
         assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
@@ -184,6 +179,59 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
             && readme_zh.contains("systemd timer")
             && readme_zh.contains("run-governance.sh"),
         "Chinese README should cover v1.4.0 scheduler and Unix governance entrypoint"
+    );
+}
+
+#[test]
+fn changelog_readmes_and_release_notes_cover_v1_5_scope() {
+    let changelog = read_repo_file("CHANGELOG.md");
+    let release_notes = read_repo_file("docs/release-notes/v1.5.0.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let roadmap = read_repo_file("docs/execution-plan.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
+
+    let required_terms = [
+        "Cross-Platform Governance",
+        "Feishu",
+        "dedup",
+        "retry",
+        "governance-event.json",
+        "governance-manual.md",
+        "Ubuntu",
+        "macOS",
+        "FEISHU_WEBHOOK_URL",
+        "no background daemon",
+        "notifier adapter",
+        "governance reliability",
+    ];
+
+    assert!(changelog.contains("## 1.5.0"));
+    assert!(release_notes.contains("# Windows AI Space Manager v1.5.0"));
+    assert!(release_notes.contains("## Test Plan"));
+    assert!(release_notes.contains("## Safety Boundaries"));
+    assert!(release_notes.contains("## Known Limits"));
+    assert!(readme.contains("v1.5.0"));
+    assert!(readme_zh.contains("v1.5.0"));
+    assert!(roadmap.contains("Phase 15 status: Completed"));
+    assert!(cargo_toml.contains("version = \"1.5.0\""));
+    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.5.0\""));
+
+    for term in required_terms {
+        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(release_notes.contains(term), "release notes should mention {term}");
+        assert!(readme.contains(term), "README.md should mention {term}");
+    }
+
+    assert!(
+        readme_zh.contains("Feishu")
+            && readme_zh.contains("去重")
+            && readme_zh.contains("重试")
+            && readme_zh.contains("Ubuntu")
+            && readme_zh.contains("macOS"),
+        "Chinese README should cover v1.5.0 scope"
     );
 }
 
@@ -552,14 +600,14 @@ fn crate_version_and_readme_reference_release_artifacts() {
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
 
-    assert!(cargo_toml.contains("version = \"1.4.0\""));
+    assert!(cargo_toml.contains("version = \"1.5.0\""));
     let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.4.0\""));
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.5.0\""));
     assert!(readme.contains("CHANGELOG.md"));
-    assert!(readme.contains("docs/release-notes/v1.4.0.md"));
-    assert!(readme_zh.contains("docs/release-notes/v1.4.0.md"));
-    assert!(roadmap.contains("docs/release-notes/v1.4.0.md"));
-    assert!(roadmap.contains("`aidisk` crate version `1.4.0`"));
+    assert!(readme.contains("docs/release-notes/v1.5.0.md"));
+    assert!(readme_zh.contains("docs/release-notes/v1.5.0.md"));
+    assert!(roadmap.contains("docs/release-notes/v1.5.0.md"));
+    assert!(roadmap.contains("`aidisk` crate version `1.5.0`"));
     assert!(readme.contains("scripts/release-smoke.ps1"));
 }
 

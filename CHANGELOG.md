@@ -1,27 +1,18 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
 
-### M1: Notifier Reliability Enhancements
-
-- Added `scripts/governance/dedup-governance-event.sh` for governance event idempotency via event hash deduplication with `--event-path`, `--dedup-dir`, and `--output-dir` arguments.
-- Added `scripts/governance/retry-governance-notify.sh` for notifier retry with configurable `--max-retries` (default 3) and `--retry-delay` (default 60s).
-- Integrated dedup and retry into the Unix governance flow in `run-governance.sh` — dedup runs before delivery and retry wraps the notifier dispatcher.
+- Added Cross-Platform Governance with Feishu notifier delivery, governance reliability (dedup + retry), a comprehensive user manual, and cross-platform CI.
+- Added Notifier Adapter Foundation with `send-governance-event.sh` dispatcher for `local-file`, generic webhook, and Feishu adapters.
+- Added Feishu delivery via `scripts/governance/notifiers/feishu.sh` using the `FEISHU_WEBHOOK_URL` environment variable for secrets and writing `feishu-failure.json` without storing webhook URLs.
+- Added `scripts/governance/dedup-governance-event.sh` for governance event idempotency via event hash deduplication.
+- Added `scripts/governance/retry-governance-notify.sh` with configurable `--max-retries` (default 3) and `--retry-delay` (default 60s) for notifier reliability.
 - Added `scripts/governance/templates/feishu-governance.tmpl` for customizable Feishu message templates.
-
-### M2: Cross-Platform User Manual and Docs
-
-- Added `docs/governance-manual.md` covering prerequisites, quick start for Windows/cron/launchd/systemd timer, governance flow, notifier adapters (local-file, generic webhook, Feishu), dedup, retry, failure artifacts, templates, and troubleshooting.
-- Updated `docs/notifier-adapters.md` with Reliability section covering dedup and retry.
-- Linked governance manual from `README.md` and `README.zh-CN.md`.
-- Updated `docs/execution-plan.md` with Phase 14 entry and M1/M2 status tracking.
-
-### Notifier Adapter Foundation
-
-- Added Notifier Adapter Foundation for delivering stable `governance-event.json` payloads through `local-file`, generic webhook, or Feishu.
-- Added `scripts/governance/send-governance-event.sh` as the notifier dispatcher with `--adapter`, `--event-path`, and `--output-dir` arguments.
-- Added Feishu delivery via `scripts/governance/notifiers/feishu.sh`, using the `FEISHU_WEBHOOK_URL` environment variable for secrets and writing `feishu-failure.json` without storing webhook URLs.
-- Added docs for notifier adapter secrets handling and future platform adapters.
+- Added `docs/governance-manual.md` covering all four scheduler platforms, notifier adapters, governance reliability, and troubleshooting.
+- Added `docs/cross-platform-verification.md` for manual cross-platform verification.
+- Extended GitHub CI to Ubuntu and macOS runners alongside Windows.
+- Governance scheduling and delivery do not perform cleanup, do not run as a daemon, and use no background daemon.
+- Concrete notifier adapter expansion beyond Feishu remains out of scope for this release.
 
 ## 1.4.0
 

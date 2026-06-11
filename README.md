@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
@@ -45,7 +45,7 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.4.0
+**Current release:** v1.5.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
@@ -53,15 +53,16 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ## What's New
 
-### Current Branch (Post-v1.4.0)
+### v1.5.0
 
-The current branch adds the Notifier Adapter Foundation on top of the released v1.4.0 cross-platform governance slice:
+v1.5.0 adds Cross-Platform Governance with Feishu notifier delivery and governance reliability:
 
-- **Notifier Adapter Foundation** — `scripts/governance/send-governance-event.sh` dispatches `governance-event.json` through `local-file`, generic webhook, or Feishu on the current branch.
-- **Feishu adapter** — `scripts/governance/notifiers/feishu.sh` sends `headline` and `summary_markdown` using `FEISHU_WEBHOOK_URL` from the environment instead of a command-line flag.
-- **Secrets boundary** — `feishu-failure.json` keeps failure context without storing the resolved webhook URL.
+- **Feishu notifier** — `scripts/governance/notifiers/feishu.sh` delivers `governance-event.json` via `FEISHU_WEBHOOK_URL` environment variable.
+- **Governance reliability** — event dedup prevents duplicate delivery; configurable retry (max 3 attempts, 60s delay) wraps notifier delivery.
+- **Cross-platform CI** — GitHub Actions now tests on Windows, Ubuntu, and macOS.
+- **User manual** — `docs/governance-manual.md` covers all four scheduler platforms, notifier adapters, dedup, retry, and troubleshooting.
 
-See [`docs/notifier-adapters.md`](./docs/notifier-adapters.md) for the current branch notifier adapter docs.
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.5.0.md`](./docs/release-notes/v1.5.0.md).
 
 ### v1.4.0
 

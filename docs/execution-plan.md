@@ -225,8 +225,9 @@ Phase 8 status: Completed
 - `docs/release-notes/v1.2.0.md`
 - `docs/release-notes/v1.3.0.md`
 - `docs/release-notes/v1.4.0.md`
+- `docs/release-notes/v1.5.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.4.0`
+- `aidisk` crate version `1.5.0`
 
 ## Phase 9: Local Scheduled Governance
 
@@ -327,6 +328,7 @@ Phase 11 status: Completed
 - v1.2.0：规则覆盖扩展、大文件发现、跨平台规则路径、JSON 错误契约与可运维元数据。
 - v1.3.0：Windows 本地定时治理，包含 anomaly 核心、governance event、generic webhook、Windows Task Scheduler 闭环。
 - v1.4.0：cron / launchd / systemd timer adapters 与 Unix `run-governance.sh` 已完成。
+- v1.5.0：Feishu notifier adapter + governance reliability (dedup + retry + templates) + 用户手册 + 三平台 CI 已完成。
 
 当前不建议立刻进入具体 IM notifier adapter（飞书 / Slack / 微信等）。notifier 会引入密钥管理、平台 API、失败重试、幂等、限流和交付语义，应该作为 v1.5.0 之后的独立大切片，而不是混入 v1.4.0 release readiness。
 
@@ -411,3 +413,27 @@ Phase 14 status: Completed
 - 建议将 Unreleased 中的 Phase 13 + 14 成果固化为 v1.5.0 发布。
 - v1.5.0 边界：跨平台治理 + Feishu + dedup/retry/模板 + 用户手册 + 三平台 CI。
 - Slack / WeChat / DingTalk / 企业微信 / email / Telegram / Discord 仍作为后续独立 adapter。
+
+## Phase 15: v1.5.0 Cross-Platform Governance Release Readiness
+
+Phase 15 status: Completed
+
+目标：
+
+- 将 Phase 13 (Notifier Foundation + Feishu) 和 Phase 14 (可靠性 + 文档 + CI) 的成果固化为 v1.5.0 可发布版本。
+- 补齐 release notes、CHANGELOG、README、版本号。
+- 新增 v1.5.0 范围的 release artifact 测试。
+- 保持不自动清理、不绑定单一 IM 平台、无后台 daemon 的安全边界。
+
+实施成果：
+
+- Release notes: `docs/release-notes/v1.5.0.md`
+- CHANGELOG 从 Unreleased 提升为 `## 1.5.0`
+- README 版本 badge、What's New 更新到 v1.5.0
+- Crate version bump: `1.4.0` → `1.5.0`
+- Release artifact 测试覆盖 v1.5.0 范围
+
+后续方向：
+
+- 下一个大版本 (v1.6.0+) 可考虑 Slack / WeChat / DingTalk 等更多具体 notifier adapter。
+- 也可考虑 notifier 可靠性增强：exponential backoff、jitter、限流。

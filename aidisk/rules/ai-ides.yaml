@@ -1,22 +1,33 @@
 id: ai-ide-state
 name: AI IDE and editor state
 category: ai-ide
-platform: windows
+platforms: [windows, linux, macos]
 paths:
-  - '%APPDATA%\Cursor'
-  - '%LOCALAPPDATA%\Cursor'
-  - '%APPDATA%\Windsurf'
-  - '%LOCALAPPDATA%\Windsurf'
-  - '%APPDATA%\Trae'
-  - '%LOCALAPPDATA%\Trae'
-  - '%APPDATA%\Code\User\globalStorage\continue.continue'
-  - '%APPDATA%\Code\User\globalStorage\github.copilot*'
-  - '%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev'
-  - '%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline'
+  windows:
+    - '%APPDATA%\Cursor'
+    - '%LOCALAPPDATA%\Cursor'
+    - '%APPDATA%\Windsurf'
+    - '%LOCALAPPDATA%\Windsurf'
+    - '%APPDATA%\Trae'
+    - '%LOCALAPPDATA%\Trae'
+    - '%APPDATA%\Code\User\globalStorage\continue.continue'
+    - '%APPDATA%\Code\User\globalStorage\github.copilot*'
+    - '%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev'
+    - '%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline'
+  linux:
+    - '~/.config/Cursor'
+    - '~/.config/Windsurf'
+    - '~/.config/Trae'
+    - '~/.vscode'
+  macos:
+    - '~/Library/Application Support/Cursor'
+    - '~/Library/Application Support/Windsurf'
+    - '~/Library/Application Support/Trae'
+    - '~/Library/Application Support/Code'
 risk: review
 cleanup:
   method: report-only
 exclusions: []
-reason: "AI IDE and editor extension state can include chat history, indexes, extension caches, and workspace metadata that should be reviewed before cleanup."
+reason: "AI IDE and editor state can include chat history, indexes, extension caches, and workspace metadata that should be reviewed before cleanup."
 warnings:
   - "Do not delete editor roots automatically; prefer extension-aware cleanup or targeted cache review."

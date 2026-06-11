@@ -1,12 +1,23 @@
 id: claude-home
 name: Claude home directory
 category: ai-agent
-platform: windows
+platforms: [windows, linux, macos]
 paths:
-  - "%USERPROFILE%\\.claude"
-  - "%USERPROFILE%\\.codex"
-  - "%USERPROFILE%\\.gemini"
-  - "%APPDATA%\\ai.opencode.desktop"
+  windows:
+    - "%USERPROFILE%\\.claude"
+    - "%USERPROFILE%\\.codex"
+    - "%USERPROFILE%\\.gemini"
+    - "%APPDATA%\\ai.opencode.desktop"
+  linux:
+    - "~/.claude"
+    - "~/.codex"
+    - "~/.gemini"
+    - "~/.config/ai.opencode.desktop"
+  macos:
+    - "~/Library/Application Support/Claude"
+    - "~/.claude"
+    - "~/.codex"
+    - "~/.gemini"
 risk: review
 cleanup:
   method: report-only

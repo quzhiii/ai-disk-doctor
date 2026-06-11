@@ -74,8 +74,6 @@ fn deserialize_paths<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de;
-
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum PathsValue {

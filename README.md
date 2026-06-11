@@ -5,11 +5,11 @@
 [![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
-[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=for-the-badge)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
 
 [中文](./README.zh-CN.md) · [Changelog](./CHANGELOG.md) · [Contributing](./CONTRIBUTING.md)
 
-**AI-era disk space diagnostics and governance for Windows.**
+**AI-era disk space diagnostics and governance.**
 
 Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, and development environments—without guessing what's safe to delete.
 
@@ -19,7 +19,7 @@ Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, an
 
 ## Table of Contents
 
-[Motivation](#motivation) · [Overview](#overview) · [What's New](#whats-new) · [Key Features](#key-features) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
 ---
 
@@ -51,116 +51,78 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ---
 
+## Key Features
+
+| Capability | What it does |
+|-----------|-------------|
+| **Intelligent Scanning** | Discover space usage across AI models, IDEs, CLIs, browsers, Docker, WSL, and dev artifacts |
+| **AI-Aware Rules** | 25 YAML rules covering 200+ paths: Claude, Codex, Gemini, Ollama, LM Studio, MCP servers, CUDA, etc. |
+| **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, safe reclaim checklist |
+| **AI Footprint Report** | `doctor --ai-footprint` aggregates all AI findings across 10 categories with actionable recommendations |
+| **Cross-Platform** | Windows, Linux, macOS with platform-native paths for all AI tools |
+| **Rule-Driven Classification** | 25 rules with risk levels: `safe`, `review`, `dangerous`. No hardcoded paths. |
+| **Dry-Run by Default** | Preview all changes before touching disk. `--yes` required for real action. |
+| **Quarantine Pattern** | Archive instead of delete. Full restore with conflict detection. |
+| **Scheduled Governance** | Windows Task Scheduler / cron / launchd / systemd timer with anomaly detection |
+| **Historical Diff** | Track growth over time with scan snapshots |
+| **Growth Anomaly Detection** | Absolute + relative threshold alerts |
+
+---
+
+## Why aidisk vs Manual Cleanup
+
+| Dimension | Manual Cleanup (AI Agent / Human) | aidisk |
+|-----------|----------------------------------|--------|
+| **Coverage** | Misses hidden caches, model blobs, AI IDE state | 25 rules covering 200+ known AI paths |
+| **Risk Assessment** | Guess-based; might delete configs or credentials | Every path rated `safe` / `review` / `dangerous` |
+| **Safety** | No quarantine; deletion is permanent | Quarantine + restore; `--dry-run` before any action |
+| **Traceability** | Ad-hoc; no history | Snapshot diff + governance event history |
+| **Cross-Platform** | Agent behavior varies by OS | Same rules on Windows / Linux / macOS |
+| **Automated Governance** | Requires manual re-execution | Scheduled via Task Scheduler / cron / launchd / systemd timer |
+| **AI Tool Awareness** | Limited to known tools | 25 rules: Claude, Codex, Gemini, Ollama, LM Studio, MCP, CUDA, etc. |
+| **Dashboard** | Not available | Visual HTML dashboard with bilingual support |
+| **Time Cost** | 30-60 minutes per session | 5 seconds to scan; full report in seconds |
+
+---
+
 ## What's New
 
 ### v1.6.0
 
-v1.6.0 adds AI-aware diagnostics and a visual dashboard:
-
-- **Visual dashboard** — `aidisk visualize --html` generates an interactive Swiss Style HTML dashboard with bilingual support, category filtering, and safe reclaim checklist.
-- **AI footprint** — `aidisk doctor --ai-footprint` aggregates all AI-related findings across 10 categories.
-- **5 new AI rules** — GPU runners, coding agents, MCP servers, next-gen IDEs, CUDA/cuDNN runtime environments.
-- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: safe`.
-- **Cross-platform rules** — 6 rules upgraded to Windows/Linux/macOS paths.
+- **Visual dashboard** — `aidisk visualize --html`: interactive bilingual HTML dashboard with category filtering and safe reclaim checklist
+- **AI footprint** — `doctor --ai-footprint`: aggregates all AI findings across 10 categories
+- **5 new AI rules** — GPU runners, coding agents, MCP servers, next-gen IDEs, CUDA/cuDNN runtime
+- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: safe`
+- **Cross-platform rules** — 6 rules upgraded to Windows/Linux/macOS
 
 Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`](./docs/release-notes/v1.6.0.md).
 
 ### v1.5.0
 
-v1.5.0 adds Cross-Platform Governance with Feishu notifier delivery and governance reliability:
-
-- **Feishu notifier** — `scripts/governance/notifiers/feishu.sh` delivers `governance-event.json` via `FEISHU_WEBHOOK_URL` environment variable.
-- **Governance reliability** — event dedup prevents duplicate delivery; configurable retry (max 3 attempts, 60s delay) wraps notifier delivery.
-- **Cross-platform CI** — GitHub Actions now tests on Windows, Ubuntu, and macOS.
-- **User manual** — `docs/governance-manual.md` covers all four scheduler platforms, notifier adapters, dedup, retry, and troubleshooting.
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.5.0.md`](./docs/release-notes/v1.5.0.md).
+- **Feishu notifier** — `FEISHU_WEBHOOK_URL` environment variable for secrets
+- **Governance reliability** — event dedup + configurable retry
+- **Cross-platform CI** — Windows / Ubuntu / macOS
+- **User manual** — [`docs/governance-manual.md`](./docs/governance-manual.md)
 
 ### v1.4.0
 
-v1.4.0 adds Cross-Platform Scheduled Governance while preserving the no-cleanup governance boundary:
-
-- **Cross-Platform Scheduled Governance** — cron, launchd, and systemd timer adapters now mirror the Windows Task Scheduler register/show/unregister/test-run workflow.
-- **Unix governance entrypoint** — `run-governance.sh` runs the Unix scan -> anomaly -> `governance-event.json` -> generic webhook workflow alongside the Windows `run-governance.ps1` path.
-- **Scheduler-first boundary** — scheduler adapters remain script-level, platform-specific, and use no background daemon.
-- **Portable dependencies** — Unix governance uses bash, jq, curl, and cargo; concrete platform notifier adapters remain outside the shipped v1.4.0 release scope.
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.4.0.md`](./docs/release-notes/v1.4.0.md).
+- **Cross-Platform Governance** — cron, launchd, systemd timer + `run-governance.sh`
 
 ### v1.3.0
 
-Phase 9 adds Local Scheduled Governance while keeping the same no-cleanup safety boundary:
-
-- **Growth anomaly detection** — `aidisk anomaly` compares scan snapshots with absolute + relative thresholds.
-- **Local governance workflow** — `run-governance.ps1` runs scan → anomaly → report artifact generation.
-- **Stable governance events** — `governance-event.json` carries `anomaly_found`, `pending_history`, or `no_anomaly` plus message-friendly summary fields.
-- **Generic webhook delivery** — governance events can be posted to a generic webhook, with `webhook-failure.json` retained on delivery failure.
-- **Windows scheduler helpers** — register, show, unregister, and immediately test-run a local governance task.
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.3.0.md`](./docs/release-notes/v1.3.0.md).
+- **Local Scheduled Governance** — anomaly detection + governance events + Windows Task Scheduler
 
 ### v1.2.0
 
-Phase 7 expands coverage and discovery while keeping the same conservative cleanup posture:
-
-- **Large Files Discovery** — `scan --large-files --min-size 500MB` discovers the largest files and directories under a root path with no classification or cleanup suggestions.
-- **Developer artifact coverage** — Built-in rules now detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo`.
-- **Cross-platform rule paths** — rules now expand Unix `~/` home directory paths alongside Windows `%VAR%` tokens, with linux/macOS paths added for Ollama, Hugging Face, and Docker.
-- **Structured JSON errors** — `--json` command failures now write a single error object to stderr and keep stdout empty for consumers.
-- **Operability metadata** — rule-driven `scan`, `plan`, and `doctor` now surface the active `policy snapshot`; when traversal is incomplete, text/markdown outputs mark sizes as `(partial)` and explain them as `best-effort, not exact`; and rule-driven `scan --policy` supports explicit policy selection.
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.2.0.md`](./docs/release-notes/v1.2.0.md).
+- **Coverage expansion** — large file discovery, cross-platform rules, JSON errors
 
 ### v1.1.0
 
-Doctor V2 improves AI-era diagnostics while preserving the conservative, read-only default posture:
-
-- **AI tooling diagnostics** — `doctor --agents` covers AI agent roots, AI IDE/CLI state, runtime caches, installers, installed app roots, and test artifacts
-- **Child breakdowns** — Active doctor findings show the largest direct children so oversized roots are easier to interpret
-- **Opt-in probes** — `--probe-tools` can add Docker, WSL, and Ollama command probes without running external commands by default
-- **Growth-aware doctor** — `doctor --latest` appends the newest scan snapshot growth context, with `--reports-dir` for custom history locations
-- **Registry-driven topics** — Built-in doctor topics now share an internal `DoctorTopicSpec` registry for defaults, matching, recommendations, and probe metadata
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.1.0.md`](./docs/release-notes/v1.1.0.md).
+- **Doctor V2** — AI agent diagnostics, child breakdowns, opt-in probes
 
 ### v1.0.0
 
-The first stable release brings the complete local workflow:
-
-- **Complete command set** — `scan`, `plan`, `clean`, `restore`, `doctor`, and `diff --latest`
-- **Community rules** — Load custom rule repositories via `--rules-repo` (local path or HTTPS git URL)
-- **Quarantine pattern** — Move files to archive folders with full restore capability
-- **Historical diff** — Compare scan snapshots over time to track space growth
-- **Agent-friendly output** — JSON and Markdown outputs for both humans and AI agents
-- **PowerShell wrappers** — Ready-to-use agent skill scripts in `skills/`
-
-Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.0.0.md`](./docs/release-notes/v1.0.0.md).
-
----
-
-## Key Features
-
-| Capability | What it does |
-|-----------|-------------|
-| **Intelligent Scanning** | Discover space usage across AI models (Ollama, Hugging Face), AI IDEs/CLIs, browsers, Docker, WSL, Playwright, installers, test artifacts, and dev artifacts |
-| **Developer Artifact Coverage** | Detect common regenerable artifacts such as `node_modules`, Rust `target/`, Gradle caches, Python `__pycache__`, `dist/`, `.next`, and `.turbo` |
-| **Cross-Platform Rule Paths** | Expand Unix `~/` home paths and keep Windows `%VAR%` expansion so Ollama, Hugging Face, and Docker rules work across Windows, Linux, and macOS path layouts |
-| **Rule-Driven Classification** | Every path evaluated against YAML rules with risk levels: `safe`, `careful`, `dangerous`. No hardcoded paths. |
-| **Dry-Run by Default** | All destructive operations preview changes before touching disk. Explicit `--yes` required for real action. |
-| **Quarantine Pattern** | Move files to designated archive folder instead of deleting. Full restore with conflict detection. |
-| **Specialized Diagnostics** | `doctor` command provides targeted analysis for AI agents, AI IDEs/CLIs, installers, test artifacts, Docker, WSL, Ollama, Playwright, and Hugging Face |
-| **Registry-Driven Doctor Topics** | Built-in doctor topics keep their existing flags while sharing one internal registry for topic names, defaults, matching logic, recommendations, and optional probes |
-| **Historical Diff** | Compare scan snapshots to answer "what grew?" and track cleanup effectiveness |
-| **Growth Anomaly Detection** | Detect paths whose growth exceeds both absolute and relative thresholds for local scheduled governance |
-| **Cross-Platform Scheduled Governance** | Schedule local governance via Windows Task Scheduler, cron, launchd, or systemd timer without adding a background daemon; v1.4.0 ships local-file and generic webhook delivery, while current-branch docs also cover the Feishu adapter foundation |
-| **Community Rules** | Load custom rule repositories via `--rules-repo` (local directory or HTTPS git URL) |
-| **Agent-Friendly Output** | JSON and Markdown outputs designed for both human reading and AI agent consumption |
-| **Operability Metadata** | Reports include the active policy snapshot and mark partial sizes as `best-effort, not exact` when depth limits or unreadable descendants prevent complete traversal |
-| **Cross-Disk Safety** | Quarantine handles cross-drive moves with copy+delete fallback when rename fails |
-
----
-
-## Installation
+- **Complete workflow** — scan, plan, clean, restore, doctor, diff
 
 ### Option 1: Pre-built Binary (Recommended — No Rust Required)
 

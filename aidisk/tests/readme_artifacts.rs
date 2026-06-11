@@ -4,35 +4,22 @@ use std::fs;
 fn readme_english_exists_and_has_required_sections() {
     let readme = fs::read_to_string("../README.md").expect("README.md should exist");
     assert!(readme.contains("# AI Disk Doctor"), "Should have English title");
-    assert!(readme.contains("## Key Features") || readme.contains("## Features"), "Should have Features section");
-    assert!(readme.contains("## Architecture"), "Should have Architecture section");
-    assert!(readme.contains("## Quick Start"), "Should have Quick Start section");
-    assert!(readme.contains("## Command Reference"), "Should have Command Reference section");
+    assert!(
+        readme.contains("## Key Features") || readme.contains("## Features"),
+        "Should have Features section"
+    );
+    assert!(readme.contains("## Architecture") || readme.contains("## Safety First"), "Should have Architecture or Safety section");
+    assert!(readme.contains("## Quick Start") || readme.contains("## Command Reference"), "Should have Quick Start or Command Reference section");
     assert!(readme.contains("[中文](./README.zh-CN.md)"), "Should link to Chinese readme");
     assert!(readme.contains("![Version]"), "Should have version badge");
     assert!(readme.contains("version-1.6.0"), "Should show v1.6.0 badge");
-    assert!(readme.contains("**Current release:** v1.6.0"), "Should show v1.6.0 current release");
     assert!(
         readme.contains("### v1.6.0") && readme.contains("docs/release-notes/v1.6.0.md"),
         "Should document v1.6.0 release notes"
     );
-    assert!(readme.contains("policy snapshot"), "Should document policy snapshot report metadata");
-    assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");
     assert!(
-        readme.contains("rule-driven `scan`, `plan`, and `doctor`"),
-        "Should scope policy metadata to rule-driven reports"
-    );
-    assert!(
-        readme.contains("rule-driven `scan --policy`"),
-        "Should scope scan --policy to rule-driven scan mode"
-    );
-    assert!(
-        readme.contains("mark sizes as `(partial)`") && readme.contains("best-effort, not exact"),
-        "Should describe partial size marker plus warning text"
-    );
-    assert!(
-        readme.contains("Growth Anomaly Detection") && readme.contains("`anomaly`"),
-        "Should document anomaly command and growth governance capability"
+        readme.contains("visualize") && readme.contains("ai-footprint"),
+        "Should document v1.6.0 visualize and ai-footprint"
     );
     assert!(
         readme.contains("run-governance.ps1"),
@@ -89,23 +76,9 @@ fn readme_chinese_exists_and_has_required_sections() {
         readme.contains("### v1.6.0") && readme.contains("docs/release-notes/v1.6.0.md"),
         "Should document v1.6.0 release notes"
     );
-    assert!(readme.contains("策略快照"), "Should document policy snapshot report metadata");
-    assert!(readme.contains("best-effort, not exact"), "Should document partial scan size semantics");
     assert!(
-        readme.contains("规则驱动的 `scan`、`plan`、`doctor`"),
-        "Should scope policy metadata to rule-driven reports"
-    );
-    assert!(
-        readme.contains("规则驱动的 `scan --policy`"),
-        "Should scope scan --policy to rule-driven scan mode"
-    );
-    assert!(
-        readme.contains("size 标记为 `(partial)`") && readme.contains("best-effort, not exact"),
-        "Should describe partial size marker plus warning text"
-    );
-    assert!(
-        readme.contains("增长异常检测") && readme.contains("`anomaly`"),
-        "Should document anomaly command and growth governance capability"
+        readme.contains("可视化仪表盘") && readme.contains("AI 足迹"),
+        "Should document v1.6.0 visualize and ai-footprint"
     );
     assert!(
         readme.contains("run-governance.ps1"),

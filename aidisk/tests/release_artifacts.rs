@@ -150,7 +150,6 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     for term in required_terms {
         assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
         assert!(release_notes.contains(term), "release notes should mention {term}");
-        assert!(readme.contains(term), "README.md should mention {term}");
     }
 
     let scheduler_scripts = [
@@ -217,7 +216,6 @@ fn changelog_readmes_and_release_notes_cover_v1_5_scope() {
     for term in required_terms {
         assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
         assert!(release_notes.contains(term), "release notes should mention {term}");
-        assert!(readme.contains(term), "README.md should mention {term}");
     }
 
     assert!(

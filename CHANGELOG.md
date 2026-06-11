@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Phase 16 M1: New AI Tool Coverage Rules
+
+- Added `gpu-runners.yaml` — GPU inference runner caches (LM Studio, llama.cpp) with cross-platform paths.
+- Added `ai-coding-agents.yaml` — AI coding agent CLI state (Claude Code, Codex CLI, Gemini CLI).
+- Added `mcp-servers.yaml` — MCP server installations and runtime caches with cross-platform paths.
+- Added `ai-ides-next.yaml` — Next-gen AI IDE and extension state (Roo Code, Codeium).
+- Updated category map to include `ai-model` for GPU runner rules.
+
 ## 1.5.0
 
 - Added Cross-Platform Governance with Feishu notifier delivery, governance reliability (dedup + retry), a comprehensive user manual, and cross-platform CI.

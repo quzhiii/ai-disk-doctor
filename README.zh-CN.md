@@ -57,7 +57,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 |-----------|-------------|
 | **智能扫描** | 发现 AI 模型、IDE、CLI、浏览器、Docker、WSL、开发产物的空间占用 |
 | **AI 感知规则** | 25 条 YAML 规则覆盖 200+ 路径：Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
-| **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可安全回收清单 |
+| **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **AI 足迹报告** | `doctor --ai-footprint` 聚合 10 个 AI 类别发现，给出可执行建议 |
 | **跨平台** | 支持 Windows、Linux、macOS，为所有 AI 工具提供平台原生路径 |
 | **规则驱动分类** | 25 条规则，风险等级：`safe`、`review`、`dangerous`。无硬编码路径 |
@@ -80,7 +80,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 | **跨平台** | Agent 行为因 OS 而异 | Windows / Linux / macOS 同一规则、同一输出 |
 | **自动化治理** | 需要手动反复执行 | 通过 Task Scheduler / cron / launchd / systemd timer 自动调度，含异常检测 |
 | **AI 工具识别** | 依赖已知工具，容易遗漏新工具 | 25 条规则覆盖 Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
-| **仪表盘** | 无；只有原始 CLI 输出 | 可视化 HTML 仪表盘，支持中英双语、类别筛选、可安全回收清单 |
+| **仪表盘** | 无；只有原始 CLI 输出 | 可视化 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **时间成本** | 每次清理需 30-60 分钟 | 5 秒扫描，完整报告秒出 |
 
 ---
@@ -89,10 +89,10 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 ### v1.6.0
 
-- **可视化仪表盘** — `aidisk visualize --html`：交互式中英双语 HTML 仪表盘，支持类别筛选和可安全回收清单
+- **可视化仪表盘** — `aidisk visualize --html`：交互式中英双语 HTML 仪表盘，支持类别筛选和可执行隔离候选清单
 - **AI 足迹** — `doctor --ai-footprint`：聚合 10 个 AI 类别发现
 - **5 条新 AI 规则** — GPU 推理运行器、AI 编程助手、MCP 服务器、新一代 IDE、CUDA/cuDNN 运行时
-- **模型文件检测** — GGUF/SafeTensors/ONNX/MLX glob 匹配，标记为安全
+- **模型文件检测** — GGUF/SafeTensors/ONNX/MLX glob 匹配，在来源未确认前标记为需评估且仅报告
 - **跨平台规则** — 6 条规则升级为 Windows/Linux/macOS 多平台格式
 
 完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.6.0](./docs/release-notes/v1.6.0.md)。

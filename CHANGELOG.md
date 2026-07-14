@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added scan and plan summary schema v2 fields to separate observed, potential, actionable, quarantine-ready, official/manual cleanup, report-only, and partial bytes.
+- Changed planner semantics so `report-only`, `guide`, and `partial` findings do not enter executable cleanup candidates.
+- Updated the visual dashboard reclaim checklist to use quarantine-ready entries instead of treating all `risk: safe` entries as cleanup-ready.
+- Changed generic model file detection (`.gguf`, `.safetensors`, `.onnx`, `.mlx`) to `risk: review` with `cleanup.method: report-only` so unknown or custom models are not shown as safe-to-clean.
+- Added `docs/report-schema.md` to document summary v2 semantics for downstream agents and JSON consumers.
+- Hardened quarantine execution with platform-native destination paths, root containment checks, source/destination nesting guards, versioned execution indexes, execution stages, and copy-verify-remove fallback for rename failures.
+
 ## 1.6.0
 
 - Added `aidisk visualize --html` to generate an interactive Swiss Style HTML dashboard with bilingual Chinese/English support, category filtering, tool detail expansion, KPI tooltips, and a safe reclaim checklist.

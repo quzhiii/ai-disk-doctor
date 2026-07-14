@@ -57,7 +57,7 @@ fn visualize_html_has_bilingual_support() {
 
     fs::write(
         reports_dir.join("scan-20260611-103000-000.json"),
-        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
     )
     .expect("scan json should be written");
 
@@ -89,7 +89,7 @@ fn visualize_html_has_interactive_js() {
 
     fs::write(
         reports_dir.join("scan-20260611-103000-000.json"),
-        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
     )
     .expect("scan json should be written");
 

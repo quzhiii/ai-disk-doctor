@@ -46,11 +46,19 @@ pub struct Finding {
     pub warnings: Vec<String>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Summary {
+    pub schema_version: u16,
     pub total_rules: usize,
     pub matched_paths: usize,
     pub total_size_bytes: u64,
+    pub observed_bytes: u64,
+    pub potential_bytes: u64,
+    pub actionable_bytes: u64,
+    pub quarantine_bytes: u64,
+    pub official_cleanup_bytes: u64,
+    pub report_only_bytes: u64,
+    pub partial_bytes: u64,
     pub safe_bytes: u64,
     pub review_bytes: u64,
     pub dangerous_bytes: u64,
@@ -58,6 +66,31 @@ pub struct Summary {
     pub top_findings: Vec<TopFinding>,
     pub reclaimable_safe_bytes: u64,
     pub partial_findings: usize,
+}
+
+impl Default for Summary {
+    fn default() -> Self {
+        Self {
+            schema_version: 2,
+            total_rules: 0,
+            matched_paths: 0,
+            total_size_bytes: 0,
+            observed_bytes: 0,
+            potential_bytes: 0,
+            actionable_bytes: 0,
+            quarantine_bytes: 0,
+            official_cleanup_bytes: 0,
+            report_only_bytes: 0,
+            partial_bytes: 0,
+            safe_bytes: 0,
+            review_bytes: 0,
+            dangerous_bytes: 0,
+            system_bytes: 0,
+            top_findings: Vec::new(),
+            reclaimable_safe_bytes: 0,
+            partial_findings: 0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -146,12 +179,19 @@ where
                     summary.total_size_bytes = summary.total_size_bytes.saturating_add(size_bytes);
                     if computed_size.partial {
                         summary.partial_findings += 1;
+                        summary.partial_bytes = summary.partial_bytes.saturating_add(size_bytes);
+                    } else {
+                        summary.observed_bytes = summary.observed_bytes.saturating_add(size_bytes);
+                        update_action_metrics(
+                            &mut summary,
+                            &rule.cleanup.method,
+                            &rule.risk,
+                            size_bytes,
+                        );
                     }
                     match rule.risk {
                         RiskLevel::Safe => {
                             summary.safe_bytes = summary.safe_bytes.saturating_add(size_bytes);
-                            summary.reclaimable_safe_bytes =
-                                summary.reclaimable_safe_bytes.saturating_add(size_bytes);
                         }
                         RiskLevel::Review => {
                             summary.review_bytes = summary.review_bytes.saturating_add(size_bytes);
@@ -209,6 +249,28 @@ where
         findings,
         summary,
     })
+}
+
+fn update_action_metrics(summary: &mut Summary, action: &str, risk: &RiskLevel, size_bytes: u64) {
+    match action {
+        "quarantine" => {
+            summary.potential_bytes = summary.potential_bytes.saturating_add(size_bytes);
+            summary.actionable_bytes = summary.actionable_bytes.saturating_add(size_bytes);
+            summary.quarantine_bytes = summary.quarantine_bytes.saturating_add(size_bytes);
+            if *risk == RiskLevel::Safe {
+                summary.reclaimable_safe_bytes =
+                    summary.reclaimable_safe_bytes.saturating_add(size_bytes);
+            }
+        }
+        "guide" => {
+            summary.potential_bytes = summary.potential_bytes.saturating_add(size_bytes);
+            summary.official_cleanup_bytes = summary.official_cleanup_bytes.saturating_add(size_bytes);
+        }
+        "report-only" => {
+            summary.report_only_bytes = summary.report_only_bytes.saturating_add(size_bytes);
+        }
+        _ => {}
+    }
 }
 
 fn resolve_rule_paths(path: &Path) -> Result<Vec<PathBuf>> {
@@ -354,6 +416,96 @@ mod tests {
 
         assert_eq!(finding.size_bytes, 42);
         assert_eq!(finding.risk, RiskLevel::Safe);
+    }
+
+    #[test]
+    fn scan_summary_v2_splits_observed_action_and_partial_bytes() {
+        let temp = tempdir().expect("tempdir should exist");
+        let quarantine_root = temp.path().join("quarantine-cache");
+        let report_only_root = temp.path().join("report-only-cache");
+        let guide_root = temp.path().join("official-cache");
+        let partial_root = temp.path().join("partial-cache");
+        let partial_nested = partial_root.join("nested");
+        fs::create_dir_all(&quarantine_root).expect("quarantine root should exist");
+        fs::create_dir_all(&report_only_root).expect("report-only root should exist");
+        fs::create_dir_all(&guide_root).expect("guide root should exist");
+        fs::create_dir_all(&partial_nested).expect("partial nested should exist");
+        fs::write(quarantine_root.join("cache.bin"), vec![0_u8; 10]).expect("cache should write");
+        fs::write(report_only_root.join("state.bin"), vec![0_u8; 20]).expect("state should write");
+        fs::write(guide_root.join("model.bin"), vec![0_u8; 30]).expect("model should write");
+        fs::write(partial_nested.join("hidden.bin"), vec![0_u8; 40]).expect("hidden should write");
+
+        let rules = vec![
+            crate::rules::Rule {
+                id: "quarantine".to_string(),
+                name: "Quarantine".to_string(),
+                category: "test".to_string(),
+                platform: "cross-platform".to_string(),
+                paths: vec![quarantine_root.display().to_string()],
+                risk: RiskLevel::Safe,
+                cleanup: crate::rules::Cleanup {
+                    method: "quarantine".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "cache".to_string(),
+                warnings: Vec::new(),
+            },
+            crate::rules::Rule {
+                id: "report".to_string(),
+                name: "Report".to_string(),
+                category: "test".to_string(),
+                platform: "cross-platform".to_string(),
+                paths: vec![report_only_root.display().to_string()],
+                risk: RiskLevel::Safe,
+                cleanup: crate::rules::Cleanup {
+                    method: "report-only".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "report".to_string(),
+                warnings: Vec::new(),
+            },
+            crate::rules::Rule {
+                id: "guide".to_string(),
+                name: "Guide".to_string(),
+                category: "test".to_string(),
+                platform: "cross-platform".to_string(),
+                paths: vec![guide_root.display().to_string()],
+                risk: RiskLevel::Review,
+                cleanup: crate::rules::Cleanup {
+                    method: "guide".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "guide".to_string(),
+                warnings: Vec::new(),
+            },
+            crate::rules::Rule {
+                id: "partial".to_string(),
+                name: "Partial".to_string(),
+                category: "test".to_string(),
+                platform: "cross-platform".to_string(),
+                paths: vec![partial_root.display().to_string()],
+                risk: RiskLevel::Safe,
+                cleanup: crate::rules::Cleanup {
+                    method: "quarantine".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "partial".to_string(),
+                warnings: Vec::new(),
+            },
+        ];
+
+        let report = super::scan(&rules, 1).expect("scan should succeed");
+
+        assert_eq!(report.summary.schema_version, 2);
+        assert_eq!(report.summary.total_size_bytes, 60);
+        assert_eq!(report.summary.observed_bytes, 60);
+        assert_eq!(report.summary.potential_bytes, 40);
+        assert_eq!(report.summary.actionable_bytes, 10);
+        assert_eq!(report.summary.quarantine_bytes, 10);
+        assert_eq!(report.summary.reclaimable_safe_bytes, 10);
+        assert_eq!(report.summary.report_only_bytes, 20);
+        assert_eq!(report.summary.official_cleanup_bytes, 30);
+        assert_eq!(report.summary.partial_bytes, 0);
     }
 
     #[test]

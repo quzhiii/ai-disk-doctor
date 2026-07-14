@@ -457,7 +457,7 @@ Phase 16 status: Completed
 
 ### M2: 检测精度提升 — Completed
 
-- 新增 `aidisk/rules/model-files.yaml`：glob 匹配 GGUF/SafeTensors/ONNX/MLX 格式的模型文件，标记为 `risk: safe`
+- 新增 `aidisk/rules/model-files.yaml`：glob 匹配 GGUF/SafeTensors/ONNX/MLX 格式的模型文件；v1.7 语义修正后，未知模型文件应保持 `risk: review` + `report-only`
 - 增强 `models.yaml` 和 `huggingface.yaml` 的 actionable 清理建议
 
 ### M3: Linux/macOS 规则补全 — Completed
@@ -485,7 +485,7 @@ Phase 17 status: Completed
 
 - 新增 `aidisk/src/visualize.rs`：读取 scan 数据，生成自包含 HTML。
 - 设计遵循瑞士国际主义风格（Inter 字体、IKB accent、无圆角/阴影）。
-- KPI 大字报 + 风险三色卡片 + 类别 treemap + 工具柱状图 + 可安全回收清单。
+- KPI 大字报 + 风险三色卡片 + 类别 treemap + 工具柱状图 + 可执行隔离候选清单。
 
 ### M2: 交互与本地化 — Completed
 
@@ -493,7 +493,7 @@ Phase 17 status: Completed
 - 类别筛选（点击 treemap 块过滤柱状图）。
 - 工具展开（点击柱状图显示详细路径和建议）。
 - KPI tooltip 悬停说明。
-- 可安全回收清单（按工具聚合 + checkbox + 动态统计）。
+- 可执行隔离候选清单（按工具聚合 + checkbox + 动态统计）。
 - 响应式设计。
 
 ### M3: doctor --ai-footprint — Completed

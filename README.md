@@ -57,7 +57,7 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 |-----------|-------------|
 | **Intelligent Scanning** | Discover space usage across AI models, IDEs, CLIs, browsers, Docker, WSL, and dev artifacts |
 | **AI-Aware Rules** | 25 YAML rules covering 200+ paths: Claude, Codex, Gemini, Ollama, LM Studio, MCP servers, CUDA, etc. |
-| **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, safe reclaim checklist |
+| **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, and quarantine-ready checklist |
 | **AI Footprint Report** | `doctor --ai-footprint` aggregates all AI findings across 10 categories with actionable recommendations |
 | **Cross-Platform** | Windows, Linux, macOS with platform-native paths for all AI tools |
 | **Rule-Driven Classification** | 25 rules with risk levels: `safe`, `review`, `dangerous`. No hardcoded paths. |
@@ -89,10 +89,10 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ### v1.6.0
 
-- **Visual dashboard** — `aidisk visualize --html`: interactive bilingual HTML dashboard with category filtering and safe reclaim checklist
+- **Visual dashboard** — `aidisk visualize --html`: interactive bilingual HTML dashboard with category filtering and quarantine-ready checklist
 - **AI footprint** — `doctor --ai-footprint`: aggregates all AI findings across 10 categories
 - **5 new AI rules** — GPU runners, coding agents, MCP servers, next-gen IDEs, CUDA/cuDNN runtime
-- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: safe`
+- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: review` and `report-only` semantics until provenance is known
 - **Cross-platform rules** — 6 rules upgraded to Windows/Linux/macOS
 
 Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`](./docs/release-notes/v1.6.0.md).

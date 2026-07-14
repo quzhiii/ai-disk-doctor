@@ -47,9 +47,15 @@ User / AI Agent
 
 ### Cleaner
 - **Quarantine**: Moves files to `--quarantine-root` with index tracking
-  - Cross-disk fallback: `rename` fails → `copy + delete`
-  - Generates quarantine index (JSON) for restore
+  - Uses platform-native `Path::join` for destination paths
+  - Validates containment so destinations stay under the quarantine root
+  - Blocks source/destination nesting and sources already inside quarantine
+  - Same-filesystem path: attempts `rename` first
+  - Fallback path: `copy -> verify file/dir/byte stats -> remove source`
+  - Generates versioned quarantine index (JSON) for restore
 - **Restore**: Reads quarantine index, validates structure
+  - Supports legacy `moved` and current `quarantined` statuses
+  - Uses `rename` first, then verified copy-back fallback
   - Skips conflicts (destination exists) → `skipped-conflict`
   - Validates root/results/status paths before execution
 - All mutations require explicit `--yes`; default is `--dry-run`

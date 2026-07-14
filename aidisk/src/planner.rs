@@ -24,14 +24,39 @@ pub struct PlanReport {
     pub skipped: Vec<SkippedItem>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct PlanSummary {
+    pub schema_version: u16,
     pub total_findings: usize,
     pub eligible_candidates: usize,
     pub skipped_findings: usize,
     pub reclaimable_bytes: u64,
+    pub actionable_bytes: u64,
+    pub quarantine_bytes: u64,
+    pub report_only_bytes: u64,
+    pub official_cleanup_bytes: u64,
     pub blocked_sensitive_paths: usize,
     pub skipped_recently_modified: usize,
+    pub skipped_partial_findings: usize,
+}
+
+impl Default for PlanSummary {
+    fn default() -> Self {
+        Self {
+            schema_version: 2,
+            total_findings: 0,
+            eligible_candidates: 0,
+            skipped_findings: 0,
+            reclaimable_bytes: 0,
+            actionable_bytes: 0,
+            quarantine_bytes: 0,
+            report_only_bytes: 0,
+            official_cleanup_bytes: 0,
+            blocked_sensitive_paths: 0,
+            skipped_recently_modified: 0,
+            skipped_partial_findings: 0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -87,6 +112,20 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
             if reason.contains("recently modified") {
                 summary.skipped_recently_modified += 1;
             }
+            if reason.contains("partial scan result") {
+                summary.skipped_partial_findings += 1;
+            }
+            match finding.action.as_str() {
+                "report-only" if finding.exists && finding.size_bytes > 0 && !finding.partial => {
+                    summary.report_only_bytes =
+                        summary.report_only_bytes.saturating_add(finding.size_bytes);
+                }
+                "guide" if finding.exists && finding.size_bytes > 0 && !finding.partial => {
+                    summary.official_cleanup_bytes =
+                        summary.official_cleanup_bytes.saturating_add(finding.size_bytes);
+                }
+                _ => {}
+            }
             skipped.push(SkippedItem {
                 id: finding.id.clone(),
                 path: finding.path.clone(),
@@ -99,6 +138,10 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
 
         summary.eligible_candidates += 1;
         summary.reclaimable_bytes = summary.reclaimable_bytes.saturating_add(finding.size_bytes);
+        summary.actionable_bytes = summary.actionable_bytes.saturating_add(finding.size_bytes);
+        if finding.action == "quarantine" {
+            summary.quarantine_bytes = summary.quarantine_bytes.saturating_add(finding.size_bytes);
+        }
         candidates.push(PlanCandidate {
             id: finding.id.clone(),
             path: finding.path.clone(),
@@ -142,6 +185,15 @@ fn skip_reason(finding: &Finding, options: &PlanOptions) -> Option<String> {
     }
     if finding.size_bytes == 0 {
         return Some("path has no reclaimable size".to_string());
+    }
+    if finding.partial {
+        return Some("partial scan result cannot enter executable plan".to_string());
+    }
+    if finding.action == "report-only" {
+        return Some("report-only action is informational and not executable".to_string());
+    }
+    if finding.action == "guide" {
+        return Some("guide action requires official or manual cleanup outside quarantine".to_string());
     }
     if !options
         .policy
@@ -308,12 +360,14 @@ mod tests {
         assert_eq!(plan.summary.eligible_candidates, 1);
         assert_eq!(plan.summary.skipped_findings, 1);
         assert_eq!(plan.summary.reclaimable_bytes, 100);
+        assert_eq!(plan.summary.actionable_bytes, 100);
+        assert_eq!(plan.summary.quarantine_bytes, 100);
         assert_eq!(plan.candidates.len(), 1);
         assert_eq!(plan.candidates[0].id, "safe-cache");
     }
 
     #[test]
-    fn non_safe_only_plan_keeps_existing_positive_size_candidates() {
+    fn non_safe_only_plan_skips_guide_items_from_executable_candidates() {
         let report = ScanReport {
             scan_time: Local::now(),
             policy: None,
@@ -360,10 +414,77 @@ mod tests {
             },
         );
 
-        assert_eq!(plan.summary.eligible_candidates, 1);
-        assert_eq!(plan.summary.skipped_findings, 1);
-        assert_eq!(plan.summary.reclaimable_bytes, 300);
-        assert_eq!(plan.candidates[0].id, "system-guide");
+        assert_eq!(plan.summary.eligible_candidates, 0);
+        assert_eq!(plan.summary.skipped_findings, 2);
+        assert_eq!(plan.summary.reclaimable_bytes, 0);
+        assert_eq!(plan.summary.actionable_bytes, 0);
+        assert_eq!(plan.summary.quarantine_bytes, 0);
+        assert_eq!(plan.summary.official_cleanup_bytes, 300);
+        assert!(plan.candidates.is_empty());
+    }
+
+    #[test]
+    fn plan_skips_report_only_and_partial_findings_from_executable_candidates() {
+        let report = ScanReport {
+            scan_time: Local::now(),
+            policy: None,
+            volumes: Vec::<Volume>::new(),
+            findings: vec![
+                Finding {
+                    id: "report-only-safe".to_string(),
+                    name: "Report-only safe".to_string(),
+                    category: "ai-model".to_string(),
+                    path: "C:\\model.gguf".to_string(),
+                    exists: true,
+                    size_bytes: 400,
+                    partial: false,
+                    partial_reasons: Vec::new(),
+                    risk: RiskLevel::Safe,
+                    action: "report-only".to_string(),
+                    reason: "custom model".to_string(),
+                    warnings: Vec::new(),
+                },
+                Finding {
+                    id: "partial-cache".to_string(),
+                    name: "Partial cache".to_string(),
+                    category: "dev-cache".to_string(),
+                    path: "C:\\partial".to_string(),
+                    exists: true,
+                    size_bytes: 500,
+                    partial: true,
+                    partial_reasons: vec!["max scan depth reached".to_string()],
+                    risk: RiskLevel::Safe,
+                    action: "quarantine".to_string(),
+                    reason: "partial cache".to_string(),
+                    warnings: Vec::new(),
+                },
+            ],
+            summary: Summary::default(),
+        };
+
+        let plan = build_plan(
+            &report,
+            PlanOptions {
+                safe_only: false,
+                skip_modified_within_minutes: 0,
+                policy: test_policy(),
+            },
+        );
+
+        assert_eq!(plan.summary.eligible_candidates, 0);
+        assert_eq!(plan.summary.actionable_bytes, 0);
+        assert_eq!(plan.summary.quarantine_bytes, 0);
+        assert_eq!(plan.summary.report_only_bytes, 400);
+        assert_eq!(plan.summary.skipped_partial_findings, 1);
+        assert!(plan.candidates.is_empty());
+        assert!(plan
+            .skipped
+            .iter()
+            .any(|item| item.reason.contains("report-only action")));
+        assert!(plan
+            .skipped
+            .iter()
+            .any(|item| item.reason.contains("partial scan result")));
     }
 
     #[test]

@@ -423,6 +423,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 - `scan --json` 会在 `summary.rule_sources` 中记录每条已加载规则的路径、schema 版本和 digest。
 - 模型文件和未知模型缓存仍保持 review/report-only，除非规则明确提供更安全的动作。
 - `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face 官方索引。
+- 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系；无法确认来源的资产仍保持 `report-only`。
 
 ### 默认行为
 

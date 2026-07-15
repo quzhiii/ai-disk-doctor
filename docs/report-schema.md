@@ -89,4 +89,22 @@ modify third-party indexes. The report includes:
 | `assets[].reclaim_confidence` | Explanatory score only; it does not authorize cleanup. |
 | `nodes` / `edges` | Minimal in-memory provenance graph for tools, models, and revisions. |
 
+When a small local index can be parsed without reading model contents, the inventory also adds
+reference evidence:
+
+| Field | Meaning |
+|---|---|
+| `assets[].state = managed-cache-referenced` | A parsed Hugging Face ref or Ollama manifest resolves to the asset or its physical blob. |
+| `assets[].state = detached-revision` | A Hugging Face snapshot revision exists, but no parsed ref points to that revision. |
+| `assets[].state = orphan-blob` | A parsed local index exists, but no reference points to the blob. |
+| `assets[].state = incomplete-download` | The asset has a conservative incomplete-download filename marker. |
+| `summary.referenced_assets` | Count of assets resolved from parsed local references. |
+| `summary.detached_revision_assets` | Count of snapshot assets with no parsed Hugging Face ref. |
+| `summary.orphan_blob_assets` | Count of blobs unreferenced by a successfully parsed local index. |
+| `summary.incomplete_download_assets` | Count of assets with an incomplete-download marker. |
+| `edges` | May include `resolves-to`, `has-manifest`, `part-of`, `belongs-to`, and `references` relations. |
+
+Index parsing is bounded to small local metadata files. Missing, unreadable, or invalid indexes do
+not cause assets to be classified as orphaned or safe to reclaim. All actions remain `report-only`.
+
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.

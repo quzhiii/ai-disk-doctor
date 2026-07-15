@@ -315,6 +315,8 @@ content_access: metadata-only
 
 `aidisk models inventory` 提供只读的模型资产 inventory 基础：支持显式 root、Ollama、Hugging Face 和通用模型文件识别，输出逻辑大小、独占/共享物理大小、格式、管理工具、revision、状态、可恢复性、疑似自定义模型、reclaim confidence 和最小 provenance graph。当前版本不读取模型内容，不调用外部工具，不修改官方索引，未知模型始终 `report-only`。
 
+当前实现还会在元数据文件较小且格式有效时解析 Hugging Face `refs`、snapshot/blob 的本地关系，以及 Ollama manifest/blob 的本地关系。解析失败、索引缺失或关系不完整时保持保守状态，不将资产升级为可回收对象。
+
 统一展示：
 
 - 模型逻辑名称；
@@ -382,11 +384,11 @@ Adapter 职责：
 
 ## 4.5 状态识别
 
-- [ ] active / referenced；
+- [x] referenced（基于本地 refs / manifest 的基础识别）；
 - [ ] stale；
-- [ ] detached revision；
-- [ ] orphan blob；
-- [ ] incomplete download；
+- [x] detached revision（Hugging Face ref 缺失时的基础识别）；
+- [x] orphan blob（仅在本地索引成功解析后识别）；
+- [x] incomplete download（基于文件名标记的基础识别）；
 - [ ] duplicate logical model；
 - [x] shared physical blob 基础去重；
 - [x] unknown custom model 基础识别；

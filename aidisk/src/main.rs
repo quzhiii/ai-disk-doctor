@@ -621,6 +621,19 @@ fn run(cli: Cli) -> Result<()> {
                         "- Shared Physical Bytes: {}",
                         format_inventory_bytes(report.summary.shared_physical_bytes)
                     );
+                    println!("- Referenced Assets: {}", report.summary.referenced_assets);
+                    println!(
+                        "- Detached Revision Assets: {}",
+                        report.summary.detached_revision_assets
+                    );
+                    println!(
+                        "- Orphan Blob Assets: {}",
+                        report.summary.orphan_blob_assets
+                    );
+                    println!(
+                        "- Incomplete Download Assets: {}",
+                        report.summary.incomplete_download_assets
+                    );
                     println!();
                     println!("| Model | Format | Manager | State | Size | Action |");
                     println!("|---|---|---|---|---:|---|");
@@ -650,6 +663,16 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "Shared Physical Bytes: {}",
                         format_inventory_bytes(report.summary.shared_physical_bytes)
+                    );
+                    println!("Referenced Assets: {}", report.summary.referenced_assets);
+                    println!(
+                        "Detached Revision Assets: {}",
+                        report.summary.detached_revision_assets
+                    );
+                    println!("Orphan Blob Assets: {}", report.summary.orphan_blob_assets);
+                    println!(
+                        "Incomplete Download Assets: {}",
+                        report.summary.incomplete_download_assets
                     );
                     for asset in report.assets {
                         println!(

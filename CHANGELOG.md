@@ -13,6 +13,7 @@
 - Added Rule Schema v2 compatibility loading and validation with separated detector, decision, and action fields; migrated model cache and model file rules while retaining v1 rule loading.
 - Added `aidisk rules lint` and scan rule source metadata with SHA-256 digests for rule provenance.
 - Added read-only `aidisk models inventory` for conservative model asset discovery, logical versus physical size reporting, basic shared-path accounting, custom-model detection, and provenance graph output.
+- Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
 
 ## 1.6.0
 

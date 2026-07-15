@@ -425,6 +425,7 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - `scan --json` records each loaded rule's path, schema version, and digest under `summary.rule_sources`.
 - Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
 - `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face indexes.
+- When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships; unresolved or unknown assets remain `report-only`.
 
 ### Default Behavior
 

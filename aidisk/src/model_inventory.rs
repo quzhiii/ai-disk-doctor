@@ -12,7 +12,7 @@ use std::os::windows::io::AsRawHandle;
 use anyhow::Result;
 use chrono::{DateTime, Local, Utc};
 use clap::ValueEnum;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
@@ -83,6 +83,10 @@ pub struct InventorySummary {
     pub exclusive_physical_bytes: u64,
     pub shared_physical_bytes: u64,
     pub managed_assets: usize,
+    pub referenced_assets: usize,
+    pub detached_revision_assets: usize,
+    pub orphan_blob_assets: usize,
+    pub incomplete_download_assets: usize,
     pub unknown_custom_assets: usize,
     pub report_only_assets: usize,
 }
@@ -105,6 +109,39 @@ pub struct ProvenanceEdge {
 struct PhysicalPath {
     size_bytes: u64,
     references: usize,
+}
+
+#[derive(Debug)]
+struct AssetRecord {
+    asset: ModelAsset,
+    path: PathBuf,
+    physical_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaManifest {
+    #[serde(default)]
+    config: Option<OllamaDescriptor>,
+    #[serde(default)]
+    layers: Vec<OllamaDescriptor>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaDescriptor {
+    digest: Option<String>,
+}
+
+#[derive(Debug, Default)]
+struct InventoryAnalysis {
+    referenced_asset_ids: HashSet<String>,
+    referenced_physical_keys: HashSet<String>,
+    detached_revision_asset_ids: HashSet<String>,
+    orphan_blob_asset_ids: HashSet<String>,
+    incomplete_download_asset_ids: HashSet<String>,
+    nodes: Vec<ProvenanceNode>,
+    edges: Vec<ProvenanceEdge>,
+    node_ids: HashSet<String>,
+    edge_ids: HashSet<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -138,8 +175,8 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
     let mut assets = Vec::new();
     let mut physical_paths: HashMap<String, PhysicalPath> = HashMap::new();
 
-    for root in root_paths {
-        let detected = detect_tool(&root, options.tool);
+    for root in &root_paths {
+        let detected = detect_tool(root, options.tool);
         roots.push(InventoryRoot {
             path: root.display().to_string(),
             tool: detected.label().to_string(),
@@ -150,7 +187,7 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             continue;
         }
 
-        for entry in WalkDir::new(&root)
+        for entry in WalkDir::new(root)
             .follow_links(false)
             .max_depth(options.max_depth)
         {
@@ -180,25 +217,73 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                     size_bytes: logical_size_bytes,
                     references: 1,
                 });
-            assets.push((
-                build_asset(path, detected, logical_size_bytes),
+            assets.push(AssetRecord {
+                asset: build_asset(path, detected, logical_size_bytes),
+                path: path.to_path_buf(),
                 physical_key,
-            ));
+            });
         }
     }
 
-    for (asset, physical_key) in &mut assets {
+    let mut analysis = InventoryAnalysis::default();
+    for root in &root_paths {
+        let detected = detect_tool(root, options.tool);
+        match detected {
+            DetectedTool::Huggingface => {
+                analyze_huggingface(root, options.max_depth, &mut assets, &mut analysis)
+            }
+            DetectedTool::Ollama => {
+                analyze_ollama(root, options.max_depth, &mut assets, &mut analysis)
+            }
+            DetectedTool::Generic => {}
+        }
+    }
+
+    for record in &mut assets {
+        let asset = &mut record.asset;
+        let physical_key = &record.physical_key;
         let physical = physical_paths
             .get(physical_key)
             .expect("every asset should have physical accounting");
         let is_shared = physical.references > 1;
         asset.exclusive_physical_size_bytes = if is_shared { 0 } else { physical.size_bytes };
         asset.shared_physical_size_bytes = if is_shared { physical.size_bytes } else { 0 };
+
+        if analysis.incomplete_download_asset_ids.contains(&asset.id) {
+            asset.state = "incomplete-download".to_string();
+        } else if analysis.orphan_blob_asset_ids.contains(&asset.id) {
+            asset.state = "orphan-blob".to_string();
+        } else if analysis.detached_revision_asset_ids.contains(&asset.id) {
+            asset.state = "detached-revision".to_string();
+        } else if analysis.referenced_asset_ids.contains(&asset.id) {
+            asset.state = "managed-cache-referenced".to_string();
+        }
+
+        match asset.state.as_str() {
+            "managed-cache-referenced" => {
+                asset
+                    .positive_evidence
+                    .push("resolved from a local model reference index".to_string());
+                asset
+                    .risk_evidence
+                    .retain(|evidence| evidence != "logical model references were not resolved");
+            }
+            "detached-revision" => asset
+                .risk_evidence
+                .push("snapshot revision is not selected by a parsed ref".to_string()),
+            "orphan-blob" => asset
+                .risk_evidence
+                .push("no parsed local index references this blob".to_string()),
+            "incomplete-download" => asset
+                .risk_evidence
+                .push("filename indicates an incomplete download".to_string()),
+            _ => {}
+        }
     }
 
     let mut assets = assets
         .into_iter()
-        .map(|(asset, _)| asset)
+        .map(|record| record.asset)
         .collect::<Vec<_>>();
     assets.sort_by(|left, right| {
         right
@@ -207,9 +292,10 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             .then_with(|| left.id.cmp(&right.id))
     });
 
-    let mut nodes = Vec::new();
-    let mut edges = Vec::new();
-    let mut node_ids = HashSet::new();
+    let mut nodes = analysis.nodes;
+    let mut edges = analysis.edges;
+    let mut node_ids = analysis.node_ids;
+    let mut edge_ids = analysis.edge_ids;
     for asset in &assets {
         let tool_id = format!("tool:{}", asset.manager);
         push_node(
@@ -230,11 +316,15 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                 label: asset.logical_name.clone(),
             },
         );
-        edges.push(ProvenanceEdge {
-            from: asset.id.clone(),
-            relation: "managed-by".to_string(),
-            to: tool_id,
-        });
+        push_edge(
+            &mut edges,
+            &mut edge_ids,
+            ProvenanceEdge {
+                from: asset.id.clone(),
+                relation: "managed-by".to_string(),
+                to: tool_id,
+            },
+        );
 
         if let Some(revision) = &asset.revision {
             let revision_id = format!("revision:{}@{}", asset.logical_name, revision);
@@ -247,11 +337,15 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                     label: revision.clone(),
                 },
             );
-            edges.push(ProvenanceEdge {
-                from: asset.id.clone(),
-                relation: "belongs-to".to_string(),
-                to: revision_id,
-            });
+            push_edge(
+                &mut edges,
+                &mut edge_ids,
+                ProvenanceEdge {
+                    from: asset.id.clone(),
+                    relation: "belongs-to".to_string(),
+                    to: revision_id,
+                },
+            );
         }
     }
 
@@ -279,6 +373,22 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             managed_assets: assets
                 .iter()
                 .filter(|asset| asset.manager != "generic")
+                .count(),
+            referenced_assets: assets
+                .iter()
+                .filter(|asset| asset.state == "managed-cache-referenced")
+                .count(),
+            detached_revision_assets: assets
+                .iter()
+                .filter(|asset| asset.state == "detached-revision")
+                .count(),
+            orphan_blob_assets: assets
+                .iter()
+                .filter(|asset| asset.state == "orphan-blob")
+                .count(),
+            incomplete_download_assets: assets
+                .iter()
+                .filter(|asset| asset.state == "incomplete-download")
                 .count(),
             unknown_custom_assets: assets
                 .iter()
@@ -330,8 +440,408 @@ fn detect_tool(path: &Path, requested: InventoryTool) -> DetectedTool {
     }
 }
 
+fn analyze_huggingface(
+    root: &Path,
+    max_depth: usize,
+    assets: &mut [AssetRecord],
+    analysis: &mut InventoryAnalysis,
+) {
+    let mut indexed_models = HashSet::new();
+    let mut referenced_snapshots = HashSet::new();
+    let mut parsed_ref_index = false;
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(max_depth) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let Some(refs_dir) = entry.path().parent() else {
+            continue;
+        };
+        if !refs_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("refs"))
+        {
+            continue;
+        }
+        let Some(model_dir) = refs_dir.parent() else {
+            continue;
+        };
+        let Some(model_name) = huggingface_model_name(model_dir) else {
+            continue;
+        };
+        let Ok(metadata) = fs::metadata(entry.path()) else {
+            continue;
+        };
+        if metadata.len() > 1024 * 1024 {
+            continue;
+        }
+        let Ok(revision) = fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        let revision = revision.trim();
+        if revision.is_empty() {
+            continue;
+        }
+
+        parsed_ref_index = true;
+        indexed_models.insert(model_name.clone());
+        referenced_snapshots.insert((model_name.clone(), revision.to_string()));
+        let ref_id = format!("ref:{}", entry.path().display());
+        let revision_id = format!("revision:{}@{}", model_name, revision);
+        push_node(
+            &mut analysis.nodes,
+            &mut analysis.node_ids,
+            ProvenanceNode {
+                id: ref_id.clone(),
+                kind: "ref".to_string(),
+                label: entry.path().display().to_string(),
+            },
+        );
+        push_node(
+            &mut analysis.nodes,
+            &mut analysis.node_ids,
+            ProvenanceNode {
+                id: revision_id.clone(),
+                kind: "revision".to_string(),
+                label: revision.to_string(),
+            },
+        );
+        push_edge(
+            &mut analysis.edges,
+            &mut analysis.edge_ids,
+            ProvenanceEdge {
+                from: ref_id,
+                relation: "resolves-to".to_string(),
+                to: revision_id,
+            },
+        );
+    }
+
+    for record in assets.iter() {
+        if record.asset.manager != "huggingface" {
+            continue;
+        }
+        if is_incomplete_download_path(&record.path) {
+            analysis
+                .incomplete_download_asset_ids
+                .insert(record.asset.id.clone());
+            continue;
+        }
+        let Some(revision) = record.asset.revision.as_deref() else {
+            continue;
+        };
+        let Some(model_name) = huggingface_model_name(&record.path) else {
+            continue;
+        };
+        let snapshot_path = huggingface_snapshot_path(&record.path);
+        if let Some(snapshot_path) = &snapshot_path {
+            let snapshot_id = format!("snapshot:{}", snapshot_path.display());
+            push_node(
+                &mut analysis.nodes,
+                &mut analysis.node_ids,
+                ProvenanceNode {
+                    id: snapshot_id.clone(),
+                    kind: "snapshot".to_string(),
+                    label: snapshot_path.display().to_string(),
+                },
+            );
+            push_edge(
+                &mut analysis.edges,
+                &mut analysis.edge_ids,
+                ProvenanceEdge {
+                    from: record.asset.id.clone(),
+                    relation: "part-of".to_string(),
+                    to: snapshot_id.clone(),
+                },
+            );
+
+            let revision_id = format!("revision:{}@{}", model_name, revision);
+            push_edge(
+                &mut analysis.edges,
+                &mut analysis.edge_ids,
+                ProvenanceEdge {
+                    from: snapshot_id.clone(),
+                    relation: "belongs-to".to_string(),
+                    to: revision_id,
+                },
+            );
+
+            if let Some(blob_record) = assets.iter().find(|candidate| {
+                candidate.asset.manager == "huggingface"
+                    && is_under_directory(&candidate.path, "blobs")
+                    && candidate.physical_key == record.physical_key
+            }) {
+                let blob_id = blob_record.asset.id.clone();
+                analysis
+                    .referenced_physical_keys
+                    .insert(blob_record.physical_key.clone());
+                push_node(
+                    &mut analysis.nodes,
+                    &mut analysis.node_ids,
+                    ProvenanceNode {
+                        id: blob_id.clone(),
+                        kind: "blob".to_string(),
+                        label: blob_record.path.display().to_string(),
+                    },
+                );
+                push_edge(
+                    &mut analysis.edges,
+                    &mut analysis.edge_ids,
+                    ProvenanceEdge {
+                        from: snapshot_id,
+                        relation: "references".to_string(),
+                        to: blob_id,
+                    },
+                );
+            }
+        } else if parsed_ref_index {
+            analysis
+                .detached_revision_asset_ids
+                .insert(record.asset.id.clone());
+        }
+
+        let key = (model_name, revision.to_string());
+        if indexed_models.contains(&key.0) {
+            if referenced_snapshots.contains(&key) {
+                analysis
+                    .referenced_asset_ids
+                    .insert(record.asset.id.clone());
+            } else {
+                analysis
+                    .detached_revision_asset_ids
+                    .insert(record.asset.id.clone());
+            }
+        }
+    }
+
+    if parsed_ref_index {
+        for record in assets.iter() {
+            if record.asset.manager != "huggingface" || !is_under_directory(&record.path, "blobs") {
+                continue;
+            }
+            if is_incomplete_download_path(&record.path) {
+                analysis
+                    .incomplete_download_asset_ids
+                    .insert(record.asset.id.clone());
+            } else if analysis
+                .referenced_physical_keys
+                .contains(&record.physical_key)
+            {
+                analysis
+                    .referenced_asset_ids
+                    .insert(record.asset.id.clone());
+            } else {
+                analysis
+                    .orphan_blob_asset_ids
+                    .insert(record.asset.id.clone());
+            }
+        }
+    }
+}
+
+fn analyze_ollama(
+    root: &Path,
+    max_depth: usize,
+    assets: &mut [AssetRecord],
+    analysis: &mut InventoryAnalysis,
+) {
+    let mut parsed_manifest = false;
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(max_depth) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if !entry.file_type().is_file() || !is_ollama_manifest(entry.path()) {
+            continue;
+        }
+        let Ok(metadata) = fs::metadata(entry.path()) else {
+            continue;
+        };
+        if metadata.len() > 1024 * 1024 {
+            continue;
+        }
+        let Ok(content) = fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        let Ok(manifest) = serde_json::from_str::<OllamaManifest>(&content) else {
+            continue;
+        };
+        parsed_manifest = true;
+
+        let manifest_id = format!("manifest:{}", entry.path().display());
+        let model_name = ollama_model_name(entry.path());
+        let model_id = format!("ollama-model:{model_name}");
+        push_node(
+            &mut analysis.nodes,
+            &mut analysis.node_ids,
+            ProvenanceNode {
+                id: model_id.clone(),
+                kind: "model".to_string(),
+                label: model_name,
+            },
+        );
+        push_node(
+            &mut analysis.nodes,
+            &mut analysis.node_ids,
+            ProvenanceNode {
+                id: manifest_id.clone(),
+                kind: "manifest".to_string(),
+                label: entry.path().display().to_string(),
+            },
+        );
+        push_edge(
+            &mut analysis.edges,
+            &mut analysis.edge_ids,
+            ProvenanceEdge {
+                from: model_id,
+                relation: "has-manifest".to_string(),
+                to: manifest_id.clone(),
+            },
+        );
+
+        let descriptors = manifest
+            .config
+            .into_iter()
+            .chain(manifest.layers.into_iter())
+            .collect::<Vec<_>>();
+        for descriptor in descriptors {
+            let Some(blob_name) = descriptor.digest.as_deref().and_then(ollama_blob_name) else {
+                continue;
+            };
+            let blob_id = format!("blob:ollama:{blob_name}");
+            push_node(
+                &mut analysis.nodes,
+                &mut analysis.node_ids,
+                ProvenanceNode {
+                    id: blob_id.clone(),
+                    kind: "blob".to_string(),
+                    label: blob_name.clone(),
+                },
+            );
+            push_edge(
+                &mut analysis.edges,
+                &mut analysis.edge_ids,
+                ProvenanceEdge {
+                    from: manifest_id.clone(),
+                    relation: "references".to_string(),
+                    to: blob_id,
+                },
+            );
+
+            if let Some(record) = assets.iter().find(|record| {
+                record.asset.manager == "ollama"
+                    && record.path.file_name().and_then(|name| name.to_str())
+                        == Some(blob_name.as_str())
+            }) {
+                analysis
+                    .referenced_asset_ids
+                    .insert(record.asset.id.clone());
+            }
+        }
+    }
+
+    if parsed_manifest {
+        for record in assets.iter() {
+            if record.asset.manager != "ollama" {
+                continue;
+            }
+            if is_incomplete_download_path(&record.path) {
+                analysis
+                    .incomplete_download_asset_ids
+                    .insert(record.asset.id.clone());
+            } else if !analysis.referenced_asset_ids.contains(&record.asset.id) {
+                analysis
+                    .orphan_blob_asset_ids
+                    .insert(record.asset.id.clone());
+            }
+        }
+    }
+}
+
+fn huggingface_model_name(path: &Path) -> Option<String> {
+    path.components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .find(|component| component.starts_with("models--"))
+        .map(|component| component.trim_start_matches("models--").replace("--", "/"))
+}
+
+fn huggingface_snapshot_path(path: &Path) -> Option<PathBuf> {
+    let snapshots = path.ancestors().find(|ancestor| {
+        ancestor
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("snapshots"))
+    })?;
+    let revision = path
+        .strip_prefix(snapshots)
+        .ok()?
+        .components()
+        .next()?
+        .as_os_str();
+    Some(snapshots.join(revision))
+}
+
+fn is_under_directory(path: &Path, directory_name: &str) -> bool {
+    path.ancestors().any(|ancestor| {
+        ancestor
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case(directory_name))
+    })
+}
+
+fn is_ollama_manifest(path: &Path) -> bool {
+    is_under_directory(path, "manifests")
+}
+
+fn ollama_model_name(path: &Path) -> String {
+    let components = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    let Some(manifests) = components
+        .iter()
+        .position(|component| component.eq_ignore_ascii_case("manifests"))
+    else {
+        return path.display().to_string();
+    };
+    components[manifests + 1..].join("/")
+}
+
+fn ollama_blob_name(digest: &str) -> Option<String> {
+    let digest = digest.strip_prefix("sha256:")?;
+    if digest.is_empty()
+        || !digest
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    Some(format!("sha256-{digest}"))
+}
+
+fn is_incomplete_download_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.to_ascii_lowercase().ends_with(".incomplete"))
+        || path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.to_ascii_lowercase().ends_with("-incomplete"))
+}
+
 fn is_model_asset(path: &Path, tool: DetectedTool) -> bool {
     let normalized = normalize_path(path);
+    if tool.is_managed() && is_incomplete_download_path(path) {
+        return true;
+    }
+    if tool == DetectedTool::Huggingface && is_under_directory(path, "blobs") {
+        return true;
+    }
     if tool == DetectedTool::Ollama {
         return normalized.contains("/blobs/sha256-");
     }
@@ -369,8 +879,11 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
     let blob = normalized
         .contains("/blobs/")
         .then(|| path.display().to_string());
-    let source =
-        (tool == DetectedTool::Huggingface).then(|| "huggingface-cache-layout".to_string());
+    let source = match tool {
+        DetectedTool::Huggingface => Some("huggingface-cache-layout".to_string()),
+        DetectedTool::Ollama => Some("ollama-cache-layout".to_string()),
+        DetectedTool::Generic => None,
+    };
     let suspected_custom_model = tool == DetectedTool::Generic;
     let state = if suspected_custom_model {
         "unknown-custom"
@@ -385,7 +898,8 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
         "unknown"
     };
     let mut positive_evidence = vec!["matched recognized model format".to_string()];
-    let mut risk_evidence = vec!["content and official indexes were not read".to_string()];
+    let mut risk_evidence =
+        vec!["model contents and external tool state were not read".to_string()];
     if tool.is_managed() {
         positive_evidence.push(format!("located under {} cache layout", tool.label()));
         risk_evidence.push("logical model references were not resolved".to_string());
@@ -439,8 +953,8 @@ fn infer_logical_name(path: &Path, tool: DetectedTool) -> String {
 }
 
 fn infer_format(path: &Path, tool: DetectedTool) -> String {
-    if tool == DetectedTool::Ollama && normalize_path(path).contains("/blobs/sha256-") {
-        return "ollama-blob".to_string();
+    if normalize_path(path).contains("/blobs/sha256-") {
+        return format!("{}-blob", tool.label());
     }
     path.extension()
         .and_then(|extension| extension.to_str())
@@ -554,6 +1068,17 @@ fn push_node(
 ) {
     if node_ids.insert(node.id.clone()) {
         nodes.push(node);
+    }
+}
+
+fn push_edge(
+    edges: &mut Vec<ProvenanceEdge>,
+    edge_ids: &mut HashSet<String>,
+    edge: ProvenanceEdge,
+) {
+    let edge_id = format!("{}|{}|{}", edge.from, edge.relation, edge.to);
+    if edge_ids.insert(edge_id) {
+        edges.push(edge);
     }
 }
 
@@ -681,5 +1206,85 @@ mod tests {
         .expect("inventory should succeed");
 
         assert_eq!(report.summary.total_assets, 0);
+    }
+
+    #[test]
+    fn huggingface_refs_and_blobs_resolve_asset_states() {
+        let temp = tempdir().expect("tempdir should exist");
+        let model_root = temp.path().join("models--org--demo");
+        let snapshot = model_root.join("snapshots").join("rev-live");
+        let detached_snapshot = model_root.join("snapshots").join("rev-old");
+        let blobs = model_root.join("blobs");
+        let refs = model_root.join("refs");
+        fs::create_dir_all(&snapshot).expect("snapshot should exist");
+        fs::create_dir_all(&detached_snapshot).expect("detached snapshot should exist");
+        fs::create_dir_all(&blobs).expect("blobs should exist");
+        fs::create_dir_all(&refs).expect("refs should exist");
+
+        let live_blob = blobs.join("livehash");
+        fs::write(&live_blob, vec![0_u8; 11]).expect("live blob should write");
+        fs::hard_link(&live_blob, snapshot.join("model.safetensors"))
+            .expect("snapshot link should be created");
+        fs::write(detached_snapshot.join("detached.safetensors"), b"detached")
+            .expect("detached snapshot should write");
+        fs::write(blobs.join("orphanhash"), b"orphan").expect("orphan blob should write");
+        fs::write(blobs.join("partial.incomplete"), b"partial").expect("partial blob should write");
+        fs::write(refs.join("main"), "rev-live\n").expect("ref should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.referenced_assets, 2);
+        assert_eq!(report.summary.detached_revision_assets, 1);
+        assert_eq!(report.summary.orphan_blob_assets, 1);
+        assert_eq!(report.summary.incomplete_download_assets, 1);
+        assert!(report
+            .edges
+            .iter()
+            .any(|edge| { edge.relation == "resolves-to" && edge.from.starts_with("ref:") }));
+        assert!(report
+            .edges
+            .iter()
+            .any(|edge| { edge.relation == "references" && edge.from.starts_with("snapshot:") }));
+    }
+
+    #[test]
+    fn ollama_manifests_resolve_referenced_and_orphan_blobs() {
+        let temp = tempdir().expect("tempdir should exist");
+        let manifests = temp.path().join("manifests/library");
+        let blobs = temp.path().join("blobs");
+        fs::create_dir_all(&manifests).expect("manifests should exist");
+        fs::create_dir_all(&blobs).expect("blobs should exist");
+        fs::write(
+            manifests.join("demo"),
+            r#"{"config":{"digest":"sha256:aaaaaaaa"},"layers":[{"digest":"sha256:bbbbbbbb"}]}"#,
+        )
+        .expect("manifest should write");
+        fs::write(blobs.join("sha256-aaaaaaaa"), b"config").expect("config blob should write");
+        fs::write(blobs.join("sha256-bbbbbbbb"), b"layer").expect("layer blob should write");
+        fs::write(blobs.join("sha256-cccccccc"), b"orphan").expect("orphan blob should write");
+        fs::write(blobs.join("sha256-dddddddd.incomplete"), b"partial")
+            .expect("partial blob should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Ollama,
+            max_depth: 20,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.referenced_assets, 2);
+        assert_eq!(report.summary.orphan_blob_assets, 1);
+        assert_eq!(report.summary.incomplete_download_assets, 1);
+        assert!(report.edges.iter().any(|edge| {
+            edge.relation == "has-manifest" && edge.from.starts_with("ollama-model:")
+        }));
+        assert!(report.edges.iter().any(|edge| {
+            edge.relation == "references" && edge.to == "blob:ollama:sha256-bbbbbbbb"
+        }));
     }
 }

@@ -170,3 +170,66 @@ fn models_inventory_accepts_stale_cutoff_and_reports_new_summary_fields() {
     assert_eq!(report["assets"][0]["stale"], false);
     assert_eq!(report["assets"][0]["duplicate_logical_model"], false);
 }
+
+#[test]
+fn models_adapters_report_local_capabilities_without_invoking_tools() {
+    let temp = tempdir().expect("tempdir should exist");
+    let hf_root = temp.path().join("models--org--demo");
+    fs::create_dir_all(hf_root.join("refs")).expect("refs should exist");
+    fs::write(hf_root.join("refs/main"), "rev-1\n").expect("ref should write");
+
+    let hf_output = Command::new(binary())
+        .args([
+            "models",
+            "adapters",
+            "--json",
+            "--tool",
+            "huggingface",
+            "--root",
+            temp.path().to_str().expect("temp path should be utf8"),
+        ])
+        .output()
+        .expect("adapter report should run");
+    assert!(hf_output.status.success());
+    let hf_report: Value =
+        serde_json::from_slice(&hf_output.stdout).expect("adapter report should be json");
+    assert_eq!(hf_report["schema_version"], 1);
+    assert_eq!(hf_report["summary"]["total_adapters"], 1);
+    assert_eq!(hf_report["summary"]["index_parseable_adapters"], 1);
+    assert_eq!(hf_report["adapters"][0]["action"], "report-only");
+    assert_eq!(
+        hf_report["adapters"][0]["plan_mode"],
+        "metadata-only-dry-run"
+    );
+    assert_eq!(hf_report["adapters"][0]["official_cli"]["probed"], false);
+    assert!(hf_report["adapters"][0]["official_cli"]["available"].is_null());
+
+    let ollama_root = temp.path().join("ollama");
+    fs::create_dir_all(ollama_root.join("manifests/library"))
+        .expect("ollama manifests should exist");
+    fs::write(
+        ollama_root.join("manifests/library/demo"),
+        r#"{"layers":[{"digest":"sha256:aaaaaaaa"}]}"#,
+    )
+    .expect("ollama manifest should write");
+    let ollama_output = Command::new(binary())
+        .args([
+            "models",
+            "adapters",
+            "--json",
+            "--tool",
+            "ollama",
+            "--root",
+            ollama_root.to_str().expect("ollama path should be utf8"),
+        ])
+        .output()
+        .expect("ollama adapter report should run");
+    assert!(ollama_output.status.success());
+    let ollama_report: Value =
+        serde_json::from_slice(&ollama_output.stdout).expect("ollama report should be json");
+    assert_eq!(ollama_report["summary"]["index_parseable_adapters"], 1);
+    assert_eq!(
+        ollama_report["adapters"][0]["official_cli"]["probed"],
+        false
+    );
+}

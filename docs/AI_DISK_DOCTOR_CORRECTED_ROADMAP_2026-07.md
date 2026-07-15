@@ -317,6 +317,8 @@ content_access: metadata-only
 
 当前实现还会在元数据文件较小且格式有效时解析 Hugging Face `refs`、snapshot/blob 的本地关系，以及 Ollama manifest/blob 的本地关系。解析失败、索引缺失或关系不完整时保持保守状态，不将资产升级为可回收对象。
 
+当前还提供 `aidisk models adapters` 能力报告：仅检查本地 refs/manifest 元数据，报告未来官方 dry-run 适配能力，不调用 `hf` / `ollama`，不执行 prune，不修改官方索引。
+
 统一展示：
 
 - 模型逻辑名称；
@@ -393,6 +395,12 @@ Adapter 职责：
 - [x] shared physical blob 基础去重；
 - [x] unknown custom model 基础识别；
 - [ ] external-drive candidate。
+
+Adapter 基础能力：
+
+- [x] Hugging Face / Ollama 本地 metadata-only dry-run capability report；
+- [ ] 官方 CLI version / dry-run invocation；
+- [ ] 统一 official cleanup plan；
 
 ## 4.6 Reclaim Confidence
 

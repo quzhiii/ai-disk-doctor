@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -24,6 +25,60 @@ pub enum InventoryTool {
     Ollama,
     Huggingface,
     Generic,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdapterTool {
+    Auto,
+    Ollama,
+    Huggingface,
+}
+
+#[derive(Debug, Clone)]
+pub struct AdapterOptions {
+    pub root: Option<PathBuf>,
+    pub tool: AdapterTool,
+    pub max_depth: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelAdapterReport {
+    pub schema_version: u16,
+    pub generated_at: DateTime<Local>,
+    pub adapters: Vec<ModelAdapterStatus>,
+    pub summary: ModelAdapterSummary,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelAdapterStatus {
+    pub tool: String,
+    pub root: Option<String>,
+    pub root_exists: bool,
+    pub index_present: bool,
+    pub index_parseable: bool,
+    pub official_cli: Option<OfficialCliStatus>,
+    pub capabilities: Vec<String>,
+    pub plan_mode: String,
+    pub action: String,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OfficialCliStatus {
+    pub command: String,
+    pub available: Option<bool>,
+    pub version: Option<String>,
+    pub probed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModelAdapterSummary {
+    pub total_adapters: usize,
+    pub available_adapters: usize,
+    pub index_parseable_adapters: usize,
+    pub dry_run_capable_adapters: usize,
+    pub report_only_adapters: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -437,6 +492,231 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
         nodes,
         edges,
     })
+}
+
+pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterReport> {
+    let adapter_roots = adapter_roots(options);
+    let adapters = adapter_roots
+        .into_iter()
+        .map(|(tool, root)| build_adapter_status(tool, root, options.max_depth))
+        .collect::<Vec<_>>();
+
+    Ok(ModelAdapterReport {
+        schema_version: MODEL_ADAPTER_SCHEMA_VERSION,
+        generated_at: Local::now(),
+        summary: ModelAdapterSummary {
+            total_adapters: adapters.len(),
+            available_adapters: adapters
+                .iter()
+                .filter(|adapter| adapter.root_exists)
+                .count(),
+            index_parseable_adapters: adapters
+                .iter()
+                .filter(|adapter| adapter.index_parseable)
+                .count(),
+            dry_run_capable_adapters: adapters
+                .iter()
+                .filter(|adapter| adapter.root_exists)
+                .count(),
+            report_only_adapters: adapters
+                .iter()
+                .filter(|adapter| adapter.action == "report-only")
+                .count(),
+        },
+        adapters,
+    })
+}
+
+fn adapter_roots(options: &AdapterOptions) -> Vec<(DetectedTool, PathBuf)> {
+    if let Some(root) = &options.root {
+        return match options.tool {
+            AdapterTool::Ollama => vec![(DetectedTool::Ollama, root.clone())],
+            AdapterTool::Huggingface => vec![(DetectedTool::Huggingface, root.clone())],
+            AdapterTool::Auto => match detect_tool(root, InventoryTool::Auto) {
+                DetectedTool::Ollama => vec![(DetectedTool::Ollama, root.clone())],
+                DetectedTool::Huggingface => vec![(DetectedTool::Huggingface, root.clone())],
+                DetectedTool::Generic => vec![
+                    (DetectedTool::Ollama, root.clone()),
+                    (DetectedTool::Huggingface, root.clone()),
+                ],
+            },
+        };
+    }
+
+    match options.tool {
+        AdapterTool::Ollama => vec![(DetectedTool::Ollama, default_ollama_root())],
+        AdapterTool::Huggingface => vec![(DetectedTool::Huggingface, default_huggingface_root())],
+        AdapterTool::Auto => vec![
+            (DetectedTool::Ollama, default_ollama_root()),
+            (DetectedTool::Huggingface, default_huggingface_root()),
+        ],
+    }
+}
+
+fn build_adapter_status(tool: DetectedTool, root: PathBuf, max_depth: usize) -> ModelAdapterStatus {
+    let root_exists = root.is_dir();
+    let index = match tool {
+        DetectedTool::Ollama => probe_ollama_index(&root, max_depth),
+        DetectedTool::Huggingface => probe_huggingface_index(&root, max_depth),
+        DetectedTool::Generic => IndexProbe::default(),
+    };
+    let mut capabilities = vec![
+        "metadata-index-inspection".to_string(),
+        "report-only-dry-run".to_string(),
+    ];
+    if index.parseable {
+        capabilities.push("provenance-resolution".to_string());
+    }
+    capabilities.push("official-cli-dry-run-pending".to_string());
+
+    let mut evidence = index.evidence;
+    evidence.push("external official CLI was not invoked".to_string());
+    evidence.push("no cleanup or index mutation is performed".to_string());
+
+    ModelAdapterStatus {
+        tool: tool.label().to_string(),
+        root: Some(root.display().to_string()),
+        root_exists,
+        index_present: index.present,
+        index_parseable: index.parseable,
+        official_cli: Some(OfficialCliStatus {
+            command: match tool {
+                DetectedTool::Ollama => "ollama".to_string(),
+                DetectedTool::Huggingface => "hf".to_string(),
+                DetectedTool::Generic => "".to_string(),
+            },
+            available: None,
+            version: None,
+            probed: false,
+        }),
+        capabilities,
+        plan_mode: "metadata-only-dry-run".to_string(),
+        action: "report-only".to_string(),
+        evidence,
+    }
+}
+
+#[derive(Debug, Default)]
+struct IndexProbe {
+    present: bool,
+    parseable: bool,
+    evidence: Vec<String>,
+}
+
+fn probe_huggingface_index(root: &Path, max_depth: usize) -> IndexProbe {
+    let mut probe = IndexProbe::default();
+    if !root.is_dir() {
+        probe
+            .evidence
+            .push("Hugging Face cache root is not present".to_string());
+        return probe;
+    }
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(max_depth) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let Some(parent) = entry.path().parent() else {
+            continue;
+        };
+        if !parent
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("refs"))
+        {
+            continue;
+        }
+        probe.present = true;
+        let Ok(metadata) = fs::metadata(entry.path()) else {
+            continue;
+        };
+        if metadata.len() > 1024 * 1024 {
+            continue;
+        }
+        let Ok(content) = fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        if !content.trim().is_empty() {
+            probe.parseable = true;
+            probe
+                .evidence
+                .push("parsed at least one Hugging Face refs entry".to_string());
+            break;
+        }
+    }
+    if !probe.present {
+        probe
+            .evidence
+            .push("Hugging Face refs index was not found".to_string());
+    } else if !probe.parseable {
+        probe
+            .evidence
+            .push("Hugging Face refs index was present but not parseable".to_string());
+    }
+    probe
+}
+
+fn probe_ollama_index(root: &Path, max_depth: usize) -> IndexProbe {
+    let mut probe = IndexProbe::default();
+    if !root.is_dir() {
+        probe
+            .evidence
+            .push("Ollama models root is not present".to_string());
+        return probe;
+    }
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(max_depth) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if !entry.file_type().is_file() || !is_ollama_manifest(entry.path()) {
+            continue;
+        }
+        probe.present = true;
+        let Ok(metadata) = fs::metadata(entry.path()) else {
+            continue;
+        };
+        if metadata.len() > 1024 * 1024 {
+            continue;
+        }
+        let Ok(content) = fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        if serde_json::from_str::<OllamaManifest>(&content).is_ok() {
+            probe.parseable = true;
+            probe
+                .evidence
+                .push("parsed at least one Ollama manifest".to_string());
+            break;
+        }
+    }
+    if !probe.present {
+        probe
+            .evidence
+            .push("Ollama manifest index was not found".to_string());
+    } else if !probe.parseable {
+        probe
+            .evidence
+            .push("Ollama manifest index was present but not parseable".to_string());
+    }
+    probe
+}
+
+fn default_ollama_root() -> PathBuf {
+    default_model_roots()
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| PathBuf::from(".ollama/models"))
+}
+
+fn default_huggingface_root() -> PathBuf {
+    default_model_roots()
+        .into_iter()
+        .find(|root| normalize_path(root).contains("huggingface"))
+        .unwrap_or_else(|| PathBuf::from(".cache/huggingface/hub"))
 }
 
 fn default_model_roots() -> Vec<PathBuf> {

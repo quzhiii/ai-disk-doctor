@@ -233,6 +233,18 @@ enum ModelsCommand {
         #[arg(long)]
         markdown: bool,
     },
+    Adapters {
+        #[arg(long, value_enum, default_value_t = model_inventory::AdapterTool::Auto)]
+        tool: model_inventory::AdapterTool,
+        #[arg(long)]
+        root: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        max_depth: usize,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -704,6 +716,70 @@ fn run(cli: Cli) -> Result<()> {
                     }
                 }
             }
+            ModelsCommand::Adapters {
+                tool,
+                root,
+                max_depth,
+                json,
+                markdown,
+            } => {
+                let report =
+                    model_inventory::build_adapter_report(&model_inventory::AdapterOptions {
+                        root,
+                        tool,
+                        max_depth,
+                    })?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else if markdown {
+                    println!("# Model Adapter Capability Report");
+                    println!();
+                    println!("- Schema Version: {}", report.schema_version);
+                    println!("- Adapters: {}", report.summary.total_adapters);
+                    println!(
+                        "- Parseable Indexes: {}",
+                        report.summary.index_parseable_adapters
+                    );
+                    println!();
+                    println!("| Tool | Root | Index | Plan Mode | Action |");
+                    println!("|---|---|---|---|---|");
+                    for adapter in report.adapters {
+                        println!(
+                            "| `{}` | `{}` | `{}` | `{}` | `{}` |",
+                            adapter.tool,
+                            adapter.root.unwrap_or_else(|| "not detected".to_string()),
+                            if adapter.index_parseable {
+                                "parseable"
+                            } else if adapter.index_present {
+                                "present/unresolved"
+                            } else {
+                                "missing"
+                            },
+                            adapter.plan_mode,
+                            adapter.action
+                        );
+                    }
+                } else {
+                    println!("Model Adapter Capability Report");
+                    println!("Schema Version: {}", report.schema_version);
+                    println!("Adapters: {}", report.summary.total_adapters);
+                    println!(
+                        "Parseable Indexes: {}",
+                        report.summary.index_parseable_adapters
+                    );
+                    for adapter in report.adapters {
+                        println!(
+                            "- {} | root={} | index_present={} | index_parseable={} | plan={} | action={}",
+                            adapter.tool,
+                            adapter.root.unwrap_or_else(|| "not detected".to_string()),
+                            adapter.index_present,
+                            adapter.index_parseable,
+                            adapter.plan_mode,
+                            adapter.action
+                        );
+                    }
+                }
+            }
         },
         Command::Visualize {
             html,
@@ -846,6 +922,8 @@ impl ErrorContext {
                     ModelsCommand::Inventory { markdown, .. } if *markdown => {
                         OutputFormat::Markdown
                     }
+                    ModelsCommand::Adapters { json, .. } if *json => OutputFormat::Json,
+                    ModelsCommand::Adapters { markdown, .. } if *markdown => OutputFormat::Markdown,
                     _ => OutputFormat::Text,
                 },
             },

@@ -113,3 +113,20 @@ Index parsing is bounded to small local metadata files. Missing, unreadable, or 
 not cause assets to be classified as orphaned or safe to reclaim. All actions remain `report-only`.
 
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.
+
+## Model Adapter Capability v1
+
+`models adapters --json` reports the safe adapter boundary without invoking external tools:
+
+| Field | Meaning |
+|---|---|
+| `adapters[].tool` | Adapter identifier, currently `huggingface` or `ollama`. |
+| `adapters[].root_exists` | Whether the selected local cache root exists. |
+| `adapters[].index_present` | Whether a local refs or manifest index was found. |
+| `adapters[].index_parseable` | Whether at least one bounded local index entry parsed successfully. |
+| `adapters[].official_cli.probed` | Always `false` in this foundation; no external command is invoked. |
+| `adapters[].plan_mode` | `metadata-only-dry-run` for the current foundation. |
+| `adapters[].action` | Always `report-only`. |
+| `adapters[].capabilities` | Capabilities available without mutation, plus future official CLI work. |
+
+Missing or invalid indexes remain report-only and do not produce cleanup candidates.

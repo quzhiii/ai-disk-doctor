@@ -33,4 +33,10 @@
 | `source-remove-failed` | copy 已验证，但源路径删除失败，需要人工检查源和目标 |
 | `failed` | 执行失败，需要查看 message / log |
 
-执行结果中的 `stage` 表示最近阶段，例如 `quarantined`、`failed` 或旧 index 中的 `unknown`。`journal_path` 指向逐阶段 journal。
+常见 `stage`：
+
+- `planned` / `renaming` / `copying` / `copied` / `verified` / `source-removing` / `quarantined`
+- `restore-planned` / `restoring` / `restored`
+- `preflight` / `verifying` / `restore-preflight` / `restore-copying` / `restore-failed`
+
+执行结果中的 `stage` 表示最近阶段，旧 index 中默认为 `unknown`。`recovery` 给出下一步恢复建议，`journal_path` 指向逐阶段 journal。

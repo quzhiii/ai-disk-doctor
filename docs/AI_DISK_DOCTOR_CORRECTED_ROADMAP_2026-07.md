@@ -148,17 +148,17 @@ restore-failed
 - [x] 使用 `PathBuf::join` 生成跨平台 destination。
 - [x] 增加 quarantine root containment 检查。
 - [x] 阻断 source / destination 循环嵌套。
-- [ ] 根据文件系统错误或设备信息判断跨文件系统。
+- [x] 根据文件系统错误或设备信息判断跨文件系统。
 - [x] 同文件系统优先 rename。
 - [x] rename 失败时执行 copy → verify → remove fallback。
 - [x] verification 至少检查文件数、目录数、总字节数；关键场景可选 hash。
 - [x] 动作开始前写入 journal。
-- [ ] 每个阶段更新 journal 状态。
-- [ ] 支持中断后的检查、resume 或明确失败恢复。
+- [x] 每个阶段更新 journal 状态。
+- [x] 支持中断后的检查、resume 或明确失败恢复。
 - [x] restore 支持跨文件系统 copy-back。
 - [x] restore 冲突默认不覆盖。
 - [x] quarantine index 增加 schema version。
-- [ ] 增加失败注入测试：
+- [x] 增加失败注入测试：
   - 磁盘空间不足；
   - 文件被占用；
   - 权限变化；

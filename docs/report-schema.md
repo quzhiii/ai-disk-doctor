@@ -52,7 +52,7 @@ Generic model files (`.gguf`, `.safetensors`, `.onnx`, `.mlx`) are `risk: review
 
 ## Quarantine Index v2
 
-Quarantine execution indexes include `schema_version: 2` and per-entry `stage` fields.
+Quarantine execution indexes include `schema_version: 2`, per-entry `stage` fields, and recovery guidance for failed or skipped entries.
 
 | Field | Meaning |
 |---|---|
@@ -60,5 +60,8 @@ Quarantine execution indexes include `schema_version: 2` and per-entry `stage` f
 | `journal_path` | Path to the append-only journal written before and after each filesystem action. |
 | `results[].status` | Final result status such as `quarantined`, `skipped-active`, `partial-copy`, `verification-failed`, or `source-remove-failed`. Legacy `moved` is still accepted for restore. |
 | `results[].stage` | Last recorded execution stage. Missing values from legacy indexes deserialize as `unknown`. |
+| `results[].recovery` | Human-readable recovery guidance. Missing values from legacy indexes deserialize as an empty string. |
 
-Current quarantine execution uses platform-native destination paths, validates quarantine-root containment, blocks source/destination nesting, tries `rename` first, and falls back to `copy -> verify file/dir/byte stats -> remove source` when rename fails.
+Current quarantine execution uses platform-native destination paths, validates quarantine-root containment before creating metadata, blocks source/destination nesting, tries `rename` first, and falls back to `copy -> verify file/dir/byte stats -> remove source` when rename fails.
+
+The append-only journal records stage transitions such as `planned`, `renaming`, `copying`, `copied`, `verified`, `source-removing`, `quarantined`, `restore-planned`, `restoring`, and `restored`. Failure states leave a final stage plus recovery text so an interrupted run can be inspected before retrying.

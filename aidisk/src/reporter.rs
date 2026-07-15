@@ -762,11 +762,12 @@ fn render_execution_text(report: &ExecutionReport) -> String {
 
     for result in &report.results {
         lines.push(format!(
-            "- {} => {} | {} | {} | {}",
+            "- {} => {} | {} | {} | {} | {}",
             result.source_path,
             result.destination_path,
             result.status,
             result.stage,
+            result.recovery,
             result.message
         ));
     }
@@ -790,17 +791,18 @@ fn render_execution_markdown(report: &ExecutionReport) -> String {
         String::new(),
         "## Results".to_string(),
         String::new(),
-        "| Source | Destination | Status | Stage | Message |".to_string(),
-        "|---|---|---|---|---|".to_string(),
+        "| Source | Destination | Status | Stage | Recovery | Message |".to_string(),
+        "|---|---|---|---|---|---|".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "| `{}` | `{}` | {} | {} | {} |",
+            "| `{}` | `{}` | {} | {} | {} | {} |",
             result.source_path,
             result.destination_path,
             result.status,
             result.stage,
+            result.recovery,
             result.message
         ));
     }
@@ -818,14 +820,20 @@ fn render_restore_text(report: &RestoreReport) -> String {
         format!("Entry Count: {}", report.entry_count),
         format!("Success Count: {}", report.success_count),
         format!("Failure Count: {}", report.failure_count),
+        format!("Journal Path: {}", report.journal_path),
         String::new(),
         "Results:".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "- {} => {} | {} | {}",
-            result.source_path, result.destination_path, result.status, result.message
+            "- {} => {} | {} | {} | {} | {}",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 
@@ -843,17 +851,23 @@ fn render_restore_markdown(report: &RestoreReport) -> String {
         format!("- Entry Count: {}", report.entry_count),
         format!("- Success Count: {}", report.success_count),
         format!("- Failure Count: {}", report.failure_count),
+        format!("- Journal Path: `{}`", report.journal_path),
         String::new(),
         "## Results".to_string(),
         String::new(),
-        "| Source | Destination | Status | Message |".to_string(),
-        "|---|---|---|---|".to_string(),
+        "| Source | Destination | Status | Stage | Recovery | Message |".to_string(),
+        "|---|---|---|---|---|---|".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "| `{}` | `{}` | {} | {} |",
-            result.source_path, result.destination_path, result.status, result.message
+            "| `{}` | `{}` | {} | {} | {} | {} |",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 

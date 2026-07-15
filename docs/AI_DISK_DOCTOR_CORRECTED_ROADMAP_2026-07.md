@@ -180,24 +180,24 @@ restore-failed
 
 ### 开发任务
 
-- [ ] 修正 Cargo.toml description，改为跨平台定位。
-- [ ] 建立 release matrix：
+- [x] 修正 Cargo.toml description，改为跨平台定位。
+- [x] 建立 release matrix：
   - Windows x86_64；
   - Windows ARM64；
   - macOS x86_64；
   - macOS ARM64；
   - Linux x86_64；
   - Linux ARM64。
-- [ ] 统一 artifact 命名。
-- [ ] 生成 SHA-256 checksums。
-- [ ] 生成 SBOM。
-- [ ] 增加 release provenance。
-- [ ] 同步 README、Cargo.toml、CHANGELOG、Release Notes 和 GitHub Latest Release。
-- [ ] 对 release artifact 执行 smoke test。
-- [ ] 增加 Homebrew tap。
-- [ ] 增加 winget manifest。
-- [ ] 评估 crates.io 发布。
-- [ ] README 增加安装、升级、验证、卸载和数据目录说明。
+- [x] 统一 artifact 命名。
+- [x] 生成 SHA-256 checksums。
+- [x] 生成 SBOM。
+- [x] 增加 release provenance。
+- [x] 同步 README、Cargo.toml、CHANGELOG 和 Release Notes；GitHub Latest Release 在打 tag 后由 workflow 产物补齐。
+- [x] 对 release artifact 执行 smoke test。
+- [x] 增加 Homebrew tap 草案。
+- [x] 增加 winget manifest 草案。
+- [x] 评估 crates.io 发布。
+- [x] README 增加安装、升级、验证、卸载和数据目录说明。
 - [ ] 后续评估 Windows signing 和 macOS notarization。
 
 ### 验收标准

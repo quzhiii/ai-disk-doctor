@@ -6,19 +6,114 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  windows:
-    runs-on: windows-2025
-    defaults:
-      run:
-        working-directory: aidisk
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            exe_suffix: .exe
+            archive_ext: .zip
+          - os: windows-2025
+            target: aarch64-pc-windows-msvc
+            exe_suffix: .exe
+            archive_ext: .zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            exe_suffix: ""
+            archive_ext: .tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            exe_suffix: ""
+            archive_ext: .tar.gz
+          - os: macos-13
+            target: x86_64-apple-darwin
+            exe_suffix: ""
+            archive_ext: .tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            exe_suffix: ""
+            archive_ext: .tar.gz
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - name: Build release binary
-        run: cargo build --release
-      - name: Upload aidisk.exe
+        run: cargo build --release --manifest-path aidisk/Cargo.toml --target ${{ matrix.target }}
+      - name: Package artifact, checksum, SBOM, and provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $versionLine = Select-String -Path "aidisk/Cargo.toml" -Pattern '^version = "([^"]+)"'
+          $version = $versionLine.Matches[0].Groups[1].Value
+          $target = "${{ matrix.target }}"
+          $packageName = "aidisk-v$version-$target"
+          $packageDir = Join-Path "dist" $packageName
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+
+          $binary = "aidisk/target/$target/release/aidisk${{ matrix.exe_suffix }}"
+          Copy-Item $binary (Join-Path $packageDir "aidisk${{ matrix.exe_suffix }}")
+          Copy-Item README.md, CHANGELOG.md, LICENSE-MIT, LICENSE-APACHE $packageDir
+          Copy-Item docs/report-schema.md (Join-Path $packageDir "report-schema.md")
+
+          $archive = "dist/$packageName${{ matrix.archive_ext }}"
+          if ("${{ matrix.archive_ext }}" -eq ".zip") {
+            Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
+          } else {
+            tar -czf $archive -C dist $packageName
+          }
+
+          $hash = Get-FileHash -Algorithm SHA256 $archive
+          "$($hash.Hash.ToLower())  $(Split-Path $archive -Leaf)" | Set-Content -Encoding ascii "dist/$packageName.sha256"
+
+          cargo metadata --format-version 1 --manifest-path aidisk/Cargo.toml | Set-Content -Encoding utf8 "dist/$packageName.sbom.cargo-metadata.json"
+
+          $provenance = [ordered]@{
+            package = Split-Path $archive -Leaf
+            target = $target
+            version = $version
+            repository = "${{ github.repository }}"
+            ref = "${{ github.ref }}"
+            sha = "${{ github.sha }}"
+            runner = "${{ matrix.os }}"
+            workflow = "${{ github.workflow }}"
+            build_command = "cargo build --release --manifest-path aidisk/Cargo.toml --target $target"
+          }
+          $provenance | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 "dist/$packageName.provenance.json"
+      - name: Smoke test packaged binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $versionLine = Select-String -Path "aidisk/Cargo.toml" -Pattern '^version = "([^"]+)"'
+          $version = $versionLine.Matches[0].Groups[1].Value
+          $target = "${{ matrix.target }}"
+          $packageName = "aidisk-v$version-$target"
+          $archive = "dist/$packageName${{ matrix.archive_ext }}"
+          $smokeDir = "dist/smoke-$target"
+          New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
+          if ("${{ matrix.archive_ext }}" -eq ".zip") {
+            Expand-Archive -Path $archive -DestinationPath $smokeDir -Force
+          } else {
+            tar -xzf $archive -C $smokeDir
+          }
+          $binary = Join-Path $smokeDir "$packageName/aidisk${{ matrix.exe_suffix }}"
+          if ("${{ matrix.exe_suffix }}" -eq "") { chmod +x $binary }
+          & $binary --help
+          & $binary scan --help
+      - name: Upload release package
         uses: actions/upload-artifact@v7
         with:
-          name: aidisk-windows-x86_64
-          path: aidisk/target/release/aidisk.exe
+          name: aidisk-${{ matrix.target }}
+          path: |
+            dist/aidisk-v*-${{ matrix.target }}${{ matrix.archive_ext }}
+            dist/aidisk-v*-${{ matrix.target }}.sha256
+            dist/aidisk-v*-${{ matrix.target }}.sbom.cargo-metadata.json
+            dist/aidisk-v*-${{ matrix.target }}.provenance.json

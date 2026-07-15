@@ -8,6 +8,8 @@
 - Changed generic model file detection (`.gguf`, `.safetensors`, `.onnx`, `.mlx`) to `risk: review` with `cleanup.method: report-only` so unknown or custom models are not shown as safe-to-clean.
 - Added `docs/report-schema.md` to document summary v2 semantics for downstream agents and JSON consumers.
 - Hardened quarantine execution with platform-native destination paths, root containment checks, source/destination nesting guards, versioned execution indexes, execution stages, and copy-verify-remove fallback for rename failures.
+- Added trusted distribution foundation with six-target release artifact matrix, versioned package naming, SHA-256 checksums, Cargo metadata SBOM, provenance JSON, package smoke tests, and Homebrew/winget draft manifests.
+- Updated Cargo metadata and install docs to describe AI Disk Doctor as a cross-platform CLI with checksum verification, upgrade, uninstall, SBOM, and provenance guidance.
 
 ## 1.6.0
 

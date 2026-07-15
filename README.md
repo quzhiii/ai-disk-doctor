@@ -124,9 +124,47 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`]
 
 - **Complete workflow** — scan, plan, clean, restore, doctor, diff
 
+---
+
+## Installation
+
 ### Option 1: Pre-built Binary (Recommended — No Rust Required)
 
-Download the latest release binary from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases). Extract `aidisk.exe` and place it on your PATH.
+Download the latest package for your platform from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases):
+
+| Platform | Package |
+|---|---|
+| Windows x86_64 | `aidisk-v<VERSION>-x86_64-pc-windows-msvc.zip` |
+| Windows ARM64 | `aidisk-v<VERSION>-aarch64-pc-windows-msvc.zip` |
+| Linux x86_64 | `aidisk-v<VERSION>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `aidisk-v<VERSION>-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS Intel | `aidisk-v<VERSION>-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `aidisk-v<VERSION>-aarch64-apple-darwin.tar.gz` |
+
+Verify the SHA-256 checksum before installing:
+
+```powershell
+Get-FileHash .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.6.0-x86_64-pc-windows-msvc.sha256
+```
+
+```bash
+sha256sum -c aidisk-v1.6.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.6.0-aarch64-apple-darwin.sha256
+```
+
+Each release also includes `*.sbom.cargo-metadata.json` and `*.provenance.json` files. See [`docs/trusted-distribution.md`](./docs/trusted-distribution.md) for artifact naming, checksum verification, SBOM, provenance, upgrade, uninstall, Homebrew draft, winget draft, and crates.io status. crates.io publishing is deferred until the CLI name, package description, release signing expectations, and support policy are stable.
+
+Extract the package and place `aidisk` / `aidisk.exe` on your PATH, then verify:
+
+```bash
+aidisk --help
+aidisk scan --help
+```
+
+**Upgrade:** download the new package, verify its checksum, replace the old `aidisk` binary, and rerun `aidisk --help` plus `aidisk scan --help`.
+
+**Uninstall:** remove the installed binary or package directory. Optional project-local data lives in `.aidisk/` under directories where you ran the tool.
 
 ### Option 2: Build from Source (Rust Required)
 

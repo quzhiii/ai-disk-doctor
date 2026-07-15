@@ -662,16 +662,96 @@ fn cargo_toml_defines_release_profile_for_distributable_binary() {
 fn github_actions_run_tests_and_build_windows_release_artifact() {
     let ci = read_repo_file(".github/workflows/ci.yml");
     let release = read_repo_file(".github/workflows/release-artifacts.yml");
+    let trusted_distribution = read_repo_file("docs/trusted-distribution.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
 
     assert!(ci.contains("cargo test"));
     assert!(ci.contains("working-directory: aidisk"));
     assert!(ci.contains("runs-on: windows-2025"));
     assert!(ci.contains("actions/checkout@v5"));
-    assert!(release.contains("cargo build --release"));
-    assert!(release.contains("runs-on: windows-2025"));
+
+    assert!(cargo_toml.contains("description = \"Cross-platform AI disk space diagnostics and governance CLI\""));
+    assert!(release.contains("strategy:"));
+    assert!(release.contains("fail-fast: false"));
     assert!(release.contains("actions/checkout@v5"));
-    assert!(release.contains("aidisk.exe"));
+    assert!(release.contains("cargo build --release --manifest-path aidisk/Cargo.toml --target"));
     assert!(release.contains("actions/upload-artifact@v7"));
+
+    for target in [
+        "x86_64-pc-windows-msvc",
+        "aarch64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+    ] {
+        assert!(release.contains(target), "release workflow should build {target}");
+        assert!(trusted_distribution.contains(target), "trusted distribution docs should mention {target}");
+        assert!(readme.contains(target), "README.md should mention {target}");
+        assert!(readme_zh.contains(target), "README.zh-CN.md should mention {target}");
+    }
+
+    for term in [
+        "aidisk-v$version-$target",
+        "Get-FileHash -Algorithm SHA256",
+        ".sha256",
+        ".sbom.cargo-metadata.json",
+        ".provenance.json",
+        "cargo metadata --format-version 1",
+        "Smoke test packaged binary",
+        "& $binary --help",
+        "scan --help",
+    ] {
+        assert!(release.contains(term), "release workflow should mention {term}");
+    }
+
+    for term in [
+        "SHA-256",
+        "SBOM",
+        "provenance",
+        "Homebrew",
+        "winget",
+        "crates.io publishing is deferred",
+        "Upgrade",
+        "Uninstall",
+    ] {
+        assert!(trusted_distribution.contains(term), "trusted distribution docs should mention {term}");
+        assert!(readme.contains(term), "README.md should mention {term}");
+    }
+}
+
+#[test]
+fn package_manager_drafts_cover_release_metadata_contract() {
+    let homebrew = read_repo_file("packaging/homebrew/aidisk.rb");
+    let winget = read_repo_file("packaging/winget/AI-Disk-Doctor.yaml");
+
+    for term in [
+        "AI-era disk space diagnostics and governance CLI",
+        "https://github.com/quzhiii/ai-disk-doctor",
+        "TO_BE_FILLED_FROM_RELEASE_ARTIFACT",
+        "aidisk-v#{version}-x86_64-apple-darwin.tar.gz",
+        "aidisk-v#{version}-aarch64-apple-darwin.tar.gz",
+        "aidisk-v#{version}-x86_64-unknown-linux-gnu.tar.gz",
+        "aidisk-v#{version}-aarch64-unknown-linux-gnu.tar.gz",
+        "system \"#{bin}/aidisk\", \"--help\"",
+    ] {
+        assert!(homebrew.contains(term), "Homebrew draft should mention {term}");
+    }
+
+    for term in [
+        "PackageIdentifier: quzhiii.AIDiskDoctor",
+        "PackageVersion: 1.6.0",
+        "InstallerType: zip",
+        "NestedInstallerType: portable",
+        "PortableCommandAlias: aidisk",
+        "aidisk-v1.6.0-x86_64-pc-windows-msvc.zip",
+        "aidisk-v1.6.0-aarch64-pc-windows-msvc.zip",
+        "InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT",
+    ] {
+        assert!(winget.contains(term), "winget draft should mention {term}");
+    }
 }
 
 #[test]

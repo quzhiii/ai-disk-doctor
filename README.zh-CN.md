@@ -130,7 +130,37 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 ### 方式 1：预编译二进制文件（推荐 — 无需 Rust）
 
-从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载最新版本的 `aidisk.exe`，解压并放到 PATH 中即可使用。
+从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载适合当前平台的包：
+
+| 平台 | 包名 |
+|---|---|
+| Windows x86_64 | `aidisk-v<VERSION>-x86_64-pc-windows-msvc.zip` |
+| Windows ARM64 | `aidisk-v<VERSION>-aarch64-pc-windows-msvc.zip` |
+| Linux x86_64 | `aidisk-v<VERSION>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `aidisk-v<VERSION>-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS Intel | `aidisk-v<VERSION>-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `aidisk-v<VERSION>-aarch64-apple-darwin.tar.gz` |
+
+安装前先验证 SHA-256：
+
+```powershell
+Get-FileHash .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.6.0-x86_64-pc-windows-msvc.sha256
+```
+
+```bash
+sha256sum -c aidisk-v1.6.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.6.0-aarch64-apple-darwin.sha256
+```
+
+每个 release 还包含 `*.sbom.cargo-metadata.json` 和 `*.provenance.json`。参见 [`docs/trusted-distribution.md`](./docs/trusted-distribution.md)，了解 artifact 命名、checksum 验证、SBOM、provenance、升级、卸载、Homebrew 草案、winget 草案和 crates.io 状态。
+
+解压后将 `aidisk` / `aidisk.exe` 放到 PATH 中，并验证：
+
+```bash
+aidisk --help
+aidisk scan --help
+```
 
 ### 方式 2：从源码构建（需要 Rust）
 

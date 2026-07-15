@@ -73,3 +73,20 @@ Quarantine execution indexes include `schema_version: 2`, per-entry `stage` fiel
 Current quarantine execution uses platform-native destination paths, validates quarantine-root containment before creating metadata, blocks source/destination nesting, tries `rename` first, and falls back to `copy -> verify file/dir/byte stats -> remove source` when rename fails.
 
 The append-only journal records stage transitions such as `planned`, `renaming`, `copying`, `copied`, `verified`, `source-removing`, `quarantined`, `restore-planned`, `restoring`, and `restored`. Failure states leave a final stage plus recovery text so an interrupted run can be inspected before retrying.
+
+## Model Inventory v1
+
+`models inventory --json` is a read-only inventory report. It does not read model contents or
+modify third-party indexes. The report includes:
+
+| Field | Meaning |
+|---|---|
+| `assets[].logical_size_bytes` | Size of each discovered model file or cache blob. |
+| `assets[].exclusive_physical_size_bytes` | Physical bytes counted once for an asset path. |
+| `assets[].shared_physical_size_bytes` | Bytes recognized as a repeated physical path and excluded from exclusive totals. |
+| `assets[].state` | Conservative state such as `managed-cache`, `managed-cache-unresolved`, or `unknown-custom`. |
+| `assets[].action` | Always `report-only` in the initial inventory foundation. |
+| `assets[].reclaim_confidence` | Explanatory score only; it does not authorize cleanup. |
+| `nodes` / `edges` | Minimal in-memory provenance graph for tools, models, and revisions. |
+
+Unknown or potentially private model files remain report-only and have zero reclaim confidence.

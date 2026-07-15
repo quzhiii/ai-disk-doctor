@@ -12,6 +12,7 @@
 - Updated Cargo metadata and install docs to describe AI Disk Doctor as a cross-platform CLI with checksum verification, upgrade, uninstall, SBOM, and provenance guidance.
 - Added Rule Schema v2 compatibility loading and validation with separated detector, decision, and action fields; migrated model cache and model file rules while retaining v1 rule loading.
 - Added `aidisk rules lint` and scan rule source metadata with SHA-256 digests for rule provenance.
+- Added read-only `aidisk models inventory` for conservative model asset discovery, logical versus physical size reporting, basic shared-path accounting, custom-model detection, and provenance graph output.
 
 ## 1.6.0
 

@@ -311,6 +311,10 @@ content_access: metadata-only
 
 ## 4.2 Model Asset Inventory
 
+### 当前最小实现
+
+`aidisk models inventory` 提供只读的模型资产 inventory 基础：支持显式 root、Ollama、Hugging Face 和通用模型文件识别，输出逻辑大小、独占/共享物理大小、格式、管理工具、revision、状态、可恢复性、疑似自定义模型、reclaim confidence 和最小 provenance graph。当前版本不读取模型内容，不调用外部工具，不修改官方索引，未知模型始终 `report-only`。
+
 统一展示：
 
 - 模型逻辑名称；
@@ -384,8 +388,8 @@ Adapter 职责：
 - [ ] orphan blob；
 - [ ] incomplete download；
 - [ ] duplicate logical model；
-- [ ] shared physical blob；
-- [ ] unknown custom model；
+- [x] shared physical blob 基础去重；
+- [x] unknown custom model 基础识别；
 - [ ] external-drive candidate。
 
 ## 4.6 Reclaim Confidence

@@ -3,6 +3,7 @@ mod cleaner;
 mod diff;
 mod doctor;
 mod history;
+mod model_inventory;
 mod planner;
 mod policy;
 mod reporter;
@@ -188,6 +189,10 @@ enum Command {
         #[command(subcommand)]
         command: RulesCommand,
     },
+    Models {
+        #[command(subcommand)]
+        command: ModelsCommand,
+    },
     Visualize {
         #[arg(long, default_value = "true")]
         html: bool,
@@ -209,6 +214,22 @@ enum RulesCommand {
         rules_dir: Option<PathBuf>,
         #[arg(long)]
         rules_repo: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ModelsCommand {
+    Inventory {
+        #[arg(long, value_enum, default_value_t = model_inventory::InventoryTool::Auto)]
+        tool: model_inventory::InventoryTool,
+        #[arg(long)]
+        root: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        max_depth: usize,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
     },
 }
 
@@ -568,6 +589,84 @@ fn run(cli: Cli) -> Result<()> {
                 }
             }
         },
+        Command::Models { command } => match command {
+            ModelsCommand::Inventory {
+                tool,
+                root,
+                max_depth,
+                json,
+                markdown,
+            } => {
+                let report = model_inventory::build_inventory(&model_inventory::InventoryOptions {
+                    root,
+                    tool,
+                    max_depth,
+                })?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else if markdown {
+                    println!("# Model Asset Inventory");
+                    println!();
+                    println!("- Schema Version: {}", report.schema_version);
+                    println!("- Assets: {}", report.summary.total_assets);
+                    println!(
+                        "- Logical Bytes: {}",
+                        format_inventory_bytes(report.summary.logical_bytes)
+                    );
+                    println!(
+                        "- Exclusive Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.exclusive_physical_bytes)
+                    );
+                    println!(
+                        "- Shared Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.shared_physical_bytes)
+                    );
+                    println!();
+                    println!("| Model | Format | Manager | State | Size | Action |");
+                    println!("|---|---|---|---|---:|---|");
+                    for asset in report.assets {
+                        println!(
+                            "| `{}` | `{}` | `{}` | `{}` | {} | `{}` |",
+                            asset.logical_name,
+                            asset.format,
+                            asset.manager,
+                            asset.state,
+                            format_inventory_bytes(asset.logical_size_bytes),
+                            asset.action
+                        );
+                    }
+                } else {
+                    println!("Model Asset Inventory");
+                    println!("Schema Version: {}", report.schema_version);
+                    println!("Assets: {}", report.summary.total_assets);
+                    println!(
+                        "Logical Bytes: {}",
+                        format_inventory_bytes(report.summary.logical_bytes)
+                    );
+                    println!(
+                        "Exclusive Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.exclusive_physical_bytes)
+                    );
+                    println!(
+                        "Shared Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.shared_physical_bytes)
+                    );
+                    for asset in report.assets {
+                        println!(
+                            "- [{}] {} | manager={} | format={} | state={} | size={} | action={} | confidence={}/100",
+                            asset.recoverability,
+                            asset.logical_name,
+                            asset.manager,
+                            asset.format,
+                            asset.state,
+                            format_inventory_bytes(asset.logical_size_bytes),
+                            asset.action,
+                            asset.reclaim_confidence
+                        );
+                    }
+                }
+            }
+        },
         Command::Visualize {
             html,
             reports_dir,
@@ -616,6 +715,7 @@ impl ErrorContext {
                 "anomaly" => Some("anomaly"),
                 "doctor" => Some("doctor"),
                 "rules" => Some("rules"),
+                "models" => Some("models"),
                 "visualize" => Some("visualize"),
                 _ => None,
             })
@@ -701,6 +801,14 @@ impl ErrorContext {
                     _ => OutputFormat::Text,
                 },
             },
+            Command::Models { command } => Self {
+                command: "models",
+                format: match command {
+                    ModelsCommand::Inventory { json, .. } if *json => OutputFormat::Json,
+                    ModelsCommand::Inventory { markdown, .. } if *markdown => OutputFormat::Markdown,
+                    _ => OutputFormat::Text,
+                },
+            },
             Command::Visualize { .. } => Self {
                 command: "visualize",
                 format: OutputFormat::Text,
@@ -727,6 +835,21 @@ fn effective_format(format: OutputFormat, json: bool, markdown: bool) -> OutputF
         OutputFormat::Markdown
     } else {
         format
+    }
+}
+
+fn format_inventory_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64;
+    let mut unit = 0_usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.2} {}", UNITS[unit])
     }
 }
 

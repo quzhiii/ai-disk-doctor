@@ -177,7 +177,7 @@ fn loads_model_files_rule_yaml() {
     assert!(content.contains(".onnx"));
     assert!(content.contains("category: ai-model"));
     assert!(content.contains("risk: review"));
-    assert!(content.contains("method: report-only"));
+    assert!(content.contains("type: report-only"));
     assert!(content.contains("Do not assume they are re-downloadable"));
 }
 

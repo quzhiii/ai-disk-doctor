@@ -392,6 +392,7 @@ For comprehensive governance documentation covering all four platforms, deduplic
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
+| `rules lint` | Validate rule schemas and show source digests | `--json`, `--rules-dir`, `--rules-repo` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 | `anomaly` | Detect growth anomalies from scan snapshots | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -414,6 +415,14 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 ---
 
 ## Safety First
+
+### Rule Schema and Provenance
+
+- New rules use Rule Schema v2 to separate `detector`, `decision`, and `action`.
+- Existing v1 rules remain loadable through the compatibility loader.
+- `rules lint` validates all YAML rules, rejects duplicate IDs, and reports SHA-256 source digests.
+- `scan --json` records each loaded rule's path, schema version, and digest under `summary.rule_sources`.
+- Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
 
 ### Default Behavior
 

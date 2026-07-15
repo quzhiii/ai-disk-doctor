@@ -1,26 +1,41 @@
+schema_version: 2
 id: model-files
 name: AI model weight files
 category: ai-model
 platforms: [windows, linux, macos]
-paths:
-  windows:
-    - '%USERPROFILE%\**\*.gguf'
-    - '%USERPROFILE%\**\*.safetensors'
-    - '%USERPROFILE%\**\*.onnx'
-    - '%USERPROFILE%\**\*.mlx'
-  linux:
-    - '~/**/*.gguf'
-    - '~/**/*.safetensors'
-    - '~/**/*.onnx'
-    - '~/**/*.mlx'
-  macos:
-    - '~/**/*.gguf'
-    - '~/**/*.safetensors'
-    - '~/**/*.onnx'
-    - '~/**/*.mlx'
-risk: review
-cleanup:
-  method: report-only
+detector:
+  paths:
+    windows:
+      - '%USERPROFILE%\**\*.gguf'
+      - '%USERPROFILE%\**\*.safetensors'
+      - '%USERPROFILE%\**\*.onnx'
+      - '%USERPROFILE%\**\*.mlx'
+    linux:
+      - '~/**/*.gguf'
+      - '~/**/*.safetensors'
+      - '~/**/*.onnx'
+      - '~/**/*.mlx'
+    macos:
+      - '~/**/*.gguf'
+      - '~/**/*.safetensors'
+      - '~/**/*.onnx'
+      - '~/**/*.mlx'
+  evidence:
+    - path-pattern
+    - model-format
+data_kind: model-file
+recoverability: unknown
+sensitivity: potentially-private
+default_liveness: unknown
+decision:
+  risk: review
+  confidence: high
+action:
+  type: report-only
+  adapter: none
+  supports_dry_run: true
+  supports_rollback: false
+content_access: metadata-only
 exclusions: []
 reason: "Model weight files in standard formats can be public downloads, private fine-tunes, or locally converted assets. Treat unknown model files as report-only until provenance is verified."
 warnings:

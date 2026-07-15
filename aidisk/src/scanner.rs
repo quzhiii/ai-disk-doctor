@@ -10,7 +10,7 @@ use sysinfo::Disks;
 use walkdir::WalkDir;
 
 use crate::policy::PolicySnapshot;
-use crate::rules::{expand_windows_path, RiskLevel, Rule};
+use crate::rules::{expand_windows_path, RiskLevel, Rule, RuleSource};
 
 #[derive(Debug, Serialize)]
 pub struct ScanReport {
@@ -66,6 +66,7 @@ pub struct Summary {
     pub top_findings: Vec<TopFinding>,
     pub reclaimable_safe_bytes: u64,
     pub partial_findings: usize,
+    pub rule_sources: Vec<RuleSource>,
 }
 
 impl Default for Summary {
@@ -89,6 +90,7 @@ impl Default for Summary {
             top_findings: Vec::new(),
             reclaimable_safe_bytes: 0,
             partial_findings: 0,
+            rule_sources: Vec::new(),
         }
     }
 }
@@ -124,6 +126,10 @@ where
     let volumes = collect_volumes();
     let mut summary = Summary {
         total_rules: rules.len(),
+        rule_sources: rules
+            .iter()
+            .map(|rule| rule.metadata.source.clone())
+            .collect(),
         ..Summary::default()
     };
 
@@ -449,6 +455,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "cache".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
             crate::rules::Rule {
                 id: "report".to_string(),
@@ -463,6 +470,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "report".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
             crate::rules::Rule {
                 id: "guide".to_string(),
@@ -477,6 +485,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "guide".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
             crate::rules::Rule {
                 id: "partial".to_string(),
@@ -491,6 +500,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "partial".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
         ];
 
@@ -530,6 +540,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "first".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
             crate::rules::Rule {
                 id: "second".to_string(),
@@ -544,6 +555,7 @@ mod tests {
                 exclusions: Vec::new(),
                 reason: "second".to_string(),
                 warnings: Vec::new(),
+                metadata: crate::rules::RuleMetadata::default(),
             },
         ];
         let mut events = Vec::new();
@@ -619,6 +631,7 @@ mod tests {
             exclusions: Vec::new(),
             reason: "test".to_string(),
             warnings: Vec::new(),
+            metadata: crate::rules::RuleMetadata::default(),
         }];
 
         let report = super::scan(&rules, 20).expect("scan should succeed");
@@ -648,6 +661,7 @@ mod tests {
             exclusions: Vec::new(),
             reason: "test".to_string(),
             warnings: Vec::new(),
+            metadata: crate::rules::RuleMetadata::default(),
         }];
 
         let report = super::scan(&rules, 20).expect("scan should succeed");
@@ -687,6 +701,7 @@ mod tests {
             exclusions: Vec::new(),
             reason: "test".to_string(),
             warnings: Vec::new(),
+            metadata: crate::rules::RuleMetadata::default(),
         }];
 
         let report = super::scan(&rules, 20).expect("scan should succeed");
@@ -778,6 +793,7 @@ mod tests {
             exclusions: Vec::new(),
             reason: "test cache".to_string(),
             warnings: Vec::new(),
+            metadata: crate::rules::RuleMetadata::default(),
         }
     }
 }

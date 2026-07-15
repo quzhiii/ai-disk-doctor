@@ -180,6 +180,7 @@ fn render_text(report: &ScanReport) -> String {
     lines.extend(render_scan_limit_lines(report.policy.as_ref(), false));
     lines.extend([
         format!("Rules: {}", report.summary.total_rules),
+        format!("Rule Sources: {}", report.summary.rule_sources.len()),
         format!("Matched Paths: {}", report.summary.matched_paths),
         format!("Partial Findings: {}", report.summary.partial_findings),
         format!(
@@ -287,6 +288,7 @@ fn render_markdown(report: &ScanReport) -> String {
     lines.extend(render_scan_limit_lines(report.policy.as_ref(), true));
     lines.extend([
         format!("- Rules: {}", report.summary.total_rules),
+        format!("- Rule Sources: {}", report.summary.rule_sources.len()),
         format!("- Matched Paths: {}", report.summary.matched_paths),
         format!("- Partial Findings: {}", report.summary.partial_findings),
         format!(

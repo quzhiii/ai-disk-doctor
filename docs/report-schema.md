@@ -6,6 +6,14 @@ This document records the current JSON report contracts that are most relevant t
 
 `scan --json` includes `summary.schema_version: 2` and separates observed footprint from executable cleanup capacity.
 
+The same summary includes `rule_sources`, with one entry per loaded rule:
+
+| Field | Meaning |
+|---|---|
+| `path` | Rule file loaded for the scan. |
+| `schema_version` | Normalized rule schema version (`1` for compatibility-loaded v1 rules, `2` for native v2 rules). |
+| `digest` | SHA-256 digest of the source YAML, prefixed with `sha256:`. |
+
 | Field | Meaning |
 |---|---|
 | `total_size_bytes` | Lower-bound total across existing findings, including partial findings. Kept for compatibility. |

@@ -10,6 +10,8 @@
 - Hardened quarantine execution with platform-native destination paths, root containment checks, source/destination nesting guards, versioned execution indexes, execution stages, and copy-verify-remove fallback for rename failures.
 - Added trusted distribution foundation with six-target release artifact matrix, versioned package naming, SHA-256 checksums, Cargo metadata SBOM, provenance JSON, package smoke tests, and Homebrew/winget draft manifests.
 - Updated Cargo metadata and install docs to describe AI Disk Doctor as a cross-platform CLI with checksum verification, upgrade, uninstall, SBOM, and provenance guidance.
+- Added Rule Schema v2 compatibility loading and validation with separated detector, decision, and action fields; migrated model cache and model file rules while retaining v1 rule loading.
+- Added `aidisk rules lint` and scan rule source metadata with SHA-256 digests for rule provenance.
 
 ## 1.6.0
 

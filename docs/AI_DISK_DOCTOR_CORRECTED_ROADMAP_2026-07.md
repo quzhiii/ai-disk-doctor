@@ -258,13 +258,13 @@ content_access: metadata-only
 
 ### 开发任务
 
-- [ ] 定义 Rule Schema v2。
-- [ ] 保持 v1 规则兼容，或提供 migration。
-- [ ] 将 detector、decision、action 分离。
-- [ ] scan report 展示规则来源、版本和 digest。
-- [ ] 为官方 adapter 预留接口。
-- [ ] 内置规则增加 schema validation。
-- [ ] PR CI 增加 rule lint。
+- [x] 定义 Rule Schema v2。
+- [x] 保持 v1 规则兼容，并在加载时提供规范化 migration metadata。
+- [x] 将 detector、decision、action 分离。
+- [x] scan report 展示规则来源、版本和 digest。
+- [x] 为官方 adapter 预留接口。
+- [x] 内置规则增加 schema validation。
+- [x] PR CI 增加 rule lint。
 
 ### 验收标准
 
@@ -296,7 +296,7 @@ content_access: metadata-only
 - [ ] 主流平台 artifact 可稳定发布；
 - [ ] checksum 和 SBOM 可生成；
 - [ ] README、Cargo、CHANGELOG、Release 一致；
-- [ ] Rule Schema v2 最小版本落地；
+- [x] Rule Schema v2 最小版本落地；
 - [ ] 没有已知规则会把私有模型标记为安全可清。
 
 ---

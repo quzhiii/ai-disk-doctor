@@ -390,6 +390,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 | `clean` | 执行隔离或预览 | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | 恢复隔离的文件 | `--dry-run`, `--yes`, `--index` |
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
+| `rules lint` | 校验规则 schema 并展示来源 digest | `--json`, `--rules-dir`, `--rules-repo` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
 | `anomaly` | 从扫描快照中检测增长异常 | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -412,6 +413,14 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 ---
 
 ## 安全第一
+
+### 规则 Schema 与来源
+
+- 新规则使用 Rule Schema v2，将 `detector`、`decision`、`action` 分离。
+- 现有 v1 规则仍可通过兼容加载器读取。
+- `rules lint` 会校验全部 YAML 规则、拒绝重复 ID，并报告 SHA-256 来源 digest。
+- `scan --json` 会在 `summary.rule_sources` 中记录每条已加载规则的路径、schema 版本和 digest。
+- 模型文件和未知模型缓存仍保持 review/report-only，除非规则明确提供更安全的动作。
 
 ### 默认行为
 

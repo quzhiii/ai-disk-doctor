@@ -1,15 +1,30 @@
+schema_version: 2
 id: ollama-models
 name: Ollama model store
 category: models
 platform: cross-platform
-paths:
-  - "%USERPROFILE%\\.ollama\\models"
-  - "%USERPROFILE%\\.ollama\\models\\blobs"
-  - "~/.ollama/models"
-  - "~/.ollama/models/blobs"
-risk: review
-cleanup:
-  method: guide
+detector:
+  paths:
+    - "%USERPROFILE%\\.ollama\\models"
+    - "%USERPROFILE%\\.ollama\\models\\blobs"
+    - "~/.ollama/models"
+    - "~/.ollama/models/blobs"
+  evidence:
+    - path-pattern
+    - cache-layout
+data_kind: model-cache
+recoverability: redownload
+sensitivity: none
+default_liveness: unknown
+decision:
+  risk: review
+  confidence: medium
+action:
+  type: official-command
+  adapter: ollama
+  supports_dry_run: true
+  supports_rollback: false
+content_access: metadata-only
 exclusions: []
 reason: "Ollama models can occupy tens of GB and should be reviewed with model-aware commands before removal. Use `ollama list` to see all installed models and their sizes."
 warnings:

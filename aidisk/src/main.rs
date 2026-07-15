@@ -184,6 +184,10 @@ enum Command {
         #[arg(long)]
         policy: Option<PathBuf>,
     },
+    Rules {
+        #[command(subcommand)]
+        command: RulesCommand,
+    },
     Visualize {
         #[arg(long, default_value = "true")]
         html: bool,
@@ -193,6 +197,18 @@ enum Command {
 
         #[arg(long, default_value = "aidisk-footprint.html")]
         output: PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RulesCommand {
+    Lint {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        rules_repo: Option<String>,
     },
 }
 
@@ -525,6 +541,33 @@ fn run(cli: Cli) -> Result<()> {
                 reporter::render_doctor(&doctor_report, effective_format)?
             );
         }
+        Command::Rules { command } => match command {
+            RulesCommand::Lint {
+                json,
+                rules_dir,
+                rules_repo,
+            } => {
+                let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
+                let report = rules::lint_rules(&rules_dir)?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else {
+                    println!("AI Disk Rule Lint");
+                    println!("Rules Directory: {}", rules_dir.display());
+                    println!("Total Rules: {}", report.total_rules);
+                    for (version, count) in report.schema_versions {
+                        println!("Schema v{version}: {count}");
+                    }
+                    println!("Sources:");
+                    for source in report.rules {
+                        println!(
+                            "- schema=v{} | {} | {}",
+                            source.schema_version, source.digest, source.path
+                        );
+                    }
+                }
+            }
+        },
         Command::Visualize {
             html,
             reports_dir,
@@ -572,6 +615,7 @@ impl ErrorContext {
                 "diff" => Some("diff"),
                 "anomaly" => Some("anomaly"),
                 "doctor" => Some("doctor"),
+                "rules" => Some("rules"),
                 "visualize" => Some("visualize"),
                 _ => None,
             })
@@ -649,6 +693,13 @@ impl ErrorContext {
             } => Self {
                 command: "doctor",
                 format: effective_format(*format, *json, *markdown),
+            },
+            Command::Rules { command } => Self {
+                command: "rules",
+                format: match command {
+                    RulesCommand::Lint { json, .. } if *json => OutputFormat::Json,
+                    _ => OutputFormat::Text,
+                },
             },
             Command::Visualize { .. } => Self {
                 command: "visualize",
@@ -775,6 +826,9 @@ fn classify_cli_error(error: &anyhow::Error) -> &'static str {
         || message.contains("requires at least two scan snapshots")
         || message.contains("no such file")
         || message.contains("not found")
+        || message.contains("duplicate rule id")
+        || message.contains("unsupported rule schema")
+        || message.contains("schema v2")
         || error.downcast_ref::<std::io::Error>().is_some()
     {
         return "input";

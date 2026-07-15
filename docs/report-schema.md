@@ -82,11 +82,14 @@ modify third-party indexes. The report includes:
 | Field | Meaning |
 |---|---|
 | `assets[].logical_size_bytes` | Size of each discovered model file or cache blob. |
+| `stale_after_days` | Metadata activity cutoff used for `assets[].stale`. |
 | `assets[].exclusive_physical_size_bytes` | Physical bytes counted once for an asset path. |
 | `assets[].shared_physical_size_bytes` | Bytes recognized as a repeated physical path and excluded from exclusive totals. |
 | `assets[].state` | Conservative state such as `managed-cache`, `managed-cache-unresolved`, or `unknown-custom`. |
 | `assets[].action` | Always `report-only` in the initial inventory foundation. |
 | `assets[].reclaim_confidence` | Explanatory score only; it does not authorize cleanup. |
+| `assets[].stale` | Metadata-only activity marker controlled by `--stale-after-days`. |
+| `assets[].duplicate_logical_model` | Indicates repeated logical identity across revisions or distinct physical paths. |
 | `nodes` / `edges` | Minimal in-memory provenance graph for tools, models, and revisions. |
 
 When a small local index can be parsed without reading model contents, the inventory also adds
@@ -102,6 +105,8 @@ reference evidence:
 | `summary.detached_revision_assets` | Count of snapshot assets with no parsed Hugging Face ref. |
 | `summary.orphan_blob_assets` | Count of blobs unreferenced by a successfully parsed local index. |
 | `summary.incomplete_download_assets` | Count of assets with an incomplete-download marker. |
+| `summary.stale_assets` | Count of assets older than the configured metadata cutoff. |
+| `summary.duplicate_logical_model_assets` | Count of assets sharing a repeated logical model identity. |
 | `edges` | May include `resolves-to`, `has-manifest`, `part-of`, `belongs-to`, and `references` relations. |
 
 Index parsing is bounded to small local metadata files. Missing, unreadable, or invalid indexes do

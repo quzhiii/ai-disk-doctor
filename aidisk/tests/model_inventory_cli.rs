@@ -140,3 +140,33 @@ fn models_inventory_does_not_require_a_tool_or_modify_files() {
     let report: Value = serde_json::from_slice(&output.stdout).expect("inventory should be json");
     assert_eq!(report["summary"]["total_assets"], 0);
 }
+
+#[test]
+fn models_inventory_accepts_stale_cutoff_and_reports_new_summary_fields() {
+    let temp = tempdir().expect("tempdir should exist");
+    let snapshot = temp.path().join("models--org--demo/snapshots/rev-1");
+    fs::create_dir_all(&snapshot).expect("snapshot should exist");
+    fs::write(snapshot.join("model.safetensors"), b"model").expect("model should write");
+
+    let output = Command::new(binary())
+        .args([
+            "models",
+            "inventory",
+            "--json",
+            "--tool",
+            "huggingface",
+            "--stale-after-days",
+            "0",
+            "--root",
+            temp.path().to_str().expect("temp path should be utf8"),
+        ])
+        .output()
+        .expect("models inventory should run");
+
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("inventory should be json");
+    assert_eq!(report["summary"]["stale_assets"], 0);
+    assert_eq!(report["summary"]["duplicate_logical_model_assets"], 0);
+    assert_eq!(report["assets"][0]["stale"], false);
+    assert_eq!(report["assets"][0]["duplicate_logical_model"], false);
+}

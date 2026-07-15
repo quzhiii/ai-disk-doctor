@@ -393,7 +393,7 @@ For comprehensive governance documentation covering all four platforms, deduplic
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | Validate rule schemas and show source digests | `--json`, `--rules-dir`, `--rules-repo` |
-| `models inventory` | Read-only model asset inventory | `--tool`, `--root`, `--max-depth`, `--json`, `--markdown` |
+| `models inventory` | Read-only model asset inventory | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 | `anomaly` | Detect growth anomalies from scan snapshots | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -426,6 +426,7 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
 - `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face indexes.
 - When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships; unresolved or unknown assets remain `report-only`.
+- `--stale-after-days` controls the metadata-only stale marker and defaults to 90 days; it never enables cleanup.
 
 ### Default Behavior
 

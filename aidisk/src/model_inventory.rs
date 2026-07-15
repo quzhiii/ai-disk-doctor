@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
@@ -31,12 +31,14 @@ pub struct InventoryOptions {
     pub root: Option<PathBuf>,
     pub tool: InventoryTool,
     pub max_depth: usize,
+    pub stale_after_days: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ModelInventoryReport {
     pub schema_version: u16,
     pub generated_at: DateTime<Local>,
+    pub stale_after_days: u64,
     pub roots: Vec<InventoryRoot>,
     pub assets: Vec<ModelAsset>,
     pub nodes: Vec<ProvenanceNode>,
@@ -70,6 +72,8 @@ pub struct ModelAsset {
     pub recoverability: String,
     pub suspected_custom_model: bool,
     pub state: String,
+    pub stale: bool,
+    pub duplicate_logical_model: bool,
     pub action: String,
     pub reclaim_confidence: u8,
     pub positive_evidence: Vec<String>,
@@ -87,6 +91,8 @@ pub struct InventorySummary {
     pub detached_revision_assets: usize,
     pub orphan_blob_assets: usize,
     pub incomplete_download_assets: usize,
+    pub stale_assets: usize,
+    pub duplicate_logical_model_assets: usize,
     pub unknown_custom_assets: usize,
     pub report_only_assets: usize,
 }
@@ -116,6 +122,7 @@ struct AssetRecord {
     asset: ModelAsset,
     path: PathBuf,
     physical_key: String,
+    activity_time: Option<SystemTime>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,6 +145,8 @@ struct InventoryAnalysis {
     detached_revision_asset_ids: HashSet<String>,
     orphan_blob_asset_ids: HashSet<String>,
     incomplete_download_asset_ids: HashSet<String>,
+    stale_asset_ids: HashSet<String>,
+    duplicate_logical_model_asset_ids: HashSet<String>,
     nodes: Vec<ProvenanceNode>,
     edges: Vec<ProvenanceEdge>,
     node_ids: HashSet<String>,
@@ -221,11 +230,14 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                 asset: build_asset(path, detected, logical_size_bytes),
                 path: path.to_path_buf(),
                 physical_key,
+                activity_time: latest_activity_time(&metadata),
             });
         }
     }
 
     let mut analysis = InventoryAnalysis::default();
+    mark_stale_assets(&assets, options.stale_after_days, &mut analysis);
+    mark_duplicate_logical_models(&assets, &mut analysis);
     for root in &root_paths {
         let detected = detect_tool(root, options.tool);
         match detected {
@@ -279,6 +291,22 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                 .push("filename indicates an incomplete download".to_string()),
             _ => {}
         }
+        asset.stale = analysis.stale_asset_ids.contains(&asset.id);
+        asset.duplicate_logical_model = analysis
+            .duplicate_logical_model_asset_ids
+            .contains(&asset.id);
+        if asset.stale {
+            asset.risk_evidence.push(format!(
+                "last activity is older than {} days",
+                options.stale_after_days
+            ));
+        }
+        if asset.duplicate_logical_model {
+            asset.risk_evidence.push(
+                "same logical model identity appears in multiple revisions or paths".to_string(),
+            );
+        }
+        asset.reclaim_confidence = reclaim_confidence(asset);
     }
 
     let mut assets = assets
@@ -364,6 +392,7 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
     Ok(ModelInventoryReport {
         schema_version: MODEL_INVENTORY_SCHEMA_VERSION,
         generated_at: Local::now(),
+        stale_after_days: options.stale_after_days,
         roots,
         summary: InventorySummary {
             total_assets: assets.len(),
@@ -389,6 +418,11 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             incomplete_download_assets: assets
                 .iter()
                 .filter(|asset| asset.state == "incomplete-download")
+                .count(),
+            stale_assets: assets.iter().filter(|asset| asset.stale).count(),
+            duplicate_logical_model_assets: assets
+                .iter()
+                .filter(|asset| asset.duplicate_logical_model)
                 .count(),
             unknown_custom_assets: assets
                 .iter()
@@ -438,6 +472,93 @@ fn detect_tool(path: &Path, requested: InventoryTool) -> DetectedTool {
             }
         }
     }
+}
+
+fn mark_stale_assets(
+    assets: &[AssetRecord],
+    stale_after_days: u64,
+    analysis: &mut InventoryAnalysis,
+) {
+    if stale_after_days == 0 {
+        return;
+    }
+    let cutoff =
+        SystemTime::now().checked_sub(Duration::from_secs(stale_after_days.saturating_mul(86_400)));
+    let Some(cutoff) = cutoff else {
+        return;
+    };
+    for record in assets {
+        if record.asset.manager != "generic" && is_stale(record.activity_time, cutoff) {
+            analysis.stale_asset_ids.insert(record.asset.id.clone());
+        }
+    }
+}
+
+fn is_stale(activity: Option<SystemTime>, cutoff: SystemTime) -> bool {
+    activity.is_some_and(|activity| activity < cutoff)
+}
+
+fn mark_duplicate_logical_models(assets: &[AssetRecord], analysis: &mut InventoryAnalysis) {
+    let mut identities: HashMap<(String, String, String), Vec<&AssetRecord>> = HashMap::new();
+    for record in assets {
+        if record.asset.manager == "generic" {
+            continue;
+        }
+        let revision = record.asset.revision.clone().unwrap_or_default();
+        identities
+            .entry((
+                record.asset.manager.clone(),
+                record.asset.logical_name.clone(),
+                revision,
+            ))
+            .or_default()
+            .push(record);
+    }
+
+    let mut logical_revisions: HashMap<(String, String), HashSet<String>> = HashMap::new();
+    for ((manager, logical_name, revision), records) in identities {
+        let key = (manager, logical_name);
+        logical_revisions.entry(key).or_default().insert(revision);
+        let _ = records;
+    }
+
+    for record in assets {
+        if record.asset.manager == "generic" {
+            continue;
+        }
+        let key = (
+            record.asset.manager.clone(),
+            record.asset.logical_name.clone(),
+        );
+        if logical_revisions
+            .get(&key)
+            .is_some_and(|revisions| revisions.len() > 1 && !revisions.contains(""))
+        {
+            analysis
+                .duplicate_logical_model_asset_ids
+                .insert(record.asset.id.clone());
+        }
+    }
+}
+
+fn reclaim_confidence(asset: &ModelAsset) -> u8 {
+    if asset.suspected_custom_model || asset.state == "incomplete-download" {
+        return 0;
+    }
+    let mut score = if asset.manager == "generic" { 0 } else { 35 };
+    if asset.state == "orphan-blob" {
+        score += 25;
+    }
+    if asset.state == "detached-revision" {
+        score += 15;
+    }
+    if asset.stale {
+        score += 15;
+    }
+    if asset.duplicate_logical_model {
+        score += 10;
+    }
+    score.min(100)
 }
 
 fn analyze_huggingface(
@@ -925,8 +1046,10 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
         recoverability: recoverability.to_string(),
         suspected_custom_model,
         state: state.to_string(),
+        stale: false,
+        duplicate_logical_model: false,
         action: "report-only".to_string(),
-        reclaim_confidence: if tool.is_managed() { 35 } else { 0 },
+        reclaim_confidence: 0,
         positive_evidence,
         risk_evidence,
     }
@@ -980,6 +1103,13 @@ where
     let metadata = fs::metadata(path).ok()?;
     let time = read(&metadata)?;
     Some(DateTime::<Utc>::from(time).to_rfc3339())
+}
+
+fn latest_activity_time(metadata: &fs::Metadata) -> Option<SystemTime> {
+    [metadata.accessed().ok(), metadata.modified().ok()]
+        .into_iter()
+        .flatten()
+        .max()
 }
 
 fn physical_key(path: &Path, metadata: &fs::Metadata) -> String {
@@ -1095,7 +1225,8 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{build_inventory, InventoryOptions, InventoryTool};
+    use super::{build_inventory, is_stale, InventoryOptions, InventoryTool};
+    use std::time::{Duration, SystemTime};
 
     #[test]
     fn inventories_model_formats_without_reading_contents() {
@@ -1114,6 +1245,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Huggingface,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1149,6 +1281,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Auto,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1172,6 +1305,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Huggingface,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1202,6 +1336,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Generic,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1235,6 +1370,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Huggingface,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1274,6 +1410,7 @@ mod tests {
             root: Some(temp.path().to_path_buf()),
             tool: InventoryTool::Ollama,
             max_depth: 20,
+            stale_after_days: 30,
         })
         .expect("inventory should succeed");
 
@@ -1286,5 +1423,68 @@ mod tests {
         assert!(report.edges.iter().any(|edge| {
             edge.relation == "references" && edge.to == "blob:ollama:sha256-bbbbbbbb"
         }));
+    }
+
+    #[test]
+    fn stale_and_duplicate_assets_are_reported_without_enabling_cleanup() {
+        let temp = tempdir().expect("tempdir should exist");
+        let first = temp.path().join("models--org--demo/snapshots/rev-a");
+        let second = temp.path().join("models--org--demo/snapshots/rev-b");
+        fs::create_dir_all(&first).expect("first snapshot should exist");
+        fs::create_dir_all(&second).expect("second snapshot should exist");
+        fs::write(first.join("model.safetensors"), b"first").expect("first model should write");
+        fs::write(second.join("model.safetensors"), b"second").expect("second model should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 1,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.duplicate_logical_model_assets, 2);
+        assert!(report
+            .assets
+            .iter()
+            .all(|asset| asset.duplicate_logical_model));
+        assert!(report
+            .assets
+            .iter()
+            .all(|asset| asset.action == "report-only"));
+        assert_eq!(report.summary.stale_assets, 0);
+    }
+
+    #[test]
+    fn stale_assets_use_metadata_cutoff_and_confidence_is_explanatory() {
+        let temp = tempdir().expect("tempdir should exist");
+        let root = temp.path().join("models--org--demo/snapshots/rev-a");
+        fs::create_dir_all(&root).expect("snapshot should exist");
+        let model = root.join("model.safetensors");
+        fs::write(&model, b"model").expect("model should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.stale_assets, 0);
+        assert_eq!(report.assets[0].reclaim_confidence, 35);
+        assert_eq!(report.assets[0].action, "report-only");
+    }
+
+    #[test]
+    fn stale_cutoff_is_strictly_metadata_based() {
+        let now = SystemTime::now();
+        let old = now
+            .checked_sub(Duration::from_secs(91 * 86_400))
+            .expect("old timestamp should exist");
+
+        assert!(is_stale(Some(old), now));
+        assert!(!is_stale(Some(now), now));
+        assert!(!is_stale(None, now));
     }
 }

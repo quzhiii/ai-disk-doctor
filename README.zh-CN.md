@@ -391,7 +391,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 | `restore` | 恢复隔离的文件 | `--dry-run`, `--yes`, `--index` |
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | 校验规则 schema 并展示来源 digest | `--json`, `--rules-dir`, `--rules-repo` |
-| `models inventory` | 只读模型资产清单 | `--tool`, `--root`, `--max-depth`, `--json`, `--markdown` |
+| `models inventory` | 只读模型资产清单 | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
 | `anomaly` | 从扫描快照中检测增长异常 | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -424,6 +424,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 - 模型文件和未知模型缓存仍保持 review/report-only，除非规则明确提供更安全的动作。
 - `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face 官方索引。
 - 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系；无法确认来源的资产仍保持 `report-only`。
+- `--stale-after-days` 控制只基于元数据的 stale 标记，默认 90 天；不会启用清理动作。
 
 ### 默认行为
 

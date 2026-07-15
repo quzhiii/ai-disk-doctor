@@ -385,11 +385,11 @@ Adapter 职责：
 ## 4.5 状态识别
 
 - [x] referenced（基于本地 refs / manifest 的基础识别）；
-- [ ] stale；
+- [x] stale（基于访问/修改时间元数据的基础标记）；
 - [x] detached revision（Hugging Face ref 缺失时的基础识别）；
 - [x] orphan blob（仅在本地索引成功解析后识别）；
 - [x] incomplete download（基于文件名标记的基础识别）；
-- [ ] duplicate logical model；
+- [x] duplicate logical model（基于逻辑名称、revision 和物理路径的基础识别）；
 - [x] shared physical blob 基础去重；
 - [x] unknown custom model 基础识别；
 - [ ] external-drive candidate。

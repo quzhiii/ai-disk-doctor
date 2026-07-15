@@ -10,9 +10,9 @@ mod reporter;
 mod rules;
 mod rules_repo;
 mod scanner;
-mod visualize;
 #[cfg(test)]
 mod test_support;
+mod visualize;
 
 use std::path::PathBuf;
 
@@ -226,6 +226,8 @@ enum ModelsCommand {
         root: Option<PathBuf>,
         #[arg(long, default_value_t = 20)]
         max_depth: usize,
+        #[arg(long, default_value_t = 90)]
+        stale_after_days: u64,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -594,14 +596,17 @@ fn run(cli: Cli) -> Result<()> {
                 tool,
                 root,
                 max_depth,
+                stale_after_days,
                 json,
                 markdown,
             } => {
-                let report = model_inventory::build_inventory(&model_inventory::InventoryOptions {
-                    root,
-                    tool,
-                    max_depth,
-                })?;
+                let report =
+                    model_inventory::build_inventory(&model_inventory::InventoryOptions {
+                        root,
+                        tool,
+                        max_depth,
+                        stale_after_days,
+                    })?;
                 if json {
                     println!("{}", serde_json::to_string_pretty(&report)?);
                 } else if markdown {
@@ -633,6 +638,11 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "- Incomplete Download Assets: {}",
                         report.summary.incomplete_download_assets
+                    );
+                    println!("- Stale Assets: {}", report.summary.stale_assets);
+                    println!(
+                        "- Duplicate Logical Model Assets: {}",
+                        report.summary.duplicate_logical_model_assets
                     );
                     println!();
                     println!("| Model | Format | Manager | State | Size | Action |");
@@ -673,6 +683,11 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "Incomplete Download Assets: {}",
                         report.summary.incomplete_download_assets
+                    );
+                    println!("Stale Assets: {}", report.summary.stale_assets);
+                    println!(
+                        "Duplicate Logical Model Assets: {}",
+                        report.summary.duplicate_logical_model_assets
                     );
                     for asset in report.assets {
                         println!(
@@ -828,7 +843,9 @@ impl ErrorContext {
                 command: "models",
                 format: match command {
                     ModelsCommand::Inventory { json, .. } if *json => OutputFormat::Json,
-                    ModelsCommand::Inventory { markdown, .. } if *markdown => OutputFormat::Markdown,
+                    ModelsCommand::Inventory { markdown, .. } if *markdown => {
+                        OutputFormat::Markdown
+                    }
                     _ => OutputFormat::Text,
                 },
             },
@@ -1122,7 +1139,10 @@ mod tests {
             .allow_actions
             .iter()
             .any(|action| action == "quarantine"));
-        assert!(policy.sensitive_markers.iter().any(|marker| marker == "token"));
+        assert!(policy
+            .sensitive_markers
+            .iter()
+            .any(|marker| marker == "token"));
     }
 
     #[test]

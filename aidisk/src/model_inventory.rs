@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
-pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 3;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 4;
 
 pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
 pub const DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS: usize = 2_000;
@@ -71,6 +71,7 @@ pub struct ModelAdapterStatus {
     pub index_parseable: bool,
     pub official_cli: Option<OfficialCliStatus>,
     pub official_dry_run: Option<OfficialDryRunStatus>,
+    pub official_cleanup_plan: Option<OfficialCleanupPlan>,
     pub capabilities: Vec<String>,
     pub plan_mode: String,
     pub action: String,
@@ -105,6 +106,32 @@ pub struct OfficialDryRunStatus {
 }
 
 #[derive(Debug, Serialize)]
+pub struct OfficialCleanupPlan {
+    pub generated: bool,
+    pub source: String,
+    pub mode: String,
+    pub action: String,
+    pub mutation_allowed: bool,
+    pub command: Vec<String>,
+    pub items: Vec<OfficialCleanupPlanItem>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OfficialCleanupPlanItem {
+    pub id: String,
+    pub tool: String,
+    pub operation: String,
+    pub target: String,
+    pub status: String,
+    pub action: String,
+    pub estimated_reclaim_bytes: Option<u64>,
+    pub command: Vec<String>,
+    pub evidence: Vec<String>,
+    pub risk_evidence: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ModelAdapterSummary {
     pub total_adapters: usize,
     pub available_adapters: usize,
@@ -117,6 +144,9 @@ pub struct ModelAdapterSummary {
     pub official_dry_run_requested_adapters: usize,
     pub official_dry_run_invoked_adapters: usize,
     pub official_read_only_list_invoked_adapters: usize,
+    pub official_cleanup_plan_adapters: usize,
+    pub official_cleanup_plan_items: usize,
+    pub official_cleanup_report_only_items: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -606,6 +636,26 @@ pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterRepo
                         .is_some_and(|dry_run| dry_run.invoked && dry_run.mode == "read-only-list")
                 })
                 .count(),
+            official_cleanup_plan_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter
+                        .official_cleanup_plan
+                        .as_ref()
+                        .is_some_and(|plan| plan.generated)
+                })
+                .count(),
+            official_cleanup_plan_items: adapters
+                .iter()
+                .filter_map(|adapter| adapter.official_cleanup_plan.as_ref())
+                .map(|plan| plan.items.len())
+                .sum(),
+            official_cleanup_report_only_items: adapters
+                .iter()
+                .filter_map(|adapter| adapter.official_cleanup_plan.as_ref())
+                .flat_map(|plan| &plan.items)
+                .filter(|item| item.action == "report-only")
+                .count(),
         },
         adapters,
     })
@@ -657,6 +707,7 @@ fn build_adapter_status(
     }
     let official_cli = official_cli_status(tool, options);
     let official_dry_run = official_dry_run_status(tool, &root, options, &official_cli);
+    let official_cleanup_plan = official_cleanup_plan(tool, &root, &official_dry_run);
     if official_cli.supports_dry_run == Some(true) {
         capabilities.push("official-cli-dry-run-capability".to_string());
     } else {
@@ -666,6 +717,9 @@ fn build_adapter_status(
         capabilities.push("official-read-only-list".to_string());
     } else if official_dry_run.invoked {
         capabilities.push("official-cleanup-dry-run".to_string());
+    }
+    if official_cleanup_plan.generated {
+        capabilities.push("official-cleanup-plan-report-only".to_string());
     }
 
     let mut evidence = index.evidence;
@@ -694,6 +748,7 @@ fn build_adapter_status(
         index_parseable: index.parseable,
         official_cli: Some(official_cli),
         official_dry_run: Some(official_dry_run),
+        official_cleanup_plan: Some(official_cleanup_plan),
         capabilities,
         plan_mode: if options.run_official_dry_run {
             "metadata-and-official-dry-run".to_string()
@@ -892,6 +947,145 @@ fn official_dry_run_plan(
             status
         }
     }
+}
+
+fn official_cleanup_plan(
+    tool: DetectedTool,
+    _root: &Path,
+    dry_run: &OfficialDryRunStatus,
+) -> OfficialCleanupPlan {
+    let mut plan = OfficialCleanupPlan {
+        generated: false,
+        source: dry_run.mode.clone(),
+        mode: "report-only".to_string(),
+        action: "report-only".to_string(),
+        mutation_allowed: false,
+        command: dry_run.command.clone(),
+        items: Vec::new(),
+        evidence: Vec::new(),
+    };
+
+    match tool {
+        DetectedTool::Huggingface => {
+            if dry_run.invoked
+                && dry_run.status == "ok"
+                && dry_run.mode == "official-cleanup-dry-run"
+            {
+                plan.generated = true;
+                plan.evidence.push(
+                    "normalized from allowlisted Hugging Face official dry-run output".to_string(),
+                );
+                plan.evidence.push(
+                    "source command used --dry-run and adapter action remains report-only"
+                        .to_string(),
+                );
+                let output = dry_run.output.as_deref().unwrap_or_default();
+                for (index, target) in parse_huggingface_dry_run_targets(output)
+                    .into_iter()
+                    .enumerate()
+                {
+                    plan.items.push(OfficialCleanupPlanItem {
+                        id: format!("official-cleanup:huggingface:{}", index + 1),
+                        tool: tool.label().to_string(),
+                        operation: "cache-prune".to_string(),
+                        target,
+                        status: "planned-review".to_string(),
+                        action: "report-only".to_string(),
+                        estimated_reclaim_bytes: parse_huggingface_reclaim_bytes(output),
+                        command: dry_run.command.clone(),
+                        evidence: vec![
+                            "reported by Hugging Face cache prune dry-run".to_string(),
+                            "no cleanup command was authorized by aidisk".to_string(),
+                        ],
+                        risk_evidence: vec![
+                            "official dry-run output may require manual review before cleanup"
+                                .to_string(),
+                        ],
+                    });
+                }
+                if plan.items.is_empty() {
+                    plan.evidence.push(
+                        "official dry-run completed but no prune targets were normalized"
+                            .to_string(),
+                    );
+                }
+            } else if dry_run.requested {
+                plan.evidence.push(
+                    "Hugging Face official cleanup plan was not generated because dry-run did not complete successfully".to_string(),
+                );
+            }
+        }
+        DetectedTool::Ollama => {
+            if dry_run.invoked && dry_run.mode == "read-only-list" {
+                plan.evidence.push(
+                    "Ollama has no confirmed cleanup dry-run; read-only list output is not normalized into cleanup candidates".to_string(),
+                );
+            }
+        }
+        DetectedTool::Generic => {
+            if dry_run.requested {
+                plan.evidence
+                    .push("generic adapter has no official cleanup plan".to_string());
+            }
+        }
+    }
+
+    plan
+}
+
+fn parse_huggingface_dry_run_targets(output: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    for line in output.lines() {
+        let line = line.trim();
+        if line.is_empty() || !line.is_ascii() {
+            continue;
+        }
+        let lower = line.to_ascii_lowercase();
+        if lower.contains("would")
+            || lower.contains("delete")
+            || lower.contains("prune")
+            || lower.contains("revision")
+            || lower.contains("repo")
+        {
+            targets.push(line.to_string());
+        }
+    }
+    targets.sort();
+    targets.dedup();
+    targets
+}
+
+fn parse_huggingface_reclaim_bytes(output: &str) -> Option<u64> {
+    let lower = output.to_ascii_lowercase();
+    for unit in ["tb", "gb", "mb", "kb", "b"] {
+        if let Some(bytes) = find_size_before_unit(&lower, unit) {
+            return Some(bytes);
+        }
+    }
+    None
+}
+
+fn find_size_before_unit(text: &str, unit: &str) -> Option<u64> {
+    let unit_index = text.find(unit)?;
+    let before = &text[..unit_index];
+    let number = before
+        .chars()
+        .rev()
+        .take_while(|ch| ch.is_ascii_digit() || *ch == '.' || ch.is_ascii_whitespace())
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
+    let value = number.trim().parse::<f64>().ok()?;
+    let multiplier = match unit {
+        "tb" => 1024_f64.powi(4),
+        "gb" => 1024_f64.powi(3),
+        "mb" => 1024_f64.powi(2),
+        "kb" => 1024_f64,
+        "b" => 1_f64,
+        _ => return None,
+    };
+    Some((value * multiplier) as u64)
 }
 
 #[derive(Debug)]
@@ -1987,9 +2181,11 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_inventory, contains_dry_run_flag, is_stale, official_dry_run_plan,
-        official_dry_run_status_with_runner, truncate_adapter_output, AdapterOptions, AdapterTool,
+        build_inventory, contains_dry_run_flag, is_stale, official_cleanup_plan,
+        official_dry_run_plan, official_dry_run_status_with_runner,
+        parse_huggingface_reclaim_bytes, truncate_adapter_output, AdapterOptions, AdapterTool,
         DetectedTool, InventoryOptions, InventoryTool, OfficialCliProbeResult, OfficialCliStatus,
+        OfficialDryRunStatus,
     };
     use std::time::{Duration, SystemTime};
 
@@ -2392,6 +2588,84 @@ mod tests {
         assert_eq!(ollama_status.status, "ok");
         assert_eq!(ollama_status.mode, "read-only-list");
         assert!(!ollama_status.mutation_allowed);
+    }
+
+    #[test]
+    fn official_cleanup_plan_normalizes_huggingface_dry_run_as_report_only() {
+        let temp = tempdir().expect("tempdir should exist");
+        let dry_run = OfficialDryRunStatus {
+            requested: true,
+            supported: true,
+            invoked: true,
+            mode: "official-cleanup-dry-run".to_string(),
+            command: vec![
+                "hf".to_string(),
+                "cache".to_string(),
+                "prune".to_string(),
+                "--dry-run".to_string(),
+                "--cache-dir".to_string(),
+                temp.path().display().to_string(),
+            ],
+            status: "ok".to_string(),
+            output: Some(
+                "Would prune detached revision abc123 from repo model/demo\nExpected reclaim: 1.5 GB"
+                    .to_string(),
+            ),
+            output_truncated: false,
+            mutation_allowed: false,
+        };
+
+        let plan = official_cleanup_plan(DetectedTool::Huggingface, temp.path(), &dry_run);
+
+        assert!(plan.generated);
+        assert_eq!(plan.mode, "report-only");
+        assert_eq!(plan.action, "report-only");
+        assert!(!plan.mutation_allowed);
+        assert_eq!(plan.items.len(), 1);
+        assert!(plan.items.iter().all(|item| item.action == "report-only"));
+        assert!(plan
+            .items
+            .iter()
+            .all(|item| item.operation == "cache-prune"));
+        assert!(plan
+            .items
+            .iter()
+            .any(|item| item.target.contains("detached revision abc123")));
+        assert!(plan
+            .items
+            .iter()
+            .all(|item| item.estimated_reclaim_bytes == Some(1_610_612_736)));
+        assert_eq!(
+            parse_huggingface_reclaim_bytes("Would free 512 MB"),
+            Some(536_870_912)
+        );
+    }
+
+    #[test]
+    fn official_cleanup_plan_keeps_ollama_read_only_list_out_of_cleanup_candidates() {
+        let temp = tempdir().expect("tempdir should exist");
+        let dry_run = OfficialDryRunStatus {
+            requested: true,
+            supported: true,
+            invoked: true,
+            mode: "read-only-list".to_string(),
+            command: vec!["ollama".to_string(), "ls".to_string()],
+            status: "ok".to_string(),
+            output: Some("NAME ID SIZE\ndemo abc 1 GB".to_string()),
+            output_truncated: false,
+            mutation_allowed: false,
+        };
+
+        let plan = official_cleanup_plan(DetectedTool::Ollama, temp.path(), &dry_run);
+
+        assert!(!plan.generated);
+        assert!(plan.items.is_empty());
+        assert_eq!(plan.action, "report-only");
+        assert!(!plan.mutation_allowed);
+        assert!(plan
+            .evidence
+            .iter()
+            .any(|evidence| evidence.contains("read-only list")));
     }
 
     #[test]

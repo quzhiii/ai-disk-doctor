@@ -114,9 +114,9 @@ not cause assets to be classified as orphaned or safe to reclaim. All actions re
 
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
-## Model Adapter Capability v3
+## Model Adapter Capability v4
 
-`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list.
+`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Successful Hugging Face dry-run output is normalized into a report-only `official_cleanup_plan`; Ollama list output is evidence only and does not create cleanup candidates.
 
 | Field | Meaning |
 |---|---|
@@ -139,8 +139,16 @@ Unknown or potentially private model files remain report-only and have zero recl
 | `adapters[].official_dry_run.status` | Invocation result: `not-requested`, `planned`, `ok`, `failed`, `timeout`, `not-available`, `unsupported`, or `error`. |
 | `adapters[].official_dry_run.output` | Bounded stdout/stderr summary when invoked or refused. |
 | `adapters[].official_dry_run.mutation_allowed` | Always `false`; adapter reports never authorize mutation. |
+| `adapters[].official_cleanup_plan.generated` | Whether a report-only normalized plan was generated from a successful official cleanup dry-run. |
+| `adapters[].official_cleanup_plan.mode` | Always `report-only`. |
+| `adapters[].official_cleanup_plan.action` | Always `report-only`. |
+| `adapters[].official_cleanup_plan.mutation_allowed` | Always `false`. |
+| `adapters[].official_cleanup_plan.items[]` | Normalized review items from official dry-run output. |
+| `adapters[].official_cleanup_plan.items[].operation` | Normalized operation, currently `cache-prune` for Hugging Face. |
+| `adapters[].official_cleanup_plan.items[].estimated_reclaim_bytes` | Best-effort byte estimate parsed from official dry-run output, or `null`. |
+| `adapters[].official_cleanup_plan.items[].action` | Always `report-only`; no generated item authorizes cleanup. |
 | `adapters[].plan_mode` | `metadata-only-dry-run` by default, `metadata-and-official-cli-capability-dry-run` after explicit probing, or `metadata-and-official-dry-run` after explicit allowlisted invocation. |
 | `adapters[].action` | Always `report-only`. |
-| `adapters[].capabilities` | Capabilities available without mutation, including official CLI dry-run capability only when help declares `--dry-run`. |
+| `adapters[].capabilities` | Capabilities available without mutation, including official CLI dry-run capability only when help declares `--dry-run`, and report-only cleanup planning when normalization succeeds. |
 
 Missing or invalid indexes remain report-only and do not produce cleanup candidates.

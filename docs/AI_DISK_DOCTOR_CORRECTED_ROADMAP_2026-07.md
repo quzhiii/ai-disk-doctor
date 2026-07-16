@@ -317,7 +317,7 @@ content_access: metadata-only
 
 当前实现还会在元数据文件较小且格式有效时解析 Hugging Face `refs`、snapshot/blob 的本地关系，以及 Ollama manifest/blob 的本地关系。解析失败、索引缺失或关系不完整时保持保守状态，不将资产升级为可回收对象。
 
-当前还提供 `aidisk models adapters` 能力报告：默认仅检查本地 refs/manifest 元数据。显式指定 `--probe-official-cli` 后，只调用 `hf` / `ollama` 的 version/help 命令，并受超时、输出上限约束。显式指定 `--run-official-dry-run` 后，只运行 allowlist 中的非修改命令：Hugging Face 为帮助确认后的 `hf cache prune --dry-run --cache-dir <root>`，Ollama 为只读 `ollama ls`；不执行真实清理，不修改官方索引。
+当前还提供 `aidisk models adapters` 能力报告：默认仅检查本地 refs/manifest 元数据。显式指定 `--probe-official-cli` 后，只调用 `hf` / `ollama` 的 version/help 命令，并受超时、输出上限约束。显式指定 `--run-official-dry-run` 后，只运行 allowlist 中的非修改命令：Hugging Face 为帮助确认后的 `hf cache prune --dry-run --cache-dir <root>`，Ollama 为只读 `ollama ls`；不执行真实清理，不修改官方索引。Hugging Face dry-run 输出会归一化为 report-only `official_cleanup_plan`，Ollama list 输出仅作为证据，不生成 cleanup candidate。
 
 统一展示：
 
@@ -401,7 +401,7 @@ Adapter 基础能力：
 - [x] Hugging Face / Ollama 本地 metadata-only dry-run capability report；
 - [x] 官方 CLI version/help capability probe（显式 opt-in、超时和输出上限）；
 - [x] 官方 dry-run invocation（显式 opt-in、allowlist、Hugging Face prune dry-run；Ollama read-only list）；
-- [ ] 统一 official cleanup plan；
+- [x] 统一 official cleanup plan（report-only foundation；Hugging Face dry-run normalized，Ollama evidence-only）；
 
 ## 4.6 Reclaim Confidence
 

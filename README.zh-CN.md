@@ -426,7 +426,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 - `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face 官方索引。
 - 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系；无法确认来源的资产仍保持 `report-only`。
 - `--stale-after-days` 控制只基于元数据的 stale 标记，默认 90 天；不会启用清理动作。
-- `models adapters` 默认只检查本地元数据。显式指定 `--probe-official-cli` 后，仅调用受限的 `hf` 或 `ollama` version/help 命令。显式指定 `--run-official-dry-run` 后，仅运行 allowlist 中的非修改命令：帮助确认 `--dry-run` 后的 `hf cache prune --dry-run --cache-dir <root>`，或只读的 `ollama ls`。不会执行清理，也不会修改索引，所有 action 仍为 `report-only`。
+- `models adapters` 默认只检查本地元数据。显式指定 `--probe-official-cli` 后，仅调用受限的 `hf` 或 `ollama` version/help 命令。显式指定 `--run-official-dry-run` 后，仅运行 allowlist 中的非修改命令：帮助确认 `--dry-run` 后的 `hf cache prune --dry-run --cache-dir <root>`，或只读的 `ollama ls`。Hugging Face dry-run 输出可归一化为 report-only cleanup plan；Ollama list 输出不会变成清理候选。不会执行清理，也不会修改索引，所有 action 仍为 `report-only`。
 
 ### 默认行为
 

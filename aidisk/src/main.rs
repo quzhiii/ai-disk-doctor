@@ -784,6 +784,10 @@ fn run(cli: Cli) -> Result<()> {
                         "- Official Read-Only Lists: {}",
                         report.summary.official_read_only_list_invoked_adapters
                     );
+                    println!(
+                        "- Official Cleanup Plan Items: {}",
+                        report.summary.official_cleanup_plan_items
+                    );
                     println!();
                     println!("| Tool | Root | Index | Official CLI | Dry-Run | Official Run | Plan Mode | Action |");
                     println!("|---|---|---|---|---|---|---|---|");
@@ -840,6 +844,10 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "Official Read-Only Lists: {}",
                         report.summary.official_read_only_list_invoked_adapters
+                    );
+                    println!(
+                        "Official Cleanup Plan Items: {}",
+                        report.summary.official_cleanup_plan_items
                     );
                     for adapter in report.adapters {
                         let official_cli = adapter.official_cli.as_ref();

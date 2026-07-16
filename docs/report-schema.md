@@ -114,9 +114,9 @@ not cause assets to be classified as orphaned or safe to reclaim. All actions re
 
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
-## Model Adapter Capability v2
+## Model Adapter Capability v3
 
-`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`.
+`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list.
 
 | Field | Meaning |
 |---|---|
@@ -131,7 +131,15 @@ Unknown or potentially private model files remain report-only and have zero recl
 | `adapters[].official_cli.timeout_ms` | Effective per-command timeout, capped at 10 seconds. |
 | `adapters[].official_cli.output_limit_chars` | Effective captured output limit, capped at 16,384 characters. |
 | `adapters[].official_cli.output_truncated` | Whether bounded CLI output was truncated. |
-| `adapters[].plan_mode` | `metadata-only-dry-run` by default, or `metadata-and-official-cli-capability-dry-run` after explicit probing. |
+| `adapters[].official_dry_run.requested` | Whether `--run-official-dry-run` was explicitly requested. |
+| `adapters[].official_dry_run.supported` | Whether an allowlisted non-mutating command was confirmed for this adapter. |
+| `adapters[].official_dry_run.invoked` | Whether the allowlisted command was actually invoked. |
+| `adapters[].official_dry_run.mode` | `official-cleanup-dry-run` for Hugging Face prune dry-run, `read-only-list` for Ollama list, or a non-invoked status. |
+| `adapters[].official_dry_run.command` | Exact allowlisted command tokens. No arbitrary command strings are accepted. |
+| `adapters[].official_dry_run.status` | Invocation result: `not-requested`, `planned`, `ok`, `failed`, `timeout`, `not-available`, `unsupported`, or `error`. |
+| `adapters[].official_dry_run.output` | Bounded stdout/stderr summary when invoked or refused. |
+| `adapters[].official_dry_run.mutation_allowed` | Always `false`; adapter reports never authorize mutation. |
+| `adapters[].plan_mode` | `metadata-only-dry-run` by default, `metadata-and-official-cli-capability-dry-run` after explicit probing, or `metadata-and-official-dry-run` after explicit allowlisted invocation. |
 | `adapters[].action` | Always `report-only`. |
 | `adapters[].capabilities` | Capabilities available without mutation, including official CLI dry-run capability only when help declares `--dry-run`. |
 

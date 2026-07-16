@@ -247,6 +247,11 @@ enum ModelsCommand {
         probe_official_cli: bool,
         #[arg(
             long,
+            help = "Explicitly run only allowlisted official dry-run or read-only list commands"
+        )]
+        run_official_dry_run: bool,
+        #[arg(
+            long,
             default_value_t = model_inventory::DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS
         )]
         probe_timeout_ms: u64,
@@ -736,6 +741,7 @@ fn run(cli: Cli) -> Result<()> {
                 root,
                 max_depth,
                 probe_official_cli,
+                run_official_dry_run,
                 probe_timeout_ms,
                 probe_output_chars,
                 json,
@@ -747,6 +753,7 @@ fn run(cli: Cli) -> Result<()> {
                         tool,
                         max_depth,
                         probe_official_cli,
+                        run_official_dry_run,
                         probe_timeout_ms,
                         probe_output_chars,
                     })?;
@@ -769,15 +776,22 @@ fn run(cli: Cli) -> Result<()> {
                         "- Official Dry-Run Capable: {}",
                         report.summary.official_dry_run_capable_adapters
                     );
-                    println!();
                     println!(
-                        "| Tool | Root | Index | Official CLI | Dry-Run | Plan Mode | Action |"
+                        "- Official Dry-Run Invoked: {}",
+                        report.summary.official_dry_run_invoked_adapters
                     );
-                    println!("|---|---|---|---|---|---|---|");
+                    println!(
+                        "- Official Read-Only Lists: {}",
+                        report.summary.official_read_only_list_invoked_adapters
+                    );
+                    println!();
+                    println!("| Tool | Root | Index | Official CLI | Dry-Run | Official Run | Plan Mode | Action |");
+                    println!("|---|---|---|---|---|---|---|---|");
                     for adapter in report.adapters {
                         let official_cli = adapter.official_cli.as_ref();
+                        let official_dry_run = adapter.official_dry_run.as_ref();
                         println!(
-                            "| `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` |",
+                            "| `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` |",
                             adapter.tool,
                             adapter.root.unwrap_or_else(|| "not detected".to_string()),
                             if adapter.index_parseable {
@@ -800,6 +814,9 @@ fn run(cli: Cli) -> Result<()> {
                                 "unknown",
                                 |supported| if supported { "yes" } else { "no" }
                             ),
+                            official_dry_run
+                                .map(|dry_run| dry_run.status.as_str())
+                                .unwrap_or("unknown"),
                             adapter.plan_mode,
                             adapter.action
                         );
@@ -816,10 +833,19 @@ fn run(cli: Cli) -> Result<()> {
                         "Official CLI Probed: {}",
                         report.summary.official_cli_probed_adapters
                     );
+                    println!(
+                        "Official Dry-Run Invoked: {}",
+                        report.summary.official_dry_run_invoked_adapters
+                    );
+                    println!(
+                        "Official Read-Only Lists: {}",
+                        report.summary.official_read_only_list_invoked_adapters
+                    );
                     for adapter in report.adapters {
                         let official_cli = adapter.official_cli.as_ref();
+                        let official_dry_run = adapter.official_dry_run.as_ref();
                         println!(
-                            "- {} | root={} | index_present={} | index_parseable={} | cli={} | dry_run={} | plan={} | action={}",
+                            "- {} | root={} | index_present={} | index_parseable={} | cli={} | dry_run={} | official_run={} | plan={} | action={}",
                             adapter.tool,
                             adapter.root.unwrap_or_else(|| "not detected".to_string()),
                             adapter.index_present,
@@ -830,6 +856,9 @@ fn run(cli: Cli) -> Result<()> {
                             official_cli
                                 .and_then(|cli| cli.supports_dry_run)
                                 .map_or("unknown", |supported| if supported { "yes" } else { "no" }),
+                            official_dry_run
+                                .map(|dry_run| dry_run.status.as_str())
+                                .unwrap_or("unknown"),
                             adapter.plan_mode,
                             adapter.action
                         );

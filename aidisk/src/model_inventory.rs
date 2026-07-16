@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
-pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 2;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 3;
 
 pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
 pub const DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS: usize = 2_000;
@@ -49,6 +49,7 @@ pub struct AdapterOptions {
     pub tool: AdapterTool,
     pub max_depth: usize,
     pub probe_official_cli: bool,
+    pub run_official_dry_run: bool,
     pub probe_timeout_ms: u64,
     pub probe_output_chars: usize,
 }
@@ -69,6 +70,7 @@ pub struct ModelAdapterStatus {
     pub index_present: bool,
     pub index_parseable: bool,
     pub official_cli: Option<OfficialCliStatus>,
+    pub official_dry_run: Option<OfficialDryRunStatus>,
     pub capabilities: Vec<String>,
     pub plan_mode: String,
     pub action: String,
@@ -90,6 +92,19 @@ pub struct OfficialCliStatus {
 }
 
 #[derive(Debug, Serialize)]
+pub struct OfficialDryRunStatus {
+    pub requested: bool,
+    pub supported: bool,
+    pub invoked: bool,
+    pub mode: String,
+    pub command: Vec<String>,
+    pub status: String,
+    pub output: Option<String>,
+    pub output_truncated: bool,
+    pub mutation_allowed: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ModelAdapterSummary {
     pub total_adapters: usize,
     pub available_adapters: usize,
@@ -99,6 +114,9 @@ pub struct ModelAdapterSummary {
     pub official_cli_probed_adapters: usize,
     pub official_cli_available_adapters: usize,
     pub official_dry_run_capable_adapters: usize,
+    pub official_dry_run_requested_adapters: usize,
+    pub official_dry_run_invoked_adapters: usize,
+    pub official_read_only_list_invoked_adapters: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -562,6 +580,32 @@ pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterRepo
                         == Some(true)
                 })
                 .count(),
+            official_dry_run_requested_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter
+                        .official_dry_run
+                        .as_ref()
+                        .is_some_and(|dry_run| dry_run.requested)
+                })
+                .count(),
+            official_dry_run_invoked_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter.official_dry_run.as_ref().is_some_and(|dry_run| {
+                        dry_run.invoked && dry_run.mode == "official-cleanup-dry-run"
+                    })
+                })
+                .count(),
+            official_read_only_list_invoked_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter
+                        .official_dry_run
+                        .as_ref()
+                        .is_some_and(|dry_run| dry_run.invoked && dry_run.mode == "read-only-list")
+                })
+                .count(),
         },
         adapters,
     })
@@ -612,10 +656,16 @@ fn build_adapter_status(
         capabilities.push("provenance-resolution".to_string());
     }
     let official_cli = official_cli_status(tool, options);
+    let official_dry_run = official_dry_run_status(tool, &root, options, &official_cli);
     if official_cli.supports_dry_run == Some(true) {
         capabilities.push("official-cli-dry-run-capability".to_string());
     } else {
         capabilities.push("official-cli-dry-run-pending".to_string());
+    }
+    if official_dry_run.invoked && official_dry_run.mode == "read-only-list" {
+        capabilities.push("official-read-only-list".to_string());
+    } else if official_dry_run.invoked {
+        capabilities.push("official-cleanup-dry-run".to_string());
     }
 
     let mut evidence = index.evidence;
@@ -624,6 +674,15 @@ fn build_adapter_status(
             .push("official CLI probe was opt-in and limited to version/help commands".to_string());
     } else {
         evidence.push("external official CLI was not invoked".to_string());
+    }
+    if official_dry_run.requested && official_dry_run.invoked {
+        evidence
+            .push("official invocation was limited to an allowlisted dry-run command".to_string());
+    } else if official_dry_run.requested {
+        evidence.push(
+            "official dry-run was requested but no safe mutating dry-run command was confirmed"
+                .to_string(),
+        );
     }
     evidence.push("no cleanup or index mutation is performed".to_string());
 
@@ -634,8 +693,11 @@ fn build_adapter_status(
         index_present: index.present,
         index_parseable: index.parseable,
         official_cli: Some(official_cli),
+        official_dry_run: Some(official_dry_run),
         capabilities,
-        plan_mode: if options.probe_official_cli {
+        plan_mode: if options.run_official_dry_run {
+            "metadata-and-official-dry-run".to_string()
+        } else if options.probe_official_cli {
             "metadata-and-official-cli-capability-dry-run".to_string()
         } else {
             "metadata-only-dry-run".to_string()
@@ -670,12 +732,16 @@ fn official_cli_status(tool: DetectedTool, options: &AdapterOptions) -> Official
         output_truncated: false,
     };
 
-    if !options.probe_official_cli || command.is_empty() {
+    if !(options.probe_official_cli || options.run_official_dry_run) || command.is_empty() {
         return not_probed();
     }
 
     let version = run_official_cli_probe(command, "--version", timeout_ms, output_limit_chars);
-    let help = run_official_cli_probe(command, "--help", timeout_ms, output_limit_chars);
+    let help_argument = match tool {
+        DetectedTool::Huggingface if options.run_official_dry_run => "cache prune --help",
+        _ => "--help",
+    };
+    let help = run_official_cli_probe(command, help_argument, timeout_ms, output_limit_chars);
     let available = version.available.or(help.available);
     let version_text = if version.status == "ok" {
         Some(version.output.clone())
@@ -702,6 +768,132 @@ fn official_cli_status(tool: DetectedTool, options: &AdapterOptions) -> Official
     }
 }
 
+fn official_dry_run_status(
+    tool: DetectedTool,
+    root: &Path,
+    options: &AdapterOptions,
+    official_cli: &OfficialCliStatus,
+) -> OfficialDryRunStatus {
+    official_dry_run_status_with_runner(tool, root, options, official_cli, run_official_cli_args)
+}
+
+fn official_dry_run_status_with_runner<F>(
+    tool: DetectedTool,
+    root: &Path,
+    options: &AdapterOptions,
+    official_cli: &OfficialCliStatus,
+    runner: F,
+) -> OfficialDryRunStatus
+where
+    F: Fn(&str, &[&str], u64, usize) -> OfficialCliProbeResult,
+{
+    let timeout_ms = options
+        .probe_timeout_ms
+        .clamp(1, MAX_OFFICIAL_CLI_PROBE_TIMEOUT_MS);
+    let output_limit_chars = options
+        .probe_output_chars
+        .clamp(1, MAX_OFFICIAL_CLI_OUTPUT_CHARS);
+    let mut status = official_dry_run_plan(tool, root, options.run_official_dry_run, official_cli);
+    if !options.run_official_dry_run || !status.supported {
+        return status;
+    }
+
+    match tool {
+        DetectedTool::Huggingface => {
+            let cache_dir = root.display().to_string();
+            let result = runner(
+                "hf",
+                &["cache", "prune", "--dry-run", "--cache-dir", &cache_dir],
+                timeout_ms,
+                output_limit_chars,
+            );
+            status.invoked = true;
+            status.status = result.status;
+            status.output = Some(result.output);
+            status.output_truncated = result.output_truncated;
+            status
+        }
+        DetectedTool::Ollama => {
+            let result = runner("ollama", &["ls"], timeout_ms, output_limit_chars);
+            status.invoked = true;
+            status.status = result.status;
+            status.output = Some(result.output);
+            status.output_truncated = result.output_truncated;
+            status
+        }
+        DetectedTool::Generic => status,
+    }
+}
+
+fn official_dry_run_plan(
+    tool: DetectedTool,
+    root: &Path,
+    requested: bool,
+    official_cli: &OfficialCliStatus,
+) -> OfficialDryRunStatus {
+    let mut status = OfficialDryRunStatus {
+        requested,
+        supported: false,
+        invoked: false,
+        mode: "not-requested".to_string(),
+        command: Vec::new(),
+        status: "not-requested".to_string(),
+        output: None,
+        output_truncated: false,
+        mutation_allowed: false,
+    };
+    if !requested {
+        return status;
+    }
+
+    match tool {
+        DetectedTool::Huggingface => {
+            let command = vec![
+                "hf".to_string(),
+                "cache".to_string(),
+                "prune".to_string(),
+                "--dry-run".to_string(),
+                "--cache-dir".to_string(),
+                root.display().to_string(),
+            ];
+            status.command = command.clone();
+            status.mode = "official-cleanup-dry-run".to_string();
+            status.supported = official_cli.available == Some(true)
+                && official_cli.help_status == "ok"
+                && official_cli.supports_dry_run == Some(true);
+            if !status.supported {
+                status.status = "unsupported".to_string();
+                status.output = Some(
+                    "hf cache prune --help did not confirm an allowlisted --dry-run command"
+                        .to_string(),
+                );
+            }
+            if status.supported {
+                status.status = "planned".to_string();
+            }
+            status
+        }
+        DetectedTool::Ollama => {
+            status.supported = official_cli.available == Some(true);
+            status.mode = "read-only-list".to_string();
+            status.command = vec!["ollama".to_string(), "ls".to_string()];
+            if !status.supported {
+                status.status = "not-available".to_string();
+                status.output =
+                    Some("ollama command was not available for read-only list".to_string());
+            } else {
+                status.status = "planned".to_string();
+            }
+            status
+        }
+        DetectedTool::Generic => {
+            status.status = "unsupported".to_string();
+            status.output = Some("generic adapter has no official dry-run command".to_string());
+            status
+        }
+    }
+}
+
 #[derive(Debug)]
 struct OfficialCliProbeResult {
     status: String,
@@ -716,8 +908,18 @@ fn run_official_cli_probe(
     timeout_ms: u64,
     output_limit_chars: usize,
 ) -> OfficialCliProbeResult {
+    let args = argument.split_whitespace().collect::<Vec<_>>();
+    run_official_cli_args(command, &args, timeout_ms, output_limit_chars)
+}
+
+fn run_official_cli_args(
+    command: &str,
+    args: &[&str],
+    timeout_ms: u64,
+    output_limit_chars: usize,
+) -> OfficialCliProbeResult {
     let mut child = match Command::new(command)
-        .arg(argument)
+        .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -1785,8 +1987,9 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_inventory, contains_dry_run_flag, is_stale, truncate_adapter_output,
-        InventoryOptions, InventoryTool,
+        build_inventory, contains_dry_run_flag, is_stale, official_dry_run_plan,
+        official_dry_run_status_with_runner, truncate_adapter_output, AdapterOptions, AdapterTool,
+        DetectedTool, InventoryOptions, InventoryTool, OfficialCliProbeResult, OfficialCliStatus,
     };
     use std::time::{Duration, SystemTime};
 
@@ -2046,6 +2249,149 @@ mod tests {
         assert!(output.contains("(truncated)"));
         assert!(contains_dry_run_flag("Usage: tool [--dry-run]"));
         assert!(!contains_dry_run_flag("Usage: tool prune"));
+    }
+
+    #[test]
+    fn official_dry_run_plan_refuses_unconfirmed_huggingface_cleanup() {
+        let temp = tempdir().expect("tempdir should exist");
+        let unconfirmed = OfficialCliStatus {
+            command: "hf".to_string(),
+            available: Some(true),
+            version: Some("hf 1.0".to_string()),
+            probed: true,
+            version_status: "ok".to_string(),
+            help_status: "ok".to_string(),
+            supports_dry_run: Some(false),
+            timeout_ms: 1_500,
+            output_limit_chars: 2_000,
+            output_truncated: false,
+        };
+        let plan =
+            official_dry_run_plan(DetectedTool::Huggingface, temp.path(), true, &unconfirmed);
+
+        assert!(plan.requested);
+        assert!(!plan.supported);
+        assert!(!plan.invoked);
+        assert_eq!(plan.status, "unsupported");
+        assert_eq!(plan.mode, "official-cleanup-dry-run");
+        assert_eq!(plan.command[0], "hf");
+        assert_eq!(plan.command[1], "cache");
+        assert_eq!(plan.command[2], "prune");
+        assert_eq!(plan.command[3], "--dry-run");
+        assert!(!plan.mutation_allowed);
+
+        let confirmed = OfficialCliStatus {
+            supports_dry_run: Some(true),
+            ..unconfirmed
+        };
+        let plan = official_dry_run_plan(DetectedTool::Huggingface, temp.path(), true, &confirmed);
+        assert!(plan.supported);
+        assert!(!plan.invoked);
+        assert_eq!(plan.status, "planned");
+    }
+
+    #[test]
+    fn official_dry_run_plan_keeps_ollama_to_read_only_list() {
+        let temp = tempdir().expect("tempdir should exist");
+        let official_cli = OfficialCliStatus {
+            command: "ollama".to_string(),
+            available: Some(true),
+            version: Some("ollama 1.0".to_string()),
+            probed: true,
+            version_status: "ok".to_string(),
+            help_status: "ok".to_string(),
+            supports_dry_run: Some(false),
+            timeout_ms: 1_500,
+            output_limit_chars: 2_000,
+            output_truncated: false,
+        };
+        let plan = official_dry_run_plan(DetectedTool::Ollama, temp.path(), true, &official_cli);
+
+        assert!(plan.requested);
+        assert!(plan.supported);
+        assert!(!plan.invoked);
+        assert_eq!(plan.status, "planned");
+        assert_eq!(plan.mode, "read-only-list");
+        assert_eq!(plan.command, vec!["ollama".to_string(), "ls".to_string()]);
+        assert!(!plan.mutation_allowed);
+    }
+
+    #[test]
+    fn official_dry_run_invocation_uses_only_allowlisted_commands() {
+        let temp = tempdir().expect("tempdir should exist");
+        let options = AdapterOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: AdapterTool::Huggingface,
+            max_depth: 20,
+            probe_official_cli: false,
+            run_official_dry_run: true,
+            probe_timeout_ms: 1_500,
+            probe_output_chars: 2_000,
+        };
+        let hf_cli = OfficialCliStatus {
+            command: "hf".to_string(),
+            available: Some(true),
+            version: Some("hf 1.0".to_string()),
+            probed: true,
+            version_status: "ok".to_string(),
+            help_status: "ok".to_string(),
+            supports_dry_run: Some(true),
+            timeout_ms: 1_500,
+            output_limit_chars: 2_000,
+            output_truncated: false,
+        };
+        let hf_status = official_dry_run_status_with_runner(
+            DetectedTool::Huggingface,
+            temp.path(),
+            &options,
+            &hf_cli,
+            |command, args, _, _| {
+                assert_eq!(command, "hf");
+                assert_eq!(args[0], "cache");
+                assert_eq!(args[1], "prune");
+                assert_eq!(args[2], "--dry-run");
+                assert_eq!(args[3], "--cache-dir");
+                assert!(!args.contains(&"rm"));
+                OfficialCliProbeResult {
+                    status: "ok".to_string(),
+                    available: Some(true),
+                    output: "Would prune 0 bytes".to_string(),
+                    output_truncated: false,
+                }
+            },
+        );
+        assert!(hf_status.invoked);
+        assert_eq!(hf_status.status, "ok");
+        assert_eq!(hf_status.mode, "official-cleanup-dry-run");
+        assert!(!hf_status.mutation_allowed);
+
+        let mut ollama_options = options.clone();
+        ollama_options.tool = AdapterTool::Ollama;
+        let ollama_cli = OfficialCliStatus {
+            command: "ollama".to_string(),
+            supports_dry_run: Some(false),
+            ..hf_cli
+        };
+        let ollama_status = official_dry_run_status_with_runner(
+            DetectedTool::Ollama,
+            temp.path(),
+            &ollama_options,
+            &ollama_cli,
+            |command, args, _, _| {
+                assert_eq!(command, "ollama");
+                assert_eq!(args, ["ls"]);
+                OfficialCliProbeResult {
+                    status: "ok".to_string(),
+                    available: Some(true),
+                    output: "NAME ID SIZE".to_string(),
+                    output_truncated: false,
+                }
+            },
+        );
+        assert!(ollama_status.invoked);
+        assert_eq!(ollama_status.status, "ok");
+        assert_eq!(ollama_status.mode, "read-only-list");
+        assert!(!ollama_status.mutation_allowed);
     }
 
     #[test]

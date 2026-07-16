@@ -394,7 +394,7 @@ For comprehensive governance documentation covering all four platforms, deduplic
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | Validate rule schemas and show source digests | `--json`, `--rules-dir`, `--rules-repo` |
 | `models inventory` | Read-only model asset inventory | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
-| `models adapters` | Read-only model adapter capability report | `--tool`, `--root`, `--max-depth`, `--probe-official-cli`, `--probe-timeout-ms`, `--probe-output-chars`, `--json`, `--markdown` |
+| `models adapters` | Read-only model adapter capability report | `--tool`, `--root`, `--max-depth`, `--probe-official-cli`, `--run-official-dry-run`, `--probe-timeout-ms`, `--probe-output-chars`, `--json`, `--markdown` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 | `anomaly` | Detect growth anomalies from scan snapshots | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -428,7 +428,7 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face indexes.
 - When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships; unresolved or unknown assets remain `report-only`.
 - `--stale-after-days` controls the metadata-only stale marker and defaults to 90 days; it never enables cleanup.
-- `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only `hf` or `ollama` `--version` and `--help`, with hard timeout/output limits; it never invokes prune/delete, performs cleanup, or mutates indexes.
+- `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only bounded `hf` or `ollama` version/help commands. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. It never performs cleanup or mutates indexes, and all actions remain `report-only`.
 
 ### Default Behavior
 

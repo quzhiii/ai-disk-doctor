@@ -193,7 +193,7 @@ fn models_adapters_report_local_capabilities_without_invoking_tools() {
     assert!(hf_output.status.success());
     let hf_report: Value =
         serde_json::from_slice(&hf_output.stdout).expect("adapter report should be json");
-    assert_eq!(hf_report["schema_version"], 2);
+    assert_eq!(hf_report["schema_version"], 3);
     assert_eq!(hf_report["summary"]["total_adapters"], 1);
     assert_eq!(hf_report["summary"]["index_parseable_adapters"], 1);
     assert_eq!(hf_report["adapters"][0]["action"], "report-only");

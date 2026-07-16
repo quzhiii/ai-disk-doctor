@@ -16,6 +16,7 @@
 - Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
 - Added metadata-only stale and duplicate logical model markers, configurable via `--stale-after-days`, with explanatory reclaim confidence that never enables cleanup.
 - Added `aidisk models adapters` as a read-only capability report for future Hugging Face and Ollama official dry-run integration; external CLIs are not invoked in this foundation.
+- Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.
 
 ## 1.6.0
 

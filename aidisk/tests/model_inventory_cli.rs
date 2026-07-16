@@ -193,7 +193,7 @@ fn models_adapters_report_local_capabilities_without_invoking_tools() {
     assert!(hf_output.status.success());
     let hf_report: Value =
         serde_json::from_slice(&hf_output.stdout).expect("adapter report should be json");
-    assert_eq!(hf_report["schema_version"], 1);
+    assert_eq!(hf_report["schema_version"], 2);
     assert_eq!(hf_report["summary"]["total_adapters"], 1);
     assert_eq!(hf_report["summary"]["index_parseable_adapters"], 1);
     assert_eq!(hf_report["adapters"][0]["action"], "report-only");
@@ -231,5 +231,68 @@ fn models_adapters_report_local_capabilities_without_invoking_tools() {
     assert_eq!(
         ollama_report["adapters"][0]["official_cli"]["probed"],
         false
+    );
+}
+
+#[test]
+fn models_adapters_probe_is_explicit_and_bounded() {
+    let temp = tempdir().expect("tempdir should exist");
+    let root = temp.path().join("ollama");
+    fs::create_dir_all(root.join("manifests/library")).expect("manifests should exist");
+    fs::write(
+        root.join("manifests/library/demo"),
+        r#"{"layers":[{"digest":"sha256:aaaaaaaa"}]}"#,
+    )
+    .expect("manifest should write");
+
+    let output = Command::new(binary())
+        .args([
+            "models",
+            "adapters",
+            "--json",
+            "--tool",
+            "ollama",
+            "--root",
+            root.to_str().expect("root should be utf8"),
+        ])
+        .output()
+        .expect("default adapter report should run");
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("report should be json");
+    assert_eq!(report["adapters"][0]["official_cli"]["probed"], false);
+    assert_eq!(
+        report["adapters"][0]["official_cli"]["version_status"],
+        "not-probed"
+    );
+    assert_eq!(report["adapters"][0]["plan_mode"], "metadata-only-dry-run");
+
+    let probe_output = Command::new(binary())
+        .args([
+            "models",
+            "adapters",
+            "--json",
+            "--tool",
+            "ollama",
+            "--probe-official-cli",
+            "--probe-timeout-ms",
+            "1",
+            "--probe-output-chars",
+            "1",
+            "--root",
+            root.to_str().expect("root should be utf8"),
+        ])
+        .output()
+        .expect("opt-in adapter report should run");
+    assert!(probe_output.status.success());
+    let probe_report: Value =
+        serde_json::from_slice(&probe_output.stdout).expect("probe report should be json");
+    let cli = &probe_report["adapters"][0]["official_cli"];
+    assert_eq!(cli["probed"], true);
+    assert_eq!(cli["timeout_ms"], 1);
+    assert_eq!(cli["output_limit_chars"], 1);
+    assert_eq!(probe_report["adapters"][0]["action"], "report-only");
+    assert_eq!(
+        probe_report["adapters"][0]["plan_mode"],
+        "metadata-and-official-cli-capability-dry-run"
     );
 }

@@ -240,6 +240,21 @@ enum ModelsCommand {
         root: Option<PathBuf>,
         #[arg(long, default_value_t = 20)]
         max_depth: usize,
+        #[arg(
+            long,
+            help = "Explicitly probe only official CLI version/help commands"
+        )]
+        probe_official_cli: bool,
+        #[arg(
+            long,
+            default_value_t = model_inventory::DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS
+        )]
+        probe_timeout_ms: u64,
+        #[arg(
+            long,
+            default_value_t = model_inventory::DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS
+        )]
+        probe_output_chars: usize,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -720,6 +735,9 @@ fn run(cli: Cli) -> Result<()> {
                 tool,
                 root,
                 max_depth,
+                probe_official_cli,
+                probe_timeout_ms,
+                probe_output_chars,
                 json,
                 markdown,
             } => {
@@ -728,6 +746,9 @@ fn run(cli: Cli) -> Result<()> {
                         root,
                         tool,
                         max_depth,
+                        probe_official_cli,
+                        probe_timeout_ms,
+                        probe_output_chars,
                     })?;
                 if json {
                     println!("{}", serde_json::to_string_pretty(&report)?);
@@ -740,12 +761,23 @@ fn run(cli: Cli) -> Result<()> {
                         "- Parseable Indexes: {}",
                         report.summary.index_parseable_adapters
                     );
+                    println!(
+                        "- Official CLI Probed: {}",
+                        report.summary.official_cli_probed_adapters
+                    );
+                    println!(
+                        "- Official Dry-Run Capable: {}",
+                        report.summary.official_dry_run_capable_adapters
+                    );
                     println!();
-                    println!("| Tool | Root | Index | Plan Mode | Action |");
-                    println!("|---|---|---|---|---|");
+                    println!(
+                        "| Tool | Root | Index | Official CLI | Dry-Run | Plan Mode | Action |"
+                    );
+                    println!("|---|---|---|---|---|---|---|");
                     for adapter in report.adapters {
+                        let official_cli = adapter.official_cli.as_ref();
                         println!(
-                            "| `{}` | `{}` | `{}` | `{}` | `{}` |",
+                            "| `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` |",
                             adapter.tool,
                             adapter.root.unwrap_or_else(|| "not detected".to_string()),
                             if adapter.index_parseable {
@@ -755,6 +787,19 @@ fn run(cli: Cli) -> Result<()> {
                             } else {
                                 "missing"
                             },
+                            official_cli
+                                .map(|cli| cli.available.map_or("not-probed", |available| {
+                                    if available {
+                                        "available"
+                                    } else {
+                                        "not-available"
+                                    }
+                                }))
+                                .unwrap_or("unknown"),
+                            official_cli.and_then(|cli| cli.supports_dry_run).map_or(
+                                "unknown",
+                                |supported| if supported { "yes" } else { "no" }
+                            ),
                             adapter.plan_mode,
                             adapter.action
                         );
@@ -767,13 +812,24 @@ fn run(cli: Cli) -> Result<()> {
                         "Parseable Indexes: {}",
                         report.summary.index_parseable_adapters
                     );
+                    println!(
+                        "Official CLI Probed: {}",
+                        report.summary.official_cli_probed_adapters
+                    );
                     for adapter in report.adapters {
+                        let official_cli = adapter.official_cli.as_ref();
                         println!(
-                            "- {} | root={} | index_present={} | index_parseable={} | plan={} | action={}",
+                            "- {} | root={} | index_present={} | index_parseable={} | cli={} | dry_run={} | plan={} | action={}",
                             adapter.tool,
                             adapter.root.unwrap_or_else(|| "not detected".to_string()),
                             adapter.index_present,
                             adapter.index_parseable,
+                            official_cli
+                                .map(|cli| cli.available.map_or("not-probed", |available| if available { "available" } else { "not-available" }))
+                                .unwrap_or("unknown"),
+                            official_cli
+                                .and_then(|cli| cli.supports_dry_run)
+                                .map_or("unknown", |supported| if supported { "yes" } else { "no" }),
                             adapter.plan_mode,
                             adapter.action
                         );

@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime};
 
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
@@ -16,7 +19,12 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
-pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 1;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 2;
+
+pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
+pub const DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS: usize = 2_000;
+const MAX_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 10_000;
+const MAX_OFFICIAL_CLI_OUTPUT_CHARS: usize = 16_384;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -40,6 +48,9 @@ pub struct AdapterOptions {
     pub root: Option<PathBuf>,
     pub tool: AdapterTool,
     pub max_depth: usize,
+    pub probe_official_cli: bool,
+    pub probe_timeout_ms: u64,
+    pub probe_output_chars: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -70,6 +81,12 @@ pub struct OfficialCliStatus {
     pub available: Option<bool>,
     pub version: Option<String>,
     pub probed: bool,
+    pub version_status: String,
+    pub help_status: String,
+    pub supports_dry_run: Option<bool>,
+    pub timeout_ms: u64,
+    pub output_limit_chars: usize,
+    pub output_truncated: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,6 +96,9 @@ pub struct ModelAdapterSummary {
     pub index_parseable_adapters: usize,
     pub dry_run_capable_adapters: usize,
     pub report_only_adapters: usize,
+    pub official_cli_probed_adapters: usize,
+    pub official_cli_available_adapters: usize,
+    pub official_dry_run_capable_adapters: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -498,7 +518,7 @@ pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterRepo
     let adapter_roots = adapter_roots(options);
     let adapters = adapter_roots
         .into_iter()
-        .map(|(tool, root)| build_adapter_status(tool, root, options.max_depth))
+        .map(|(tool, root)| build_adapter_status(tool, root, options))
         .collect::<Vec<_>>();
 
     Ok(ModelAdapterReport {
@@ -521,6 +541,26 @@ pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterRepo
             report_only_adapters: adapters
                 .iter()
                 .filter(|adapter| adapter.action == "report-only")
+                .count(),
+            official_cli_probed_adapters: adapters
+                .iter()
+                .filter(|adapter| adapter.official_cli.as_ref().is_some_and(|cli| cli.probed))
+                .count(),
+            official_cli_available_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter.official_cli.as_ref().and_then(|cli| cli.available) == Some(true)
+                })
+                .count(),
+            official_dry_run_capable_adapters: adapters
+                .iter()
+                .filter(|adapter| {
+                    adapter
+                        .official_cli
+                        .as_ref()
+                        .and_then(|cli| cli.supports_dry_run)
+                        == Some(true)
+                })
                 .count(),
         },
         adapters,
@@ -553,11 +593,15 @@ fn adapter_roots(options: &AdapterOptions) -> Vec<(DetectedTool, PathBuf)> {
     }
 }
 
-fn build_adapter_status(tool: DetectedTool, root: PathBuf, max_depth: usize) -> ModelAdapterStatus {
+fn build_adapter_status(
+    tool: DetectedTool,
+    root: PathBuf,
+    options: &AdapterOptions,
+) -> ModelAdapterStatus {
     let root_exists = root.is_dir();
     let index = match tool {
-        DetectedTool::Ollama => probe_ollama_index(&root, max_depth),
-        DetectedTool::Huggingface => probe_huggingface_index(&root, max_depth),
+        DetectedTool::Ollama => probe_ollama_index(&root, options.max_depth),
+        DetectedTool::Huggingface => probe_huggingface_index(&root, options.max_depth),
         DetectedTool::Generic => IndexProbe::default(),
     };
     let mut capabilities = vec![
@@ -567,10 +611,20 @@ fn build_adapter_status(tool: DetectedTool, root: PathBuf, max_depth: usize) -> 
     if index.parseable {
         capabilities.push("provenance-resolution".to_string());
     }
-    capabilities.push("official-cli-dry-run-pending".to_string());
+    let official_cli = official_cli_status(tool, options);
+    if official_cli.supports_dry_run == Some(true) {
+        capabilities.push("official-cli-dry-run-capability".to_string());
+    } else {
+        capabilities.push("official-cli-dry-run-pending".to_string());
+    }
 
     let mut evidence = index.evidence;
-    evidence.push("external official CLI was not invoked".to_string());
+    if official_cli.probed {
+        evidence
+            .push("official CLI probe was opt-in and limited to version/help commands".to_string());
+    } else {
+        evidence.push("external official CLI was not invoked".to_string());
+    }
     evidence.push("no cleanup or index mutation is performed".to_string());
 
     ModelAdapterStatus {
@@ -579,21 +633,246 @@ fn build_adapter_status(tool: DetectedTool, root: PathBuf, max_depth: usize) -> 
         root_exists,
         index_present: index.present,
         index_parseable: index.parseable,
-        official_cli: Some(OfficialCliStatus {
-            command: match tool {
-                DetectedTool::Ollama => "ollama".to_string(),
-                DetectedTool::Huggingface => "hf".to_string(),
-                DetectedTool::Generic => "".to_string(),
-            },
-            available: None,
-            version: None,
-            probed: false,
-        }),
+        official_cli: Some(official_cli),
         capabilities,
-        plan_mode: "metadata-only-dry-run".to_string(),
+        plan_mode: if options.probe_official_cli {
+            "metadata-and-official-cli-capability-dry-run".to_string()
+        } else {
+            "metadata-only-dry-run".to_string()
+        },
         action: "report-only".to_string(),
         evidence,
     }
+}
+
+fn official_cli_status(tool: DetectedTool, options: &AdapterOptions) -> OfficialCliStatus {
+    let command = match tool {
+        DetectedTool::Ollama => "ollama",
+        DetectedTool::Huggingface => "hf",
+        DetectedTool::Generic => "",
+    };
+    let timeout_ms = options
+        .probe_timeout_ms
+        .clamp(1, MAX_OFFICIAL_CLI_PROBE_TIMEOUT_MS);
+    let output_limit_chars = options
+        .probe_output_chars
+        .clamp(1, MAX_OFFICIAL_CLI_OUTPUT_CHARS);
+    let not_probed = || OfficialCliStatus {
+        command: command.to_string(),
+        available: None,
+        version: None,
+        probed: false,
+        version_status: "not-probed".to_string(),
+        help_status: "not-probed".to_string(),
+        supports_dry_run: None,
+        timeout_ms,
+        output_limit_chars,
+        output_truncated: false,
+    };
+
+    if !options.probe_official_cli || command.is_empty() {
+        return not_probed();
+    }
+
+    let version = run_official_cli_probe(command, "--version", timeout_ms, output_limit_chars);
+    let help = run_official_cli_probe(command, "--help", timeout_ms, output_limit_chars);
+    let available = version.available.or(help.available);
+    let version_text = if version.status == "ok" {
+        Some(version.output.clone())
+    } else {
+        None
+    };
+    let supports_dry_run = if help.available == Some(true) {
+        Some(contains_dry_run_flag(&help.output))
+    } else {
+        None
+    };
+
+    OfficialCliStatus {
+        command: command.to_string(),
+        available,
+        version: version_text,
+        probed: true,
+        version_status: version.status,
+        help_status: help.status,
+        supports_dry_run,
+        timeout_ms,
+        output_limit_chars,
+        output_truncated: version.output_truncated || help.output_truncated,
+    }
+}
+
+#[derive(Debug)]
+struct OfficialCliProbeResult {
+    status: String,
+    available: Option<bool>,
+    output: String,
+    output_truncated: bool,
+}
+
+fn run_official_cli_probe(
+    command: &str,
+    argument: &str,
+    timeout_ms: u64,
+    output_limit_chars: usize,
+) -> OfficialCliProbeResult {
+    let mut child = match Command::new(command)
+        .arg(argument)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return OfficialCliProbeResult {
+                status: "not-available".to_string(),
+                available: Some(false),
+                output: format!("{command} command not found"),
+                output_truncated: false,
+            }
+        }
+        Err(error) => {
+            return OfficialCliProbeResult {
+                status: "error".to_string(),
+                available: None,
+                output: truncate_adapter_output(&error.to_string(), output_limit_chars).0,
+                output_truncated: false,
+            }
+        }
+    };
+
+    let stdout_reader = child
+        .stdout
+        .take()
+        .map(|reader| thread::spawn(move || read_probe_stream(reader, output_limit_chars)));
+    let stderr_reader = child
+        .stderr
+        .take()
+        .map(|reader| thread::spawn(move || read_probe_stream(reader, output_limit_chars)));
+
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let (output, output_truncated) =
+                    collect_probe_output(stdout_reader, stderr_reader, output_limit_chars);
+                return OfficialCliProbeResult {
+                    status: if status.success() {
+                        "ok".to_string()
+                    } else {
+                        "failed".to_string()
+                    },
+                    available: Some(true),
+                    output,
+                    output_truncated,
+                };
+            }
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = collect_probe_output(stdout_reader, stderr_reader, output_limit_chars);
+                return OfficialCliProbeResult {
+                    status: "timeout".to_string(),
+                    available: Some(true),
+                    output: "official CLI probe timed out".to_string(),
+                    output_truncated: false,
+                };
+            }
+            Ok(None) => thread::sleep(Duration::from_millis(10)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = collect_probe_output(stdout_reader, stderr_reader, output_limit_chars);
+                return OfficialCliProbeResult {
+                    status: "error".to_string(),
+                    available: None,
+                    output: truncate_adapter_output(&error.to_string(), output_limit_chars).0,
+                    output_truncated: false,
+                };
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ProbeStreamResult {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
+fn collect_probe_output(
+    stdout_reader: Option<thread::JoinHandle<ProbeStreamResult>>,
+    stderr_reader: Option<thread::JoinHandle<ProbeStreamResult>>,
+    output_limit_chars: usize,
+) -> (String, bool) {
+    let stdout = stdout_reader
+        .and_then(|reader| reader.join().ok())
+        .unwrap_or(ProbeStreamResult {
+            bytes: Vec::new(),
+            truncated: false,
+        });
+    let stderr = stderr_reader
+        .and_then(|reader| reader.join().ok())
+        .unwrap_or(ProbeStreamResult {
+            bytes: Vec::new(),
+            truncated: false,
+        });
+    let mut combined = String::from_utf8_lossy(&stdout.bytes).to_string();
+    let stderr_text = String::from_utf8_lossy(&stderr.bytes);
+    if combined.trim().is_empty() && !stderr_text.trim().is_empty() {
+        combined = stderr_text.to_string();
+    }
+    let (output, output_truncated) = truncate_adapter_output(&combined, output_limit_chars);
+    (
+        output,
+        output_truncated || stdout.truncated || stderr.truncated,
+    )
+}
+
+fn read_probe_stream(mut reader: impl Read, output_limit_chars: usize) -> ProbeStreamResult {
+    let mut captured = Vec::new();
+    let max_bytes = output_limit_chars.saturating_mul(4).max(4);
+    let mut truncated = false;
+    let mut buffer = [0_u8; 4096];
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(bytes_read) => {
+                if captured.len() < max_bytes {
+                    let remaining = max_bytes - captured.len();
+                    let copy_len = bytes_read.min(remaining);
+                    captured.extend_from_slice(&buffer[..copy_len]);
+                    if copy_len < bytes_read {
+                        truncated = true;
+                    }
+                } else {
+                    truncated = true;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    ProbeStreamResult {
+        bytes: captured,
+        truncated,
+    }
+}
+
+fn truncate_adapter_output(output: &str, max_chars: usize) -> (String, bool) {
+    let normalized = output.replace("\r\n", "\n").trim().to_string();
+    if normalized.chars().count() <= max_chars {
+        return (normalized, false);
+    }
+    let truncated = normalized.chars().take(max_chars).collect::<String>();
+    (format!("{truncated}\n...(truncated)"), true)
+}
+
+fn contains_dry_run_flag(output: &str) -> bool {
+    output.lines().any(|line| {
+        let line = line.trim();
+        line.contains("--dry-run") || line.contains("--dry_run")
+    })
 }
 
 #[derive(Debug, Default)]
@@ -1505,7 +1784,10 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{build_inventory, is_stale, InventoryOptions, InventoryTool};
+    use super::{
+        build_inventory, contains_dry_run_flag, is_stale, truncate_adapter_output,
+        InventoryOptions, InventoryTool,
+    };
     use std::time::{Duration, SystemTime};
 
     #[test]
@@ -1754,6 +2036,16 @@ mod tests {
         assert_eq!(report.summary.stale_assets, 0);
         assert_eq!(report.assets[0].reclaim_confidence, 35);
         assert_eq!(report.assets[0].action, "report-only");
+    }
+
+    #[test]
+    fn adapter_probe_output_is_bounded_and_dry_run_detection_is_help_only() {
+        let (output, truncated) = truncate_adapter_output("0123456789", 4);
+        assert!(truncated);
+        assert!(output.starts_with("0123"));
+        assert!(output.contains("(truncated)"));
+        assert!(contains_dry_run_flag("Usage: tool [--dry-run]"));
+        assert!(!contains_dry_run_flag("Usage: tool prune"));
     }
 
     #[test]

@@ -114,9 +114,9 @@ not cause assets to be classified as orphaned or safe to reclaim. All actions re
 
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
-## Model Adapter Capability v1
+## Model Adapter Capability v2
 
-`models adapters --json` reports the safe adapter boundary without invoking external tools:
+`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`.
 
 | Field | Meaning |
 |---|---|
@@ -124,9 +124,15 @@ Unknown or potentially private model files remain report-only and have zero recl
 | `adapters[].root_exists` | Whether the selected local cache root exists. |
 | `adapters[].index_present` | Whether a local refs or manifest index was found. |
 | `adapters[].index_parseable` | Whether at least one bounded local index entry parsed successfully. |
-| `adapters[].official_cli.probed` | Always `false` in this foundation; no external command is invoked. |
-| `adapters[].plan_mode` | `metadata-only-dry-run` for the current foundation. |
+| `adapters[].official_cli.probed` | Whether the explicit opt-in version/help probe ran. |
+| `adapters[].official_cli.version_status` | Version probe result: `not-probed`, `ok`, `failed`, `timeout`, `not-available`, or `error`. |
+| `adapters[].official_cli.help_status` | Help probe result using the same bounded status values. |
+| `adapters[].official_cli.supports_dry_run` | Whether help output declared `--dry-run`; this does not execute a dry-run or cleanup. |
+| `adapters[].official_cli.timeout_ms` | Effective per-command timeout, capped at 10 seconds. |
+| `adapters[].official_cli.output_limit_chars` | Effective captured output limit, capped at 16,384 characters. |
+| `adapters[].official_cli.output_truncated` | Whether bounded CLI output was truncated. |
+| `adapters[].plan_mode` | `metadata-only-dry-run` by default, or `metadata-and-official-cli-capability-dry-run` after explicit probing. |
 | `adapters[].action` | Always `report-only`. |
-| `adapters[].capabilities` | Capabilities available without mutation, plus future official CLI work. |
+| `adapters[].capabilities` | Capabilities available without mutation, including official CLI dry-run capability only when help declares `--dry-run`. |
 
 Missing or invalid indexes remain report-only and do not produce cleanup candidates.

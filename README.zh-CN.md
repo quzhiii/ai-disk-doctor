@@ -392,7 +392,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | 校验规则 schema 并展示来源 digest | `--json`, `--rules-dir`, `--rules-repo` |
 | `models inventory` | 只读模型资产清单 | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
-| `models adapters` | 只读模型 adapter 能力报告 | `--tool`, `--root`, `--max-depth`, `--json`, `--markdown` |
+| `models adapters` | 只读模型 adapter 能力报告 | `--tool`, `--root`, `--max-depth`, `--probe-official-cli`, `--probe-timeout-ms`, `--probe-output-chars`, `--json`, `--markdown` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
 | `anomaly` | 从扫描快照中检测增长异常 | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -426,7 +426,7 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 - `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face 官方索引。
 - 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系；无法确认来源的资产仍保持 `report-only`。
 - `--stale-after-days` 控制只基于元数据的 stale 标记，默认 90 天；不会启用清理动作。
-- `models adapters` 只检查本地元数据并报告 Hugging Face/Ollama adapter 是否可以准备后续 dry-run；不会调用 `hf`、`ollama`，不会执行 prune，也不会修改索引。
+- `models adapters` 默认只检查本地元数据。显式指定 `--probe-official-cli` 后，仅调用 `hf` 或 `ollama` 的 `--version` 和 `--help`，并受硬性超时/输出上限约束；不会调用 prune/delete，不执行清理，也不会修改索引。
 
 ### 默认行为
 

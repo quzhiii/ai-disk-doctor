@@ -19,6 +19,7 @@
 - Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.
 - Added explicit allowlisted official adapter dry-run invocation: Hugging Face uses `hf cache prune --dry-run --cache-dir <root>` only after help confirms dry-run support, while Ollama is limited to `ollama ls` read-only listing.
 - Added report-only `official_cleanup_plan` normalization for Hugging Face official dry-run output; Ollama read-only list output remains evidence-only and does not create cleanup candidates.
+- Added metadata-only rollback capability to official cleanup plans; Hugging Face candidates document manual redownload recovery, while no rollback or cleanup commands are executed.
 
 ## 1.6.0
 

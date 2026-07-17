@@ -114,9 +114,9 @@ not cause assets to be classified as orphaned or safe to reclaim. All actions re
 
 Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
-## Model Adapter Capability v4
+## Model Adapter Capability v5
 
-`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Successful Hugging Face dry-run output is normalized into a report-only `official_cleanup_plan`; Ollama list output is evidence only and does not create cleanup candidates.
+`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Successful Hugging Face dry-run output is normalized into a report-only `official_cleanup_plan`; Ollama list output is evidence only and does not create cleanup candidates. Rollback capability is metadata-only and never executes restore/download commands.
 
 | Field | Meaning |
 |---|---|
@@ -147,6 +147,11 @@ Unknown or potentially private model files remain report-only and have zero recl
 | `adapters[].official_cleanup_plan.items[].operation` | Normalized operation, currently `cache-prune` for Hugging Face. |
 | `adapters[].official_cleanup_plan.items[].estimated_reclaim_bytes` | Best-effort byte estimate parsed from official dry-run output, or `null`. |
 | `adapters[].official_cleanup_plan.items[].action` | Always `report-only`; no generated item authorizes cleanup. |
+| `adapters[].official_cleanup_plan.rollback.supported` | Whether a plausible manual recovery path exists for generated plan items. |
+| `adapters[].official_cleanup_plan.rollback.mode` | Recovery mode, currently `manual-redownload` for Hugging Face candidates or `not-applicable-read-only-list` for Ollama evidence. |
+| `adapters[].official_cleanup_plan.rollback.confidence` | Qualitative rollback confidence (`medium` for Hugging Face redownload, `none` otherwise). |
+| `adapters[].official_cleanup_plan.rollback.mutation_allowed` | Always `false`; rollback metadata never authorizes action. |
+| `adapters[].official_cleanup_plan.items[].rollback` | Per-item rollback metadata; no executable rollback commands are emitted. |
 | `adapters[].plan_mode` | `metadata-only-dry-run` by default, `metadata-and-official-cli-capability-dry-run` after explicit probing, or `metadata-and-official-dry-run` after explicit allowlisted invocation. |
 | `adapters[].action` | Always `report-only`. |
 | `adapters[].capabilities` | Capabilities available without mutation, including official CLI dry-run capability only when help declares `--dry-run`, and report-only cleanup planning when normalization succeeds. |

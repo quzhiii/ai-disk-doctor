@@ -788,6 +788,10 @@ fn run(cli: Cli) -> Result<()> {
                         "- Official Cleanup Plan Items: {}",
                         report.summary.official_cleanup_plan_items
                     );
+                    println!(
+                        "- Official Rollback Capable Items: {}",
+                        report.summary.official_cleanup_rollback_capable_items
+                    );
                     println!();
                     println!("| Tool | Root | Index | Official CLI | Dry-Run | Official Run | Plan Mode | Action |");
                     println!("|---|---|---|---|---|---|---|---|");
@@ -848,6 +852,10 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "Official Cleanup Plan Items: {}",
                         report.summary.official_cleanup_plan_items
+                    );
+                    println!(
+                        "Official Rollback Capable Items: {}",
+                        report.summary.official_cleanup_rollback_capable_items
                     );
                     for adapter in report.adapters {
                         let official_cli = adapter.official_cli.as_ref();

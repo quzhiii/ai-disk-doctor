@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
-pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 4;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 5;
 
 pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
 pub const DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS: usize = 2_000;
@@ -112,9 +112,21 @@ pub struct OfficialCleanupPlan {
     pub mode: String,
     pub action: String,
     pub mutation_allowed: bool,
+    pub rollback: OfficialRollbackCapability,
     pub command: Vec<String>,
     pub items: Vec<OfficialCleanupPlanItem>,
     pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OfficialRollbackCapability {
+    pub supported: bool,
+    pub mode: String,
+    pub confidence: String,
+    pub mutation_allowed: bool,
+    pub steps: Vec<String>,
+    pub evidence: Vec<String>,
+    pub risk_evidence: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -126,6 +138,7 @@ pub struct OfficialCleanupPlanItem {
     pub status: String,
     pub action: String,
     pub estimated_reclaim_bytes: Option<u64>,
+    pub rollback: OfficialRollbackCapability,
     pub command: Vec<String>,
     pub evidence: Vec<String>,
     pub risk_evidence: Vec<String>,
@@ -147,6 +160,8 @@ pub struct ModelAdapterSummary {
     pub official_cleanup_plan_adapters: usize,
     pub official_cleanup_plan_items: usize,
     pub official_cleanup_report_only_items: usize,
+    pub official_cleanup_rollback_capable_items: usize,
+    pub official_cleanup_manual_rollback_items: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -656,6 +671,18 @@ pub fn build_adapter_report(options: &AdapterOptions) -> Result<ModelAdapterRepo
                 .flat_map(|plan| &plan.items)
                 .filter(|item| item.action == "report-only")
                 .count(),
+            official_cleanup_rollback_capable_items: adapters
+                .iter()
+                .filter_map(|adapter| adapter.official_cleanup_plan.as_ref())
+                .flat_map(|plan| &plan.items)
+                .filter(|item| item.rollback.supported)
+                .count(),
+            official_cleanup_manual_rollback_items: adapters
+                .iter()
+                .filter_map(|adapter| adapter.official_cleanup_plan.as_ref())
+                .flat_map(|plan| &plan.items)
+                .filter(|item| item.rollback.mode == "manual-redownload")
+                .count(),
         },
         adapters,
     })
@@ -720,6 +747,9 @@ fn build_adapter_status(
     }
     if official_cleanup_plan.generated {
         capabilities.push("official-cleanup-plan-report-only".to_string());
+        if official_cleanup_plan.rollback.supported {
+            capabilities.push("rollback-capability-report-only".to_string());
+        }
     }
 
     let mut evidence = index.evidence;
@@ -960,6 +990,7 @@ fn official_cleanup_plan(
         mode: "report-only".to_string(),
         action: "report-only".to_string(),
         mutation_allowed: false,
+        rollback: rollback_capability(tool, false),
         command: dry_run.command.clone(),
         items: Vec::new(),
         evidence: Vec::new(),
@@ -972,6 +1003,7 @@ fn official_cleanup_plan(
                 && dry_run.mode == "official-cleanup-dry-run"
             {
                 plan.generated = true;
+                plan.rollback = rollback_capability(tool, true);
                 plan.evidence.push(
                     "normalized from allowlisted Hugging Face official dry-run output".to_string(),
                 );
@@ -992,6 +1024,7 @@ fn official_cleanup_plan(
                         status: "planned-review".to_string(),
                         action: "report-only".to_string(),
                         estimated_reclaim_bytes: parse_huggingface_reclaim_bytes(output),
+                        rollback: rollback_capability(tool, true),
                         command: dry_run.command.clone(),
                         evidence: vec![
                             "reported by Hugging Face cache prune dry-run".to_string(),
@@ -1031,6 +1064,50 @@ fn official_cleanup_plan(
     }
 
     plan
+}
+
+fn rollback_capability(
+    tool: DetectedTool,
+    candidate_generated: bool,
+) -> OfficialRollbackCapability {
+    match tool {
+        DetectedTool::Huggingface if candidate_generated => OfficialRollbackCapability {
+            supported: true,
+            mode: "manual-redownload".to_string(),
+            confidence: "medium".to_string(),
+            mutation_allowed: false,
+            steps: vec![
+                "Re-run the workload or use Hugging Face tooling to download the referenced model/revision again".to_string(),
+                "Verify the local cache after re-download before retrying dependent workloads".to_string(),
+            ],
+            evidence: vec![
+                "Hugging Face cache entries are generally recoverable from remote model repositories when access is still available".to_string(),
+                "aidisk does not perform rollback automatically".to_string(),
+            ],
+            risk_evidence: vec![
+                "rollback may require network access, credentials, and unchanged upstream availability".to_string(),
+                "private, gated, deleted, or locally modified model artifacts may not be recoverable".to_string(),
+            ],
+        },
+        DetectedTool::Ollama => OfficialRollbackCapability {
+            supported: false,
+            mode: "not-applicable-read-only-list".to_string(),
+            confidence: "none".to_string(),
+            mutation_allowed: false,
+            steps: Vec::new(),
+            evidence: vec!["Ollama adapter currently only records read-only list evidence".to_string()],
+            risk_evidence: vec!["no cleanup candidate is generated, so rollback is not applicable".to_string()],
+        },
+        _ => OfficialRollbackCapability {
+            supported: false,
+            mode: "not-available".to_string(),
+            confidence: "none".to_string(),
+            mutation_allowed: false,
+            steps: Vec::new(),
+            evidence: Vec::new(),
+            risk_evidence: vec!["no confirmed official rollback path is available".to_string()],
+        },
+    }
 }
 
 fn parse_huggingface_dry_run_targets(output: &str) -> Vec<String> {
@@ -2621,12 +2698,25 @@ mod tests {
         assert_eq!(plan.mode, "report-only");
         assert_eq!(plan.action, "report-only");
         assert!(!plan.mutation_allowed);
+        assert!(plan.rollback.supported);
+        assert_eq!(plan.rollback.mode, "manual-redownload");
+        assert_eq!(plan.rollback.confidence, "medium");
+        assert!(!plan.rollback.mutation_allowed);
         assert_eq!(plan.items.len(), 1);
         assert!(plan.items.iter().all(|item| item.action == "report-only"));
         assert!(plan
             .items
             .iter()
             .all(|item| item.operation == "cache-prune"));
+        assert!(plan.items.iter().all(|item| item.rollback.supported));
+        assert!(plan
+            .items
+            .iter()
+            .all(|item| item.rollback.mode == "manual-redownload"));
+        assert!(plan
+            .items
+            .iter()
+            .all(|item| !item.rollback.mutation_allowed));
         assert!(plan
             .items
             .iter()
@@ -2662,6 +2752,9 @@ mod tests {
         assert!(plan.items.is_empty());
         assert_eq!(plan.action, "report-only");
         assert!(!plan.mutation_allowed);
+        assert!(!plan.rollback.supported);
+        assert_eq!(plan.rollback.mode, "not-applicable-read-only-list");
+        assert!(!plan.rollback.mutation_allowed);
         assert!(plan
             .evidence
             .iter()

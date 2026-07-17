@@ -428,6 +428,7 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face indexes.
 - When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships; unresolved or unknown assets remain `report-only`.
 - `--stale-after-days` controls the metadata-only stale marker and defaults to 90 days; it never enables cleanup.
+- `models inventory` also flags large managed assets as external-drive/cold-storage candidates only when metadata suggests stale, duplicate, detached, or orphaned cache state. This is a report-only review signal; it never migrates files or changes tool configuration.
 - `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only bounded `hf` or `ollama` version/help commands. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Hugging Face dry-run output can be normalized into a report-only cleanup plan with manual-redownload rollback metadata; Ollama list output never becomes a cleanup candidate. It never performs cleanup, rollback, or index mutation, and all actions remain `report-only`.
 
 ### Default Behavior

@@ -15,6 +15,7 @@
 - Added read-only `aidisk models inventory` for conservative model asset discovery, logical versus physical size reporting, basic shared-path accounting, custom-model detection, and provenance graph output.
 - Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
 - Added metadata-only stale and duplicate logical model markers, configurable via `--stale-after-days`, with explanatory reclaim confidence that never enables cleanup.
+- Added metadata-only external-drive/cold-storage candidate markers for large managed model assets with stale, duplicate, detached, or orphaned cache signals; recommendations remain report-only.
 - Added `aidisk models adapters` as a read-only capability report for future Hugging Face and Ollama official dry-run integration; external CLIs are not invoked in this foundation.
 - Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.
 - Added explicit allowlisted official adapter dry-run invocation: Hugging Face uses `hf cache prune --dry-run --cache-dir <root>` only after help confirms dry-run support, while Ollama is limited to `ollama ls` read-only listing.

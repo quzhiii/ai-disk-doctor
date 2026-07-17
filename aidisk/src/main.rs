@@ -676,6 +676,10 @@ fn run(cli: Cli) -> Result<()> {
                         "- Duplicate Logical Model Assets: {}",
                         report.summary.duplicate_logical_model_assets
                     );
+                    println!(
+                        "- External Drive Candidate Assets: {}",
+                        report.summary.external_drive_candidate_assets
+                    );
                     println!();
                     println!("| Model | Format | Manager | State | Size | Action |");
                     println!("|---|---|---|---|---:|---|");
@@ -720,6 +724,10 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "Duplicate Logical Model Assets: {}",
                         report.summary.duplicate_logical_model_assets
+                    );
+                    println!(
+                        "External Drive Candidate Assets: {}",
+                        report.summary.external_drive_candidate_assets
                     );
                     for asset in report.assets {
                         println!(

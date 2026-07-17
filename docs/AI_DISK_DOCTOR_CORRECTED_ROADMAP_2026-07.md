@@ -394,7 +394,7 @@ Adapter 职责：
 - [x] duplicate logical model（基于逻辑名称、revision 和物理路径的基础识别）；
 - [x] shared physical blob 基础去重；
 - [x] unknown custom model 基础识别；
-- [ ] external-drive candidate。
+- [x] external-drive candidate（metadata-only；大型托管模型 + stale / duplicate / detached / orphaned 信号，report-only）。
 
 Adapter 基础能力：
 

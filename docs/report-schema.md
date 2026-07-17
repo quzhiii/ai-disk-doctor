@@ -90,6 +90,8 @@ modify third-party indexes. The report includes:
 | `assets[].reclaim_confidence` | Explanatory score only; it does not authorize cleanup. |
 | `assets[].stale` | Metadata-only activity marker controlled by `--stale-after-days`. |
 | `assets[].duplicate_logical_model` | Indicates repeated logical identity across revisions or distinct physical paths. |
+| `assets[].external_drive_candidate` | Metadata-only marker for large managed assets that may be worth reviewing for external-drive/cold-storage migration. |
+| `assets[].cold_storage_recommendation` | Report-only recommendation label such as `none`, `review-for-external-drive-stale`, or `review-for-external-drive-duplicate`. |
 | `nodes` / `edges` | Minimal in-memory provenance graph for tools, models, and revisions. |
 
 When a small local index can be parsed without reading model contents, the inventory also adds
@@ -107,12 +109,13 @@ reference evidence:
 | `summary.incomplete_download_assets` | Count of assets with an incomplete-download marker. |
 | `summary.stale_assets` | Count of assets older than the configured metadata cutoff. |
 | `summary.duplicate_logical_model_assets` | Count of assets sharing a repeated logical model identity. |
+| `summary.external_drive_candidate_assets` | Count of large managed assets marked for cold-storage review. |
 | `edges` | May include `resolves-to`, `has-manifest`, `part-of`, `belongs-to`, and `references` relations. |
 
 Index parsing is bounded to small local metadata files. Missing, unreadable, or invalid indexes do
 not cause assets to be classified as orphaned or safe to reclaim. All actions remain `report-only`.
 
-Unknown or potentially private model files remain report-only and have zero reclaim confidence.
+External-drive candidates are metadata-only signals. Inventory does not migrate files, rewrite tool configuration, or verify an external target drive. Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
 ## Model Adapter Capability v5
 

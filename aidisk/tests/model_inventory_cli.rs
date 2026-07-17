@@ -167,8 +167,11 @@ fn models_inventory_accepts_stale_cutoff_and_reports_new_summary_fields() {
     let report: Value = serde_json::from_slice(&output.stdout).expect("inventory should be json");
     assert_eq!(report["summary"]["stale_assets"], 0);
     assert_eq!(report["summary"]["duplicate_logical_model_assets"], 0);
+    assert_eq!(report["summary"]["external_drive_candidate_assets"], 0);
     assert_eq!(report["assets"][0]["stale"], false);
     assert_eq!(report["assets"][0]["duplicate_logical_model"], false);
+    assert_eq!(report["assets"][0]["external_drive_candidate"], false);
+    assert_eq!(report["assets"][0]["cold_storage_recommendation"], "none");
 }
 
 #[test]

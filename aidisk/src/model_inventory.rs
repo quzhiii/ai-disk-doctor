@@ -21,6 +21,7 @@ use walkdir::WalkDir;
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
 pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 5;
 
+const EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES: u64 = 1024 * 1024 * 1024;
 pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
 pub const DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS: usize = 2_000;
 const MAX_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 10_000;
@@ -212,6 +213,8 @@ pub struct ModelAsset {
     pub state: String,
     pub stale: bool,
     pub duplicate_logical_model: bool,
+    pub external_drive_candidate: bool,
+    pub cold_storage_recommendation: String,
     pub action: String,
     pub reclaim_confidence: u8,
     pub positive_evidence: Vec<String>,
@@ -231,6 +234,7 @@ pub struct InventorySummary {
     pub incomplete_download_assets: usize,
     pub stale_assets: usize,
     pub duplicate_logical_model_assets: usize,
+    pub external_drive_candidate_assets: usize,
     pub unknown_custom_assets: usize,
     pub report_only_assets: usize,
 }
@@ -444,6 +448,16 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                 "same logical model identity appears in multiple revisions or paths".to_string(),
             );
         }
+        asset.external_drive_candidate = external_drive_candidate(asset);
+        asset.cold_storage_recommendation = cold_storage_recommendation(asset);
+        if asset.external_drive_candidate {
+            asset.positive_evidence.push(
+                "metadata suggests this managed model asset may be suitable for external-drive cold storage review".to_string(),
+            );
+            asset.risk_evidence.push(
+                "external-drive migration is not performed by inventory and requires a separate verified plan".to_string(),
+            );
+        }
         asset.reclaim_confidence = reclaim_confidence(asset);
     }
 
@@ -561,6 +575,10 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             duplicate_logical_model_assets: assets
                 .iter()
                 .filter(|asset| asset.duplicate_logical_model)
+                .count(),
+            external_drive_candidate_assets: assets
+                .iter()
+                .filter(|asset| asset.external_drive_candidate)
                 .count(),
             unknown_custom_assets: assets
                 .iter()
@@ -1593,6 +1611,39 @@ fn reclaim_confidence(asset: &ModelAsset) -> u8 {
     score.min(100)
 }
 
+fn external_drive_candidate(asset: &ModelAsset) -> bool {
+    if asset.suspected_custom_model
+        || asset.manager == "generic"
+        || asset.state == "incomplete-download"
+        || asset.logical_size_bytes < EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES
+    {
+        return false;
+    }
+
+    asset.stale
+        || asset.duplicate_logical_model
+        || matches!(asset.state.as_str(), "detached-revision" | "orphan-blob")
+}
+
+fn cold_storage_recommendation(asset: &ModelAsset) -> String {
+    if !asset.external_drive_candidate {
+        return "none".to_string();
+    }
+    if asset.stale && asset.duplicate_logical_model {
+        "review-for-external-drive-stale-duplicate".to_string()
+    } else if asset.stale {
+        "review-for-external-drive-stale".to_string()
+    } else if asset.duplicate_logical_model {
+        "review-for-external-drive-duplicate".to_string()
+    } else if asset.state == "detached-revision" {
+        "review-for-external-drive-detached-revision".to_string()
+    } else if asset.state == "orphan-blob" {
+        "review-for-external-drive-orphan-blob".to_string()
+    } else {
+        "review-for-external-drive".to_string()
+    }
+}
+
 fn analyze_huggingface(
     root: &Path,
     max_depth: usize,
@@ -2080,6 +2131,8 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
         state: state.to_string(),
         stale: false,
         duplicate_logical_model: false,
+        external_drive_candidate: false,
+        cold_storage_recommendation: "none".to_string(),
         action: "report-only".to_string(),
         reclaim_confidence: 0,
         positive_evidence,
@@ -2262,7 +2315,7 @@ mod tests {
         official_dry_run_plan, official_dry_run_status_with_runner,
         parse_huggingface_reclaim_bytes, truncate_adapter_output, AdapterOptions, AdapterTool,
         DetectedTool, InventoryOptions, InventoryTool, OfficialCliProbeResult, OfficialCliStatus,
-        OfficialDryRunStatus,
+        OfficialDryRunStatus, EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES,
     };
     use std::time::{Duration, SystemTime};
 
@@ -2491,6 +2544,94 @@ mod tests {
             .iter()
             .all(|asset| asset.action == "report-only"));
         assert_eq!(report.summary.stale_assets, 0);
+        assert_eq!(report.summary.external_drive_candidate_assets, 0);
+    }
+
+    #[test]
+    fn external_drive_candidates_are_report_only_for_large_managed_duplicates() {
+        let temp = tempdir().expect("tempdir should exist");
+        let first = temp.path().join("models--org--demo/snapshots/rev-a");
+        let second = temp.path().join("models--org--demo/snapshots/rev-b");
+        fs::create_dir_all(&first).expect("first snapshot should exist");
+        fs::create_dir_all(&second).expect("second snapshot should exist");
+        let first_model = first.join("model.safetensors");
+        let second_model = second.join("model.safetensors");
+        fs::File::create(&first_model)
+            .expect("first model should write")
+            .set_len(EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES + 1)
+            .expect("first sparse model should resize");
+        fs::File::create(&second_model)
+            .expect("second model should write")
+            .set_len(EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES + 2)
+            .expect("second sparse model should resize");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.total_assets, 2);
+        assert_eq!(report.summary.duplicate_logical_model_assets, 2);
+        assert_eq!(report.summary.external_drive_candidate_assets, 2);
+        assert!(report
+            .assets
+            .iter()
+            .all(|asset| asset.external_drive_candidate));
+        assert!(report.assets.iter().all(
+            |asset| asset.cold_storage_recommendation == "review-for-external-drive-duplicate"
+        ));
+        assert!(report
+            .assets
+            .iter()
+            .all(|asset| asset.action == "report-only"));
+        assert!(report.assets.iter().all(|asset| asset
+            .positive_evidence
+            .iter()
+            .any(|evidence| evidence.contains("external-drive cold storage review"))));
+    }
+
+    #[test]
+    fn external_drive_candidates_skip_custom_and_small_assets() {
+        let temp = tempdir().expect("tempdir should exist");
+        let custom = temp.path().join("private.gguf");
+        fs::File::create(&custom)
+            .expect("custom model should write")
+            .set_len(EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES + 1)
+            .expect("custom sparse model should resize");
+        let custom_report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Generic,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("custom inventory should succeed");
+        assert_eq!(custom_report.summary.external_drive_candidate_assets, 0);
+        assert_eq!(custom_report.assets[0].cold_storage_recommendation, "none");
+        assert!(!custom_report.assets[0].external_drive_candidate);
+
+        let managed = temp.path().join("models--org--small");
+        let first = managed.join("snapshots/rev-a");
+        let second = managed.join("snapshots/rev-b");
+        fs::create_dir_all(&first).expect("first small snapshot should exist");
+        fs::create_dir_all(&second).expect("second small snapshot should exist");
+        fs::write(first.join("model.safetensors"), b"small").expect("small model should write");
+        fs::write(second.join("model.safetensors"), b"small").expect("small model should write");
+        let small_report = build_inventory(&InventoryOptions {
+            root: Some(managed.to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("small inventory should succeed");
+        assert_eq!(small_report.summary.duplicate_logical_model_assets, 2);
+        assert_eq!(small_report.summary.external_drive_candidate_assets, 0);
+        assert!(small_report
+            .assets
+            .iter()
+            .all(|asset| !asset.external_drive_candidate));
     }
 
     #[test]

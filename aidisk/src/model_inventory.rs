@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 pub const MODEL_INVENTORY_SCHEMA_VERSION: u16 = 1;
-pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 5;
+pub const MODEL_ADAPTER_SCHEMA_VERSION: u16 = 6;
 
 const EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES: u64 = 1024 * 1024 * 1024;
 pub const DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS: u64 = 1_500;
@@ -33,6 +33,7 @@ pub enum InventoryTool {
     Auto,
     Ollama,
     Huggingface,
+    LmStudio,
     Generic,
 }
 
@@ -42,6 +43,7 @@ pub enum AdapterTool {
     Auto,
     Ollama,
     Huggingface,
+    LmStudio,
 }
 
 #[derive(Debug, Clone)]
@@ -299,6 +301,7 @@ struct InventoryAnalysis {
 enum DetectedTool {
     Ollama,
     Huggingface,
+    LmStudio,
     Generic,
 }
 
@@ -307,6 +310,7 @@ impl DetectedTool {
         match self {
             Self::Ollama => "ollama",
             Self::Huggingface => "huggingface",
+            Self::LmStudio => "lm-studio",
             Self::Generic => "generic",
         }
     }
@@ -380,6 +384,7 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
     let mut analysis = InventoryAnalysis::default();
     mark_stale_assets(&assets, options.stale_after_days, &mut analysis);
     mark_duplicate_logical_models(&assets, &mut analysis);
+    mark_incomplete_downloads(&assets, &mut analysis);
     for root in &root_paths {
         let detected = detect_tool(root, options.tool);
         match detected {
@@ -389,6 +394,7 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             DetectedTool::Ollama => {
                 analyze_ollama(root, options.max_depth, &mut assets, &mut analysis)
             }
+            DetectedTool::LmStudio => {}
             DetectedTool::Generic => {}
         }
     }
@@ -711,12 +717,15 @@ fn adapter_roots(options: &AdapterOptions) -> Vec<(DetectedTool, PathBuf)> {
         return match options.tool {
             AdapterTool::Ollama => vec![(DetectedTool::Ollama, root.clone())],
             AdapterTool::Huggingface => vec![(DetectedTool::Huggingface, root.clone())],
+            AdapterTool::LmStudio => vec![(DetectedTool::LmStudio, root.clone())],
             AdapterTool::Auto => match detect_tool(root, InventoryTool::Auto) {
                 DetectedTool::Ollama => vec![(DetectedTool::Ollama, root.clone())],
                 DetectedTool::Huggingface => vec![(DetectedTool::Huggingface, root.clone())],
+                DetectedTool::LmStudio => vec![(DetectedTool::LmStudio, root.clone())],
                 DetectedTool::Generic => vec![
                     (DetectedTool::Ollama, root.clone()),
                     (DetectedTool::Huggingface, root.clone()),
+                    (DetectedTool::LmStudio, root.clone()),
                 ],
             },
         };
@@ -725,9 +734,11 @@ fn adapter_roots(options: &AdapterOptions) -> Vec<(DetectedTool, PathBuf)> {
     match options.tool {
         AdapterTool::Ollama => vec![(DetectedTool::Ollama, default_ollama_root())],
         AdapterTool::Huggingface => vec![(DetectedTool::Huggingface, default_huggingface_root())],
+        AdapterTool::LmStudio => vec![(DetectedTool::LmStudio, default_lm_studio_root())],
         AdapterTool::Auto => vec![
             (DetectedTool::Ollama, default_ollama_root()),
             (DetectedTool::Huggingface, default_huggingface_root()),
+            (DetectedTool::LmStudio, default_lm_studio_root()),
         ],
     }
 }
@@ -741,6 +752,7 @@ fn build_adapter_status(
     let index = match tool {
         DetectedTool::Ollama => probe_ollama_index(&root, options.max_depth),
         DetectedTool::Huggingface => probe_huggingface_index(&root, options.max_depth),
+        DetectedTool::LmStudio => probe_lm_studio_index(&root, options.max_depth),
         DetectedTool::Generic => IndexProbe::default(),
     };
     let mut capabilities = vec![
@@ -814,6 +826,7 @@ fn official_cli_status(tool: DetectedTool, options: &AdapterOptions) -> Official
     let command = match tool {
         DetectedTool::Ollama => "ollama",
         DetectedTool::Huggingface => "hf",
+        DetectedTool::LmStudio => "",
         DetectedTool::Generic => "",
     };
     let timeout_ms = options
@@ -924,6 +937,7 @@ where
             status.output_truncated = result.output_truncated;
             status
         }
+        DetectedTool::LmStudio => status,
         DetectedTool::Generic => status,
     }
 }
@@ -987,6 +1001,13 @@ fn official_dry_run_plan(
             } else {
                 status.status = "planned".to_string();
             }
+            status
+        }
+        DetectedTool::LmStudio => {
+            status.status = "unsupported".to_string();
+            status.output = Some(
+                "LM Studio adapter has no confirmed official cleanup dry-run command".to_string(),
+            );
             status
         }
         DetectedTool::Generic => {
@@ -1073,6 +1094,13 @@ fn official_cleanup_plan(
                 );
             }
         }
+        DetectedTool::LmStudio => {
+            if dry_run.requested {
+                plan.evidence.push(
+                    "LM Studio has no confirmed official cleanup dry-run; no cleanup candidates are generated".to_string(),
+                );
+            }
+        }
         DetectedTool::Generic => {
             if dry_run.requested {
                 plan.evidence
@@ -1115,6 +1143,19 @@ fn rollback_capability(
             steps: Vec::new(),
             evidence: vec!["Ollama adapter currently only records read-only list evidence".to_string()],
             risk_evidence: vec!["no cleanup candidate is generated, so rollback is not applicable".to_string()],
+        },
+        DetectedTool::LmStudio => OfficialRollbackCapability {
+            supported: false,
+            mode: "not-available".to_string(),
+            confidence: "none".to_string(),
+            mutation_allowed: false,
+            steps: Vec::new(),
+            evidence: vec![
+                "LM Studio adapter currently only reports local metadata evidence".to_string(),
+            ],
+            risk_evidence: vec![
+                "no confirmed official cleanup dry-run or rollback path is available".to_string(),
+            ],
         },
         _ => OfficialRollbackCapability {
             supported: false,
@@ -1475,6 +1516,34 @@ fn probe_ollama_index(root: &Path, max_depth: usize) -> IndexProbe {
     probe
 }
 
+fn probe_lm_studio_index(root: &Path, max_depth: usize) -> IndexProbe {
+    let mut probe = IndexProbe::default();
+    if !root.is_dir() {
+        probe
+            .evidence
+            .push("LM Studio model root is not present".to_string());
+        return probe;
+    }
+
+    for entry in WalkDir::new(root).follow_links(false).max_depth(max_depth) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if entry.file_type().is_file() && is_model_asset(entry.path(), DetectedTool::LmStudio) {
+            probe.present = true;
+            probe.evidence.push(
+                "identified LM Studio model files; no official cleanup index is parsed".to_string(),
+            );
+            return probe;
+        }
+    }
+
+    probe
+        .evidence
+        .push("LM Studio model files were not found".to_string());
+    probe
+}
+
 fn default_ollama_root() -> PathBuf {
     default_model_roots()
         .into_iter()
@@ -1489,25 +1558,46 @@ fn default_huggingface_root() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".cache/huggingface/hub"))
 }
 
+fn default_lm_studio_root() -> PathBuf {
+    default_model_roots()
+        .into_iter()
+        .find(|root| {
+            let normalized = normalize_path(root);
+            normalized.contains("lm-studio") || normalized.contains("lm studio")
+        })
+        .unwrap_or_else(|| PathBuf::from(".cache/lm-studio"))
+}
+
 fn default_model_roots() -> Vec<PathBuf> {
     let Some(home) = env::var_os("USERPROFILE").or_else(|| env::var_os("HOME")) else {
         return Vec::new();
     };
     let home = PathBuf::from(home);
-    vec![
+    let mut roots = vec![
         home.join(".ollama").join("models"),
         home.join(".cache").join("huggingface").join("hub"),
         home.join("Library")
             .join("Caches")
             .join("huggingface")
             .join("hub"),
-    ]
+        home.join(".cache").join("lm-studio"),
+        home.join(".lm-studio"),
+        home.join("Library").join("Caches").join("lm-studio"),
+    ];
+    if let Some(appdata) = env::var_os("APPDATA") {
+        roots.push(PathBuf::from(appdata).join("LM Studio"));
+    }
+    if let Some(localappdata) = env::var_os("LOCALAPPDATA") {
+        roots.push(PathBuf::from(localappdata).join("lm-studio"));
+    }
+    roots
 }
 
 fn detect_tool(path: &Path, requested: InventoryTool) -> DetectedTool {
     match requested {
         InventoryTool::Ollama => DetectedTool::Ollama,
         InventoryTool::Huggingface => DetectedTool::Huggingface,
+        InventoryTool::LmStudio => DetectedTool::LmStudio,
         InventoryTool::Generic => DetectedTool::Generic,
         InventoryTool::Auto => {
             let normalized = normalize_path(path);
@@ -1517,6 +1607,11 @@ fn detect_tool(path: &Path, requested: InventoryTool) -> DetectedTool {
                 || normalized.contains("/library/caches/huggingface")
             {
                 DetectedTool::Huggingface
+            } else if normalized.contains("/lm-studio")
+                || normalized.contains("/lm studio")
+                || normalized.contains("/.lm-studio")
+            {
+                DetectedTool::LmStudio
             } else {
                 DetectedTool::Generic
             }
@@ -1586,6 +1681,16 @@ fn mark_duplicate_logical_models(assets: &[AssetRecord], analysis: &mut Inventor
         {
             analysis
                 .duplicate_logical_model_asset_ids
+                .insert(record.asset.id.clone());
+        }
+    }
+}
+
+fn mark_incomplete_downloads(assets: &[AssetRecord], analysis: &mut InventoryAnalysis) {
+    for record in assets {
+        if record.asset.manager != "generic" && is_incomplete_download_path(&record.path) {
+            analysis
+                .incomplete_download_asset_ids
                 .insert(record.asset.id.clone());
         }
     }
@@ -2086,12 +2191,15 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
     let source = match tool {
         DetectedTool::Huggingface => Some("huggingface-cache-layout".to_string()),
         DetectedTool::Ollama => Some("ollama-cache-layout".to_string()),
+        DetectedTool::LmStudio => Some("lm-studio-cache-layout".to_string()),
         DetectedTool::Generic => None,
     };
     let suspected_custom_model = tool == DetectedTool::Generic;
     let state = if suspected_custom_model {
         "unknown-custom"
     } else if tool == DetectedTool::Ollama && blob.is_some() {
+        "managed-cache-unresolved"
+    } else if tool == DetectedTool::LmStudio {
         "managed-cache-unresolved"
     } else {
         "managed-cache"
@@ -2432,6 +2540,39 @@ mod tests {
         .expect("inventory should succeed");
 
         assert_eq!(report.summary.total_assets, 0);
+    }
+
+    #[test]
+    fn lm_studio_models_are_managed_report_only_assets() {
+        let temp = tempdir().expect("tempdir should exist");
+        let model_root = temp
+            .path()
+            .join("lm-studio")
+            .join("models")
+            .join("publisher");
+        fs::create_dir_all(&model_root).expect("LM Studio model root should exist");
+        fs::write(model_root.join("demo.gguf"), b"model").expect("LM Studio model should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().join("lm-studio")),
+            tool: InventoryTool::Auto,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.roots[0].tool, "lm-studio");
+        assert_eq!(report.summary.total_assets, 1);
+        assert_eq!(report.summary.managed_assets, 1);
+        assert_eq!(report.summary.unknown_custom_assets, 0);
+        assert_eq!(report.assets[0].manager, "lm-studio");
+        assert_eq!(
+            report.assets[0].source.as_deref(),
+            Some("lm-studio-cache-layout")
+        );
+        assert_eq!(report.assets[0].state, "managed-cache-unresolved");
+        assert_eq!(report.assets[0].action, "report-only");
+        assert!(!report.assets[0].suspected_custom_model);
     }
 
     #[test]

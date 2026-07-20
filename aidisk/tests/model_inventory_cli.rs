@@ -175,6 +175,35 @@ fn models_inventory_accepts_stale_cutoff_and_reports_new_summary_fields() {
 }
 
 #[test]
+fn models_inventory_supports_lm_studio_as_managed_report_only() {
+    let temp = tempdir().expect("tempdir should exist");
+    fs::write(temp.path().join("demo.gguf"), b"model").expect("LM Studio model should write");
+
+    let output = Command::new(binary())
+        .args([
+            "models",
+            "inventory",
+            "--json",
+            "--tool",
+            "lm-studio",
+            "--root",
+            temp.path().to_str().expect("temp path should be utf8"),
+        ])
+        .output()
+        .expect("LM Studio inventory should run");
+
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("inventory should be json");
+    assert_eq!(report["roots"][0]["tool"], "lm-studio");
+    assert_eq!(report["summary"]["total_assets"], 1);
+    assert_eq!(report["summary"]["managed_assets"], 1);
+    assert_eq!(report["assets"][0]["manager"], "lm-studio");
+    assert_eq!(report["assets"][0]["source"], "lm-studio-cache-layout");
+    assert_eq!(report["assets"][0]["state"], "managed-cache-unresolved");
+    assert_eq!(report["assets"][0]["action"], "report-only");
+}
+
+#[test]
 fn models_adapters_report_local_capabilities_without_invoking_tools() {
     let temp = tempdir().expect("tempdir should exist");
     let hf_root = temp.path().join("models--org--demo");
@@ -196,7 +225,7 @@ fn models_adapters_report_local_capabilities_without_invoking_tools() {
     assert!(hf_output.status.success());
     let hf_report: Value =
         serde_json::from_slice(&hf_output.stdout).expect("adapter report should be json");
-    assert_eq!(hf_report["schema_version"], 5);
+    assert_eq!(hf_report["schema_version"], 6);
     assert_eq!(hf_report["summary"]["total_adapters"], 1);
     assert_eq!(hf_report["summary"]["index_parseable_adapters"], 1);
     assert_eq!(hf_report["adapters"][0]["action"], "report-only");
@@ -235,6 +264,31 @@ fn models_adapters_report_local_capabilities_without_invoking_tools() {
         ollama_report["adapters"][0]["official_cli"]["probed"],
         false
     );
+
+    let lm_root = temp.path().join("lm-studio");
+    fs::create_dir_all(&lm_root).expect("LM Studio root should exist");
+    fs::write(lm_root.join("demo.gguf"), b"model").expect("LM Studio model should write");
+    let lm_output = Command::new(binary())
+        .args([
+            "models",
+            "adapters",
+            "--json",
+            "--tool",
+            "lm-studio",
+            "--root",
+            lm_root.to_str().expect("LM Studio path should be utf8"),
+        ])
+        .output()
+        .expect("LM Studio adapter report should run");
+    assert!(lm_output.status.success());
+    let lm_report: Value =
+        serde_json::from_slice(&lm_output.stdout).expect("LM Studio report should be json");
+    assert_eq!(lm_report["summary"]["total_adapters"], 1);
+    assert_eq!(lm_report["summary"]["available_adapters"], 1);
+    assert_eq!(lm_report["summary"]["index_parseable_adapters"], 0);
+    assert_eq!(lm_report["adapters"][0]["tool"], "lm-studio");
+    assert_eq!(lm_report["adapters"][0]["official_cli"]["probed"], false);
+    assert_eq!(lm_report["adapters"][0]["action"], "report-only");
 }
 
 #[test]

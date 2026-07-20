@@ -403,6 +403,7 @@ Adapter 基础能力：
 - [x] 官方 dry-run invocation（显式 opt-in、allowlist、Hugging Face prune dry-run；Ollama read-only list）；
 - [x] 统一 official cleanup plan（report-only foundation；Hugging Face dry-run normalized，Ollama evidence-only）；
 - [x] rollback capability metadata（report-only；Hugging Face manual redownload，Ollama not-applicable）；
+- [x] LM Studio metadata-only inventory / adapter foundation（托管但 unresolved；无官方清理 dry-run，不生成 cleanup candidates）；
 
 ## 4.6 Reclaim Confidence
 

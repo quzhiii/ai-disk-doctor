@@ -100,6 +100,7 @@ reference evidence:
 | Field | Meaning |
 |---|---|
 | `assets[].state = managed-cache-referenced` | A parsed Hugging Face ref or Ollama manifest resolves to the asset or its physical blob. |
+| `assets[].state = managed-cache-unresolved` | The asset is under a managed cache layout, including LM Studio model files, but no parsed metadata reference resolved it. |
 | `assets[].state = detached-revision` | A Hugging Face snapshot revision exists, but no parsed ref points to that revision. |
 | `assets[].state = orphan-blob` | A parsed local index exists, but no reference points to the blob. |
 | `assets[].state = incomplete-download` | The asset has a conservative incomplete-download filename marker. |
@@ -117,13 +118,13 @@ not cause assets to be classified as orphaned or safe to reclaim. All actions re
 
 External-drive candidates are metadata-only signals. Inventory does not migrate files, rewrite tool configuration, or verify an external target drive. Unknown or potentially private model files remain report-only and have zero reclaim confidence.
 
-## Model Adapter Capability v5
+## Model Adapter Capability v6
 
-`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only the selected tool's `--version` and `--help` commands, bounded by `--probe-timeout-ms` and `--probe-output-chars`. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Successful Hugging Face dry-run output is normalized into a report-only `official_cleanup_plan`; Ollama list output is evidence only and does not create cleanup candidates. Rollback capability is metadata-only and never executes restore/download commands.
+`models adapters --json` reports the safe adapter boundary. By default it only inspects local metadata and does not invoke external tools. With explicit `--probe-official-cli`, it runs only bounded Hugging Face or Ollama version/help commands; LM Studio has no confirmed official cleanup CLI and is not probed. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Successful Hugging Face dry-run output is normalized into a report-only `official_cleanup_plan`; Ollama list output and LM Studio metadata are evidence only and do not create cleanup candidates. Rollback capability is metadata-only and never executes restore/download commands.
 
 | Field | Meaning |
 |---|---|
-| `adapters[].tool` | Adapter identifier, currently `huggingface` or `ollama`. |
+| `adapters[].tool` | Adapter identifier, currently `huggingface`, `ollama`, or `lm-studio`. |
 | `adapters[].root_exists` | Whether the selected local cache root exists. |
 | `adapters[].index_present` | Whether a local refs or manifest index was found. |
 | `adapters[].index_parseable` | Whether at least one bounded local index entry parsed successfully. |
@@ -137,7 +138,7 @@ External-drive candidates are metadata-only signals. Inventory does not migrate 
 | `adapters[].official_dry_run.requested` | Whether `--run-official-dry-run` was explicitly requested. |
 | `adapters[].official_dry_run.supported` | Whether an allowlisted non-mutating command was confirmed for this adapter. |
 | `adapters[].official_dry_run.invoked` | Whether the allowlisted command was actually invoked. |
-| `adapters[].official_dry_run.mode` | `official-cleanup-dry-run` for Hugging Face prune dry-run, `read-only-list` for Ollama list, or a non-invoked status. |
+| `adapters[].official_dry_run.mode` | `official-cleanup-dry-run` for Hugging Face prune dry-run, `read-only-list` for Ollama list, or a non-invoked status. LM Studio reports unsupported for official dry-run requests. |
 | `adapters[].official_dry_run.command` | Exact allowlisted command tokens. No arbitrary command strings are accepted. |
 | `adapters[].official_dry_run.status` | Invocation result: `not-requested`, `planned`, `ok`, `failed`, `timeout`, `not-available`, `unsupported`, or `error`. |
 | `adapters[].official_dry_run.output` | Bounded stdout/stderr summary when invoked or refused. |

@@ -16,7 +16,8 @@
 - Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
 - Added metadata-only stale and duplicate logical model markers, configurable via `--stale-after-days`, with explanatory reclaim confidence that never enables cleanup.
 - Added metadata-only external-drive/cold-storage candidate markers for large managed model assets with stale, duplicate, detached, or orphaned cache signals; recommendations remain report-only.
-- Added `aidisk models adapters` as a read-only capability report for future Hugging Face and Ollama official dry-run integration; external CLIs are not invoked in this foundation.
+- Added metadata-only LM Studio support to `models inventory` and `models adapters`; LM Studio model files are reported as managed, unresolved, report-only assets and do not invoke any official cleanup CLI.
+- Added `aidisk models adapters` as a read-only capability report for Hugging Face, Ollama, and LM Studio model tooling boundaries; external CLIs are not invoked unless explicitly requested and allowlisted.
 - Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.
 - Added explicit allowlisted official adapter dry-run invocation: Hugging Face uses `hf cache prune --dry-run --cache-dir <root>` only after help confirms dry-run support, while Ollama is limited to `ollama ls` read-only listing.
 - Added report-only `official_cleanup_plan` normalization for Hugging Face official dry-run output; Ollama read-only list output remains evidence-only and does not create cleanup candidates.

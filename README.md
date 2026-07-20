@@ -425,11 +425,11 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - `rules lint` validates all YAML rules, rejects duplicate IDs, and reports SHA-256 source digests.
 - `scan --json` records each loaded rule's path, schema version, and digest under `summary.rule_sources`.
 - Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
-- `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face indexes.
-- When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships; unresolved or unknown assets remain `report-only`.
+- `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face/LM Studio indexes.
+- When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships. LM Studio model files are identified as managed but unresolved because no safe official cleanup index is parsed. Unresolved or unknown assets remain `report-only`.
 - `--stale-after-days` controls the metadata-only stale marker and defaults to 90 days; it never enables cleanup.
 - `models inventory` also flags large managed assets as external-drive/cold-storage candidates only when metadata suggests stale, duplicate, detached, or orphaned cache state. This is a report-only review signal; it never migrates files or changes tool configuration.
-- `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only bounded `hf` or `ollama` version/help commands. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Hugging Face dry-run output can be normalized into a report-only cleanup plan with manual-redownload rollback metadata; Ollama list output never becomes a cleanup candidate. It never performs cleanup, rollback, or index mutation, and all actions remain `report-only`.
+- `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only bounded `hf` or `ollama` version/help commands; LM Studio has no confirmed official cleanup CLI and is not probed. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Hugging Face dry-run output can be normalized into a report-only cleanup plan with manual-redownload rollback metadata; Ollama list output and LM Studio metadata never become cleanup candidates. It never performs cleanup, rollback, or index mutation, and all actions remain `report-only`.
 
 ### Default Behavior
 

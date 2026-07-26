@@ -217,10 +217,25 @@ pub struct ModelAsset {
     pub duplicate_logical_model: bool,
     pub external_drive_candidate: bool,
     pub cold_storage_recommendation: String,
+    pub eviction_cost: EvictionCost,
     pub action: String,
     pub reclaim_confidence: u8,
     pub positive_evidence: Vec<String>,
     pub risk_evidence: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EvictionCost {
+    pub expected_reclaim_bytes: u64,
+    pub recovery_size_bytes: u64,
+    pub recovery_time_estimate: String,
+    pub network_required: String,
+    pub offline_recovery: String,
+    pub shared_physical_blob: bool,
+    pub external_drive_suitable: bool,
+    pub utility_score: u8,
+    pub utility_band: String,
+    pub recommendation: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -237,6 +252,10 @@ pub struct InventorySummary {
     pub stale_assets: usize,
     pub duplicate_logical_model_assets: usize,
     pub external_drive_candidate_assets: usize,
+    pub expected_reclaim_bytes: u64,
+    pub recovery_size_bytes: u64,
+    pub high_utility_eviction_assets: usize,
+    pub blocked_eviction_assets: usize,
     pub unknown_custom_assets: usize,
     pub report_only_assets: usize,
 }
@@ -464,6 +483,7 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
                 "external-drive migration is not performed by inventory and requires a separate verified plan".to_string(),
             );
         }
+        asset.eviction_cost = eviction_cost(asset);
         asset.reclaim_confidence = reclaim_confidence(asset);
     }
 
@@ -585,6 +605,22 @@ pub fn build_inventory(options: &InventoryOptions) -> Result<ModelInventoryRepor
             external_drive_candidate_assets: assets
                 .iter()
                 .filter(|asset| asset.external_drive_candidate)
+                .count(),
+            expected_reclaim_bytes: assets
+                .iter()
+                .map(|asset| asset.eviction_cost.expected_reclaim_bytes)
+                .sum(),
+            recovery_size_bytes: assets
+                .iter()
+                .map(|asset| asset.eviction_cost.recovery_size_bytes)
+                .sum(),
+            high_utility_eviction_assets: assets
+                .iter()
+                .filter(|asset| asset.eviction_cost.utility_band == "high")
+                .count(),
+            blocked_eviction_assets: assets
+                .iter()
+                .filter(|asset| asset.eviction_cost.utility_band == "blocked")
                 .count(),
             unknown_custom_assets: assets
                 .iter()
@@ -1749,6 +1785,117 @@ fn cold_storage_recommendation(asset: &ModelAsset) -> String {
     }
 }
 
+fn eviction_cost(asset: &ModelAsset) -> EvictionCost {
+    let shared_physical_blob = asset.shared_physical_size_bytes > 0;
+    let expected_reclaim_bytes = if shared_physical_blob
+        || asset.suspected_custom_model
+        || asset.manager == "generic"
+        || asset.state == "incomplete-download"
+    {
+        0
+    } else {
+        asset.exclusive_physical_size_bytes
+    };
+    let recovery_size_bytes = asset.logical_size_bytes;
+    let (recovery_time_estimate, network_required, offline_recovery, utility_score, utility_band) =
+        if asset.suspected_custom_model || asset.manager == "generic" {
+            (
+                "unknown".to_string(),
+                "unknown".to_string(),
+                "unknown".to_string(),
+                0,
+                "unknown".to_string(),
+            )
+        } else if asset.state == "incomplete-download" {
+            (
+                "unknown".to_string(),
+                "likely".to_string(),
+                "unlikely".to_string(),
+                0,
+                "blocked".to_string(),
+            )
+        } else {
+            let score = eviction_utility_score(asset, expected_reclaim_bytes);
+            let band = match score {
+                70..=100 => "high",
+                40..=69 => "medium",
+                1..=39 => "low",
+                _ => "blocked",
+            };
+            (
+                recovery_time_estimate(recovery_size_bytes),
+                "likely".to_string(),
+                "unlikely".to_string(),
+                score,
+                band.to_string(),
+            )
+        };
+    let recommendation = if utility_band == "high" {
+        "review-for-report-only-eviction"
+    } else if asset.external_drive_candidate {
+        "review-for-external-drive-first"
+    } else if shared_physical_blob {
+        "keep-shared-physical-blob"
+    } else if utility_band == "blocked" {
+        "do-not-evict-without-source-verification"
+    } else {
+        "review-only"
+    };
+
+    EvictionCost {
+        expected_reclaim_bytes,
+        recovery_size_bytes,
+        recovery_time_estimate,
+        network_required,
+        offline_recovery,
+        shared_physical_blob,
+        external_drive_suitable: asset.external_drive_candidate,
+        utility_score,
+        utility_band: utility_band.to_string(),
+        recommendation: recommendation.to_string(),
+    }
+}
+
+fn eviction_utility_score(asset: &ModelAsset, expected_reclaim_bytes: u64) -> u8 {
+    if expected_reclaim_bytes == 0 {
+        return 0;
+    }
+    let mut score = if expected_reclaim_bytes >= EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES {
+        40
+    } else {
+        20
+    };
+    if asset.state == "orphan-blob" {
+        score += 35;
+    } else if asset.state == "detached-revision" {
+        score += 25;
+    } else if asset.duplicate_logical_model {
+        score += 20;
+    } else if asset.stale {
+        score += 15;
+    }
+    if asset.recoverability == "likely-redownloadable" {
+        score += 15;
+    }
+    score.min(100)
+}
+
+fn recovery_time_estimate(bytes: u64) -> String {
+    if bytes == 0 {
+        return "none".to_string();
+    }
+    let gigabytes = bytes as f64 / 1024_f64.powi(3);
+    if gigabytes < 1.0 {
+        "under-15-minutes-at-broadband".to_string()
+    } else if gigabytes < 10.0 {
+        "15-60-minutes-at-broadband".to_string()
+    } else if gigabytes < 50.0 {
+        "1-4-hours-at-broadband".to_string()
+    } else {
+        "over-4-hours-at-broadband".to_string()
+    }
+}
+
 fn analyze_huggingface(
     root: &Path,
     max_depth: usize,
@@ -2241,6 +2388,18 @@ fn build_asset(path: &Path, tool: DetectedTool, logical_size_bytes: u64) -> Mode
         duplicate_logical_model: false,
         external_drive_candidate: false,
         cold_storage_recommendation: "none".to_string(),
+        eviction_cost: EvictionCost {
+            expected_reclaim_bytes: 0,
+            recovery_size_bytes: logical_size_bytes,
+            recovery_time_estimate: "unknown".to_string(),
+            network_required: "unknown".to_string(),
+            offline_recovery: "unknown".to_string(),
+            shared_physical_blob: false,
+            external_drive_suitable: false,
+            utility_score: 0,
+            utility_band: "unknown".to_string(),
+            recommendation: "review-only".to_string(),
+        },
         action: "report-only".to_string(),
         reclaim_confidence: 0,
         positive_evidence,
@@ -2773,6 +2932,88 @@ mod tests {
             .assets
             .iter()
             .all(|asset| !asset.external_drive_candidate));
+    }
+
+    #[test]
+    fn eviction_cost_accounts_for_shared_physical_blobs_and_unknown_custom_models() {
+        let temp = tempdir().expect("tempdir should exist");
+        let snapshots = temp.path().join("models--org--demo/snapshots/rev-1");
+        fs::create_dir_all(&snapshots).expect("snapshot directory should exist");
+        let first = snapshots.join("model-a.safetensors");
+        let second = snapshots.join("model-b.safetensors");
+        fs::write(&first, vec![0_u8; 12]).expect("model should write");
+        fs::hard_link(&first, &second).expect("hard link should be created");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("inventory should succeed");
+
+        assert_eq!(report.summary.expected_reclaim_bytes, 0);
+        assert!(report.assets.iter().all(|asset| {
+            asset.eviction_cost.shared_physical_blob
+                && asset.eviction_cost.expected_reclaim_bytes == 0
+                && asset.eviction_cost.utility_band == "blocked"
+                && asset.eviction_cost.recommendation == "keep-shared-physical-blob"
+        }));
+
+        let custom_root = temp.path().join("custom");
+        fs::create_dir_all(&custom_root).expect("custom root should exist");
+        let custom = custom_root.join("private.gguf");
+        fs::write(&custom, b"custom").expect("custom model should write");
+        let custom_report = build_inventory(&InventoryOptions {
+            root: Some(custom_root),
+            tool: InventoryTool::Generic,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("custom inventory should succeed");
+        let custom_asset = custom_report
+            .assets
+            .iter()
+            .find(|asset| asset.suspected_custom_model)
+            .expect("custom asset should exist");
+        assert_eq!(custom_asset.eviction_cost.utility_band, "unknown");
+        assert_eq!(custom_asset.eviction_cost.expected_reclaim_bytes, 0);
+        assert_eq!(custom_asset.eviction_cost.recommendation, "review-only");
+    }
+
+    #[test]
+    fn eviction_cost_marks_large_orphan_as_high_utility_without_authorizing_cleanup() {
+        let temp = tempdir().expect("tempdir should exist");
+        let blobs = temp.path().join("models--org--demo/blobs");
+        let refs = temp.path().join("models--org--demo/refs");
+        fs::create_dir_all(&blobs).expect("blob directory should exist");
+        fs::create_dir_all(&refs).expect("refs directory should exist");
+        let orphan = blobs.join("orphanhash");
+        fs::File::create(&orphan)
+            .expect("orphan blob should write")
+            .set_len(EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES + 1)
+            .expect("orphan sparse blob should resize");
+        fs::write(refs.join("main"), "rev-live\n").expect("ref should write");
+
+        let report = build_inventory(&InventoryOptions {
+            root: Some(temp.path().to_path_buf()),
+            tool: InventoryTool::Huggingface,
+            max_depth: 20,
+            stale_after_days: 0,
+        })
+        .expect("inventory should succeed");
+        let asset = report
+            .assets
+            .iter()
+            .find(|asset| asset.state == "orphan-blob")
+            .expect("orphan blob should exist");
+        assert_eq!(asset.eviction_cost.utility_band, "high");
+        assert!(asset.eviction_cost.expected_reclaim_bytes >= EXTERNAL_DRIVE_CANDIDATE_MIN_BYTES);
+        assert_eq!(
+            asset.eviction_cost.recommendation,
+            "review-for-report-only-eviction"
+        );
+        assert_eq!(asset.action, "report-only");
     }
 
     #[test]

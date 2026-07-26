@@ -680,6 +680,22 @@ fn run(cli: Cli) -> Result<()> {
                         "- External Drive Candidate Assets: {}",
                         report.summary.external_drive_candidate_assets
                     );
+                    println!(
+                        "- Expected Reclaim Bytes: {}",
+                        format_inventory_bytes(report.summary.expected_reclaim_bytes)
+                    );
+                    println!(
+                        "- Recovery Size: {}",
+                        format_inventory_bytes(report.summary.recovery_size_bytes)
+                    );
+                    println!(
+                        "- High Utility Eviction Assets: {}",
+                        report.summary.high_utility_eviction_assets
+                    );
+                    println!(
+                        "- Blocked Eviction Assets: {}",
+                        report.summary.blocked_eviction_assets
+                    );
                     println!();
                     println!("| Model | Format | Manager | State | Size | Action |");
                     println!("|---|---|---|---|---:|---|");
@@ -728,6 +744,22 @@ fn run(cli: Cli) -> Result<()> {
                     println!(
                         "External Drive Candidate Assets: {}",
                         report.summary.external_drive_candidate_assets
+                    );
+                    println!(
+                        "Expected Reclaim Bytes: {}",
+                        format_inventory_bytes(report.summary.expected_reclaim_bytes)
+                    );
+                    println!(
+                        "Recovery Size: {}",
+                        format_inventory_bytes(report.summary.recovery_size_bytes)
+                    );
+                    println!(
+                        "High Utility Eviction Assets: {}",
+                        report.summary.high_utility_eviction_assets
+                    );
+                    println!(
+                        "Blocked Eviction Assets: {}",
+                        report.summary.blocked_eviction_assets
                     );
                     for asset in report.assets {
                         println!(

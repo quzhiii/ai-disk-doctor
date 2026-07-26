@@ -168,10 +168,18 @@ fn models_inventory_accepts_stale_cutoff_and_reports_new_summary_fields() {
     assert_eq!(report["summary"]["stale_assets"], 0);
     assert_eq!(report["summary"]["duplicate_logical_model_assets"], 0);
     assert_eq!(report["summary"]["external_drive_candidate_assets"], 0);
+    assert_eq!(report["summary"]["expected_reclaim_bytes"], 5);
+    assert_eq!(report["summary"]["recovery_size_bytes"], 5);
+    assert_eq!(report["summary"]["high_utility_eviction_assets"], 0);
     assert_eq!(report["assets"][0]["stale"], false);
     assert_eq!(report["assets"][0]["duplicate_logical_model"], false);
     assert_eq!(report["assets"][0]["external_drive_candidate"], false);
     assert_eq!(report["assets"][0]["cold_storage_recommendation"], "none");
+    assert_eq!(report["assets"][0]["eviction_cost"]["utility_band"], "low");
+    assert_eq!(
+        report["assets"][0]["eviction_cost"]["recommendation"],
+        "review-only"
+    );
 }
 
 #[test]

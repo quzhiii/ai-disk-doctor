@@ -16,6 +16,7 @@
 - Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
 - Added metadata-only stale and duplicate logical model markers, configurable via `--stale-after-days`, with explanatory reclaim confidence that never enables cleanup.
 - Added metadata-only external-drive/cold-storage candidate markers for large managed model assets with stale, duplicate, detached, or orphaned cache signals; recommendations remain report-only.
+- Added metadata-only cost-aware eviction signals for expected reclaim bytes, recovery size/time bands, network/offline recovery hints, shared-blob protection, and report-only utility bands.
 - Added metadata-only LM Studio support to `models inventory` and `models adapters`; LM Studio model files are reported as managed, unresolved, report-only assets and do not invoke any official cleanup CLI.
 - Added `aidisk models adapters` as a read-only capability report for Hugging Face, Ollama, and LM Studio model tooling boundaries; external CLIs are not invoked unless explicitly requested and allowlisted.
 - Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.

@@ -404,6 +404,7 @@ Adapter 基础能力：
 - [x] 统一 official cleanup plan（report-only foundation；Hugging Face dry-run normalized，Ollama evidence-only）；
 - [x] rollback capability metadata（report-only；Hugging Face manual redownload，Ollama not-applicable）；
 - [x] LM Studio metadata-only inventory / adapter foundation（托管但 unresolved；无官方清理 dry-run，不生成 cleanup candidates）；
+- [x] cost-aware eviction 基础（metadata-only reclaim/recovery cost、共享 blob 保护、规则化 utility band，report-only）；
 
 ## 4.6 Reclaim Confidence
 

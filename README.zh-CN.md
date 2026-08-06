@@ -169,6 +169,24 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeD
 
 脚本会按顺序查找 `aidisk`：`AIDISK_EXE`、脚本同目录的 `aidisk.exe`、PATH 中的 `aidisk`、本地 release/debug 构建，最后才在源码 checkout 中尝试较快的 debug Cargo 构建。真实清理仍必须显式运行 `aidisk clean --yes --quarantine-root <path>`。
 
+### 给本地 Agent 的提示词
+
+把下面这段复制给可以在你电脑上运行终端命令的本地编码 Agent 或桌面 Agent：
+
+```text
+请使用 AI Disk Doctor 帮我安全释放磁盘空间：
+https://github.com/quzhiii/ai-disk-doctor
+
+请在本机执行，并保持流程可回滚：
+1. 优先使用适合我系统的最新 release 包；如果不方便，再 clone 仓库。
+2. 先运行只读的一键入口 Start-AIDiskDoctor.ps1。第一次扫描期间不要删除、隔离或修改任何文件。
+3. 打开或总结 .aidisk/quickstart/scan.md 和 aidisk-dashboard.html，让我看到最大的安全候选项。
+4. 生成 safe-only 清理计划，并说明会移动哪些文件、预计释放多少空间、如何回滚。
+5. 任何真实清理前，都必须先获得我的明确确认。
+6. 我确认后，只能运行可回滚的隔离清理：aidisk clean --yes --safe-only --quarantine-root <path>。不要永久删除文件，也不要清理 report-only 或 high-risk 项。
+7. 清理后展示释放空间、隔离目录和恢复命令。
+```
+
 ---
 
 ## 安装

@@ -169,6 +169,24 @@ Update points included in one-click deploy:
 
 The script looks for `aidisk` in this order: `AIDISK_EXE`, `aidisk.exe` beside the script, `aidisk` on PATH, local release/debug build, then a debug Cargo build fallback for source checkouts. Real cleanup still requires an explicit `aidisk clean --yes --quarantine-root <path>` command.
 
+### Prompt for Your Local Agent
+
+Copy this prompt into a local coding or desktop agent that can run terminal commands on your machine:
+
+```text
+Use AI Disk Doctor to help me reclaim disk space safely:
+https://github.com/quzhiii/ai-disk-doctor
+
+Work locally and keep the workflow reversible:
+1. Prefer the latest release package for my OS; if that is not practical, clone the repository.
+2. Run the read-only one-click entrypoint first: Start-AIDiskDoctor.ps1. Do not delete, quarantine, or modify files during the first pass.
+3. Open or summarize .aidisk/quickstart/scan.md and aidisk-dashboard.html so I can see the largest safe candidates.
+4. Generate a safe-only cleanup plan and explain what would be moved, how much space it may reclaim, and how rollback works.
+5. Ask for my explicit confirmation before any real cleanup.
+6. After I confirm, run only reversible quarantine cleanup with aidisk clean --yes --safe-only --quarantine-root <path>. Do not permanently delete files and do not clean report-only or high-risk items.
+7. After cleanup, show the reclaimed space, quarantine location, and restore command.
+```
+
 ---
 
 ## Installation

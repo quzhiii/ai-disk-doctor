@@ -40,6 +40,13 @@ fn readme_english_exists_and_has_required_sections() {
         "Should describe one-click outputs and safety boundary"
     );
     assert!(
+        readme.contains("### Prompt for Your Local Agent")
+            && readme.contains("Use AI Disk Doctor to help me reclaim disk space safely")
+            && readme.contains("Ask for my explicit confirmation")
+            && readme.contains("aidisk clean --yes --safe-only --quarantine-root <path>"),
+        "Should provide a copyable local-agent cleanup prompt"
+    );
+    assert!(
         readme.contains("visualize") && readme.contains("ai-footprint"),
         "Should document v1.6.0 visualize and ai-footprint"
     );
@@ -135,6 +142,13 @@ fn readme_chinese_exists_and_has_required_sections() {
             && readme.contains("aidisk-dashboard.html")
             && readme.contains("真实清理仍必须"),
         "Should describe Chinese one-click outputs and safety boundary"
+    );
+    assert!(
+        readme.contains("### 给本地 Agent 的提示词")
+            && readme.contains("请使用 AI Disk Doctor 帮我安全释放磁盘空间")
+            && readme.contains("必须先获得我的明确确认")
+            && readme.contains("aidisk clean --yes --safe-only --quarantine-root <path>"),
+        "Should provide a Chinese copyable local-agent cleanup prompt"
     );
     assert!(
         readme.contains("可视化仪表盘") && readme.contains("AI 足迹"),

@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -19,7 +19,7 @@ Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, an
 
 ## Table of Contents
 
-[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [One-Click Deploy](#one-click-deploy) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
 ---
 
@@ -45,7 +45,7 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.6.0
+**Current release:** v1.7.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
@@ -56,6 +56,7 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 | Capability | What it does |
 |-----------|-------------|
 | **Intelligent Scanning** | Discover space usage across AI models, IDEs, CLIs, browsers, Docker, WSL, and dev artifacts |
+| **One-Click Deploy** | `Start-AIDiskDoctor.ps1` runs a read-only scan and opens a local dashboard without requiring users to learn CLI flags first |
 | **AI-Aware Rules** | 25 YAML rules covering 200+ paths: Claude, Codex, Gemini, Ollama, LM Studio, MCP servers, CUDA, etc. |
 | **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, and quarantine-ready checklist |
 | **AI Footprint Report** | `doctor --ai-footprint` aggregates all AI findings across 10 categories with actionable recommendations |
@@ -86,6 +87,16 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 ---
 
 ## What's New
+
+### v1.7.0
+
+- **One-click deploy** — `Start-AIDiskDoctor.ps1`: read-only onboarding script that generates `scan.md` and `aidisk-dashboard.html` in `.aidisk\quickstart\`
+- **Optional deeper reports** — `-IncludeDoctor -IncludePlan`: adds AI footprint diagnosis and safe-only cleanup preview without running cleanup
+- **No-Rust wrapper path** — PowerShell skill wrappers now prefer `AIDISK_EXE`, PATH, or local binaries before falling back to Cargo
+- **Packaged resources** — release artifacts now include built-in `rules/`, default `config/`, and the one-click script so extracted packages work outside the source tree
+- **Portable local data** — scan snapshots and rules-repo caches now resolve under the current working directory instead of the compile-time source path
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.7.0.md`](./docs/release-notes/v1.7.0.md).
 
 ### v1.6.0
 
@@ -126,11 +137,47 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`]
 
 ---
 
+## One-Click Deploy
+
+For non-technical users, the safest entrypoint is the repository-level PowerShell script. It does not clean or delete anything; by default it runs one read-only scan, writes a Markdown report, generates a local HTML dashboard, and opens it automatically.
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1
+```
+
+Outputs are written to `.aidisk\quickstart\`:
+
+- `scan.md` — full scan report
+- `aidisk-dashboard.html` — local visual dashboard
+
+Optional deeper reports run extra scans and are opt-in:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeDoctor -IncludePlan
+```
+
+- `doctor-ai-footprint.md` — AI-tool footprint diagnosis
+- `safe-cleanup-plan.md` — safe-only cleanup preview, not execution
+
+Update points included in one-click deploy:
+
+- Users can start with one command instead of learning `scan`, `doctor`, `plan`, and `visualize` separately.
+- Default execution is read-only and produces a dashboard-first result for immediate review.
+- Optional deeper reports stay explicit so first-run latency remains low.
+- The script can run from a release package or source checkout by resolving installed binaries, local binaries, and Cargo fallback in order.
+- Release packages include the rules and config needed for the extracted binary to work without the original source tree.
+
+The script looks for `aidisk` in this order: `AIDISK_EXE`, `aidisk.exe` beside the script, `aidisk` on PATH, local release/debug build, then a debug Cargo build fallback for source checkouts. Real cleanup still requires an explicit `aidisk clean --yes --quarantine-root <path>` command.
+
+---
+
 ## Installation
 
 ### Option 1: Pre-built Binary (Recommended — No Rust Required)
 
 Download the latest package for your platform from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases):
+
+Release packages include the `aidisk` binary, `Start-AIDiskDoctor.ps1`, built-in `rules/`, default `config/`, README, changelog, licenses, and `report-schema.md`.
 
 | Platform | Package |
 |---|---|
@@ -144,13 +191,13 @@ Download the latest package for your platform from the [Releases page](https://g
 Verify the SHA-256 checksum before installing:
 
 ```powershell
-Get-FileHash .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.6.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
 ```
 
 ```bash
-sha256sum -c aidisk-v1.6.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.6.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
 ```
 
 Each release also includes `*.sbom.cargo-metadata.json` and `*.provenance.json` files. See [`docs/trusted-distribution.md`](./docs/trusted-distribution.md) for artifact naming, checksum verification, SBOM, provenance, upgrade, uninstall, Homebrew draft, winget draft, and crates.io status. crates.io publishing is deferred until the CLI name, package description, release signing expectations, and support policy are stable.
@@ -186,7 +233,7 @@ cargo build --release
 
 ### Option 3: PowerShell Skill Wrappers (Agent Integration)
 
-No Rust or compilation needed. The `skills/windows-ai-space-manager/scripts/` directory contains standalone PowerShell wrappers that call the CLI. If you have the pre-built binary on PATH, these work immediately:
+No Rust or compilation needed when the pre-built binary is installed. The `skills/windows-ai-space-manager/scripts/` directory contains standalone PowerShell wrappers that call `aidisk` from `AIDISK_EXE`, PATH, or a local build, with Cargo used only as a development fallback:
 
 ```powershell
 # Scan via PowerShell wrapper

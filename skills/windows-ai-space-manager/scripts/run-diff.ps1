@@ -8,28 +8,22 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$AidiskDir = Join-Path $PSScriptRoot "..\..\..\aidisk"
+$InvokeAidisk = Join-Path $PSScriptRoot "invoke-aidisk.ps1"
 
-$args = @("run", "--", "diff")
+$AidiskArgs = @("diff")
 
-if ($Json) { $args += "--json" }
-elseif ($Markdown) { $args += "--markdown" }
+if ($Json) { $AidiskArgs += "--json" }
+elseif ($Markdown) { $AidiskArgs += "--markdown" }
 
 if ($Latest) {
-    $args += "--latest"
-    if ($ReportsDir) { $args += @("--reports-dir", $ReportsDir) }
+    $AidiskArgs += "--latest"
+    if ($ReportsDir) { $AidiskArgs += @("--reports-dir", $ReportsDir) }
 }
 else {
     if (-not $Before -or -not $After) {
         throw "run-diff.ps1 requires -Before and -After unless -Latest is used"
     }
-    $args += @("--before", $Before, "--after", $After)
+    $AidiskArgs += @("--before", $Before, "--after", $After)
 }
 
-Push-Location $AidiskDir
-try {
-    & cargo @args
-}
-finally {
-    Pop-Location
-}
+& $InvokeAidisk @AidiskArgs

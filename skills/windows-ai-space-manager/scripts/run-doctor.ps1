@@ -14,28 +14,22 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$AidiskDir = Join-Path $PSScriptRoot "..\..\..\aidisk"
+$InvokeAidisk = Join-Path $PSScriptRoot "invoke-aidisk.ps1"
 
-$args = @("run", "--", "doctor")
+$AidiskArgs = @("doctor")
 
-if ($Json) { $args += "--json" }
-elseif ($Markdown) { $args += "--markdown" }
+if ($Json) { $AidiskArgs += "--json" }
+elseif ($Markdown) { $AidiskArgs += "--markdown" }
 
-if ($Docker) { $args += "--docker" }
-if ($Wsl) { $args += "--wsl" }
-if ($Ollama) { $args += "--ollama" }
-if ($Playwright) { $args += "--playwright" }
-if ($HuggingFace) { $args += "--huggingface" }
-if ($Agents) { $args += "--agents" }
-if ($ProbeTools) { $args += "--probe-tools" }
-if ($Latest) { $args += "--latest" }
-if ($ReportsDir) { $args += @("--reports-dir", $ReportsDir) }
-if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
+if ($Docker) { $AidiskArgs += "--docker" }
+if ($Wsl) { $AidiskArgs += "--wsl" }
+if ($Ollama) { $AidiskArgs += "--ollama" }
+if ($Playwright) { $AidiskArgs += "--playwright" }
+if ($HuggingFace) { $AidiskArgs += "--huggingface" }
+if ($Agents) { $AidiskArgs += "--agents" }
+if ($ProbeTools) { $AidiskArgs += "--probe-tools" }
+if ($Latest) { $AidiskArgs += "--latest" }
+if ($ReportsDir) { $AidiskArgs += @("--reports-dir", $ReportsDir) }
+if ($RulesRepo) { $AidiskArgs += @("--rules-repo", $RulesRepo) }
 
-Push-Location $AidiskDir
-try {
-    & cargo @args
-}
-finally {
-    Pop-Location
-}
+& $InvokeAidisk @AidiskArgs

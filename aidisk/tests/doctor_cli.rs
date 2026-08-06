@@ -34,10 +34,7 @@ planner:
 }
 
 fn write_agent_rule(path: &Path, agent_root: &Path) {
-    let escaped_path = agent_root
-        .display()
-        .to_string()
-        .replace('\\', "\\\\");
+    let escaped_path = agent_root.display().to_string().replace('\\', "\\\\");
     let content = format!(
         r#"id: test-agent-root
 name: Test agent root
@@ -114,8 +111,8 @@ fn doctor_latest_reports_dir_emits_latest_diff_json() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("doctor json output should parse");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("doctor json output should parse");
 
     assert_eq!(parsed["latest_diff"]["summary"]["grew"], 1);
     assert_eq!(parsed["latest_diff"]["summary"]["appeared"], 0);
@@ -155,8 +152,8 @@ fn doctor_without_topic_flags_uses_registry_defaults() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("doctor json output should parse");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("doctor json output should parse");
     let names = parsed["topics"]
         .as_array()
         .expect("topics should be an array")
@@ -166,7 +163,14 @@ fn doctor_without_topic_flags_uses_registry_defaults() {
 
     assert_eq!(
         names,
-        vec!["docker", "wsl", "ollama", "huggingface", "playwright", "agents"]
+        vec![
+            "docker",
+            "wsl",
+            "ollama",
+            "huggingface",
+            "playwright",
+            "agents"
+        ]
     );
 }
 
@@ -203,7 +207,10 @@ fn doctor_latest_requires_two_snapshots_with_doctor_specific_message() {
         .output()
         .expect("doctor command should run");
 
-    assert!(!output.status.success(), "doctor should fail with one snapshot");
+    assert!(
+        !output.status.success(),
+        "doctor should fail with one snapshot"
+    );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("doctor --latest requires at least two scan snapshots in"));
@@ -240,7 +247,10 @@ fn doctor_latest_empty_reports_dir_uses_doctor_specific_message_in_text_mode() {
         .output()
         .expect("doctor command should run");
 
-    assert!(!output.status.success(), "doctor should fail with no snapshots");
+    assert!(
+        !output.status.success(),
+        "doctor should fail with no snapshots"
+    );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("doctor --latest requires at least two scan snapshots in"));
@@ -280,8 +290,8 @@ fn doctor_ai_footprint_flag_enables_ai_footprint_topic() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("doctor json output should parse");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("doctor json output should parse");
     let names = parsed["topics"]
         .as_array()
         .expect("topics should be an array")
@@ -325,8 +335,8 @@ fn doctor_ai_footprint_not_included_by_default() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("doctor json output should parse");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("doctor json output should parse");
     let names = parsed["topics"]
         .as_array()
         .expect("topics should be an array")

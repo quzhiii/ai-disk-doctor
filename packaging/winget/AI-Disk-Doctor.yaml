@@ -1,5 +1,5 @@
 PackageIdentifier: quzhiii.AIDiskDoctor
-PackageVersion: 1.6.0
+PackageVersion: 1.7.0
 PackageLocale: en-US
 Publisher: quzhiii
 PackageName: AI Disk Doctor
@@ -20,7 +20,7 @@ Installers:
     NestedInstallerFiles:
       - RelativeFilePath: aidisk.exe
         PortableCommandAlias: aidisk
-    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.6.0/aidisk-v1.6.0-x86_64-pc-windows-msvc.zip
+    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.7.0/aidisk-v1.7.0-x86_64-pc-windows-msvc.zip
     InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT
   - Architecture: arm64
     InstallerType: zip
@@ -28,7 +28,7 @@ Installers:
     NestedInstallerFiles:
       - RelativeFilePath: aidisk.exe
         PortableCommandAlias: aidisk
-    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.6.0/aidisk-v1.6.0-aarch64-pc-windows-msvc.zip
+    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.7.0/aidisk-v1.7.0-aarch64-pc-windows-msvc.zip
     InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT
 ManifestType: singleton
-ManifestVersion: 1.6.0
+ManifestVersion: 1.7.0

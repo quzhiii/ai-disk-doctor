@@ -121,8 +121,9 @@ pub fn build_plan(scan_report: &ScanReport, options: PlanOptions) -> PlanReport 
                         summary.report_only_bytes.saturating_add(finding.size_bytes);
                 }
                 "guide" if finding.exists && finding.size_bytes > 0 && !finding.partial => {
-                    summary.official_cleanup_bytes =
-                        summary.official_cleanup_bytes.saturating_add(finding.size_bytes);
+                    summary.official_cleanup_bytes = summary
+                        .official_cleanup_bytes
+                        .saturating_add(finding.size_bytes);
                 }
                 _ => {}
             }
@@ -193,7 +194,9 @@ fn skip_reason(finding: &Finding, options: &PlanOptions) -> Option<String> {
         return Some("report-only action is informational and not executable".to_string());
     }
     if finding.action == "guide" {
-        return Some("guide action requires official or manual cleanup outside quarantine".to_string());
+        return Some(
+            "guide action requires official or manual cleanup outside quarantine".to_string(),
+        );
     }
     if !options
         .policy

@@ -7,20 +7,14 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$AidiskDir = Join-Path $PSScriptRoot "..\..\..\aidisk"
+$InvokeAidisk = Join-Path $PSScriptRoot "invoke-aidisk.ps1"
 
-$args = @("run", "--", "restore", "--index", $Index)
+$AidiskArgs = @("restore", "--index", $Index)
 
-if ($Json) { $args += "--json" }
-elseif ($Markdown) { $args += "--markdown" }
+if ($Json) { $AidiskArgs += "--json" }
+elseif ($Markdown) { $AidiskArgs += "--markdown" }
 
-if ($DryRun) { $args += "--dry-run" }
-if ($Yes) { $args += "--yes" }
+if ($DryRun) { $AidiskArgs += "--dry-run" }
+if ($Yes) { $AidiskArgs += "--yes" }
 
-Push-Location $AidiskDir
-try {
-    & cargo @args
-}
-finally {
-    Pop-Location
-}
+& $InvokeAidisk @AidiskArgs

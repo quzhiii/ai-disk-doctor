@@ -270,7 +270,8 @@ fn update_action_metrics(summary: &mut Summary, action: &str, risk: &RiskLevel, 
         }
         "guide" => {
             summary.potential_bytes = summary.potential_bytes.saturating_add(size_bytes);
-            summary.official_cleanup_bytes = summary.official_cleanup_bytes.saturating_add(size_bytes);
+            summary.official_cleanup_bytes =
+                summary.official_cleanup_bytes.saturating_add(size_bytes);
         }
         "report-only" => {
             summary.report_only_bytes = summary.report_only_bytes.saturating_add(size_bytes);
@@ -775,7 +776,10 @@ mod tests {
 
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].size_bytes, 0);
-        assert!(!report.findings[0].partial, "empty boundary directory should not be partial");
+        assert!(
+            !report.findings[0].partial,
+            "empty boundary directory should not be partial"
+        );
         assert_eq!(report.summary.partial_findings, 0);
     }
 
@@ -879,7 +883,11 @@ fn compute_size(path: &Path, max_depth: usize) -> Result<ComputedSize> {
             .map(|metadata| WalkSizeMetadata {
                 is_file: metadata.is_file(),
                 is_dir: metadata.is_dir(),
-                has_unscanned_children: metadata.is_dir() && entry.depth() == max_depth && fs::read_dir(entry.path()).map(|mut children| children.next().is_some()).unwrap_or(true),
+                has_unscanned_children: metadata.is_dir()
+                    && entry.depth() == max_depth
+                    && fs::read_dir(entry.path())
+                        .map(|mut children| children.next().is_some())
+                        .unwrap_or(true),
                 len: metadata.len(),
             })
             .map_err(|error| error.to_string());

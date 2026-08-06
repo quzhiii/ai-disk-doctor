@@ -314,7 +314,12 @@ fn restore_from_index_with_injection(
         };
         if dry_run {
             if let Some(journal) = journal.as_mut() {
-                write_journal_stage(journal, &journal_entry, "restore-planned", "restore dry-run")?;
+                write_journal_stage(
+                    journal,
+                    &journal_entry,
+                    "restore-planned",
+                    "restore dry-run",
+                )?;
             }
             results.push(RestoreResult {
                 source_path: entry.destination_path.clone(),
@@ -328,7 +333,12 @@ fn restore_from_index_with_injection(
         }
 
         if let Some(journal) = journal.as_mut() {
-            write_journal_stage(journal, &journal_entry, "restore-planned", "restore action planned")?;
+            write_journal_stage(
+                journal,
+                &journal_entry,
+                "restore-planned",
+                "restore action planned",
+            )?;
         }
         match restore_entry(&journal_entry, journal.as_mut(), injection) {
             Ok(message) => {
@@ -446,15 +456,14 @@ fn move_to_quarantine(
     fs::create_dir_all(parent)?;
 
     if injection != FailureInjection::None {
-        write_journal_stage(journal, entry, "copying", "failure injection forced copy fallback")?;
-        let mut optional_journal = Some(journal);
-        copy_verify_remove(
-            source,
-            destination,
-            &mut optional_journal,
+        write_journal_stage(
+            journal,
             entry,
-            injection,
+            "copying",
+            "failure injection forced copy fallback",
         )?;
+        let mut optional_journal = Some(journal);
+        copy_verify_remove(source, destination, &mut optional_journal, entry, injection)?;
         return Ok("moved to quarantine with copy-verify-remove".to_string());
     }
 
@@ -615,7 +624,12 @@ fn copy_verify_remove(
     if injection == FailureInjection::SourceRemove {
         anyhow::bail!("source remove failed after verified copy: injected source removal failure");
     }
-    write_optional_journal_stage(journal, entry, "source-removing", "removing original source")?;
+    write_optional_journal_stage(
+        journal,
+        entry,
+        "source-removing",
+        "removing original source",
+    )?;
     remove_recursive(source)
         .map_err(|error| anyhow::anyhow!("source remove failed after verified copy: {error}"))?;
     Ok(())
@@ -661,7 +675,12 @@ fn restore_entry(
         .parent()
         .ok_or_else(|| anyhow::anyhow!("restore destination parent is missing"))?;
     fs::create_dir_all(parent)?;
-    write_optional_journal_stage(&mut journal, entry, "restoring", "trying atomic restore rename")?;
+    write_optional_journal_stage(
+        &mut journal,
+        entry,
+        "restoring",
+        "trying atomic restore rename",
+    )?;
 
     if injection != FailureInjection::None {
         copy_verify_remove(source, destination, &mut journal, entry, injection)?;
@@ -677,12 +696,18 @@ fn restore_entry(
                 "copying",
                 &format!("restore rename failed ({rename_error}); using copy-back fallback"),
             )?;
-            copy_verify_remove(source, destination, &mut journal, entry, FailureInjection::None)
-                .map_err(|error| {
-                    anyhow::anyhow!(
-                        "restore rename failed ({rename_error}); copy-back failed ({error})"
-                    )
-                })?;
+            copy_verify_remove(
+                source,
+                destination,
+                &mut journal,
+                entry,
+                FailureInjection::None,
+            )
+            .map_err(|error| {
+                anyhow::anyhow!(
+                    "restore rename failed ({rename_error}); copy-back failed ({error})"
+                )
+            })?;
             Ok("restored from quarantine with copy-verify-remove".to_string())
         }
     }
@@ -814,8 +839,13 @@ fn restore_stage(status: &str, message: &str) -> String {
 
 fn restore_recovery(status: &str) -> String {
     match status {
-        "skipped-conflict" => "quarantine copy was left untouched; move or remove destination before retrying".to_string(),
-        "skipped-locked" => "quarantine copy was left untouched; close locking processes and retry".to_string(),
+        "skipped-conflict" => {
+            "quarantine copy was left untouched; move or remove destination before retrying"
+                .to_string()
+        }
+        "skipped-locked" => {
+            "quarantine copy was left untouched; close locking processes and retry".to_string()
+        }
         _ => "review quarantine copy and destination path before retrying restore".to_string(),
     }
 }
@@ -999,7 +1029,8 @@ mod tests {
             }],
         };
 
-        let error = execute_quarantine(&plan).expect_err("preflight should reject destination loop");
+        let error =
+            execute_quarantine(&plan).expect_err("preflight should reject destination loop");
 
         assert!(error
             .to_string()
@@ -1031,7 +1062,10 @@ mod tests {
         assert_eq!(report.schema_version, 2);
         assert!(!source.exists());
         assert!(destination_root.join("cache-dir").exists());
-        assert_eq!(report.results[0].recovery, "source removed; destination is the quarantine copy");
+        assert_eq!(
+            report.results[0].recovery,
+            "source removed; destination is the quarantine copy"
+        );
         assert!(Path::new(&report.index_path).exists());
         assert!(Path::new(&report.log_path).exists());
         assert!(Path::new(&report.journal_path).exists());
@@ -1089,7 +1123,14 @@ mod tests {
         assert_eq!(report.results[0].stage, "quarantined");
     }
 
-    fn injected_plan(kind: FailureInjection) -> (tempfile::TempDir, QuarantinePlan, std::path::PathBuf, std::path::PathBuf) {
+    fn injected_plan(
+        kind: FailureInjection,
+    ) -> (
+        tempfile::TempDir,
+        QuarantinePlan,
+        std::path::PathBuf,
+        std::path::PathBuf,
+    ) {
         let temp = tempdir().expect("tempdir should exist");
         let source = temp.path().join("copy-source");
         let destination_root = temp.path().join("archives");
@@ -1118,7 +1159,9 @@ mod tests {
         assert_eq!(report.failure_count, 1);
         assert_eq!(report.results[0].status, "source-remove-failed");
         assert_eq!(report.results[0].stage, "source-removing");
-        assert!(report.results[0].recovery.contains("verified destination copy exists"));
+        assert!(report.results[0]
+            .recovery
+            .contains("verified destination copy exists"));
         assert!(source.exists());
         assert!(destination.exists());
 
@@ -1138,7 +1181,9 @@ mod tests {
 
         assert_eq!(report.results[0].status, "partial-copy");
         assert_eq!(report.results[0].stage, "copying");
-        assert!(report.results[0].recovery.contains("source should remain in place"));
+        assert!(report.results[0]
+            .recovery
+            .contains("source should remain in place"));
         assert!(source.exists());
         assert!(!destination.exists());
     }
@@ -1246,7 +1291,10 @@ mod tests {
         let remove = anyhow::anyhow!("source remove failed after verified copy: access denied");
 
         assert_eq!(classify_execution_error(&partial).0, "partial-copy");
-        assert_eq!(classify_execution_error(&verification).0, "verification-failed");
+        assert_eq!(
+            classify_execution_error(&verification).0,
+            "verification-failed"
+        );
         assert_eq!(classify_execution_error(&remove).0, "source-remove-failed");
     }
 

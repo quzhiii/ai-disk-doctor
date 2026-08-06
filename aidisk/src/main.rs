@@ -1219,7 +1219,25 @@ fn classify_cli_error(error: &anyhow::Error) -> &'static str {
 }
 
 fn default_rules_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("rules")
+    portable_resource_path("rules")
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("rules"))
+}
+
+fn portable_resource_path(relative: &str) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join(relative));
+        }
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join(relative));
+        candidates.push(current_dir.join("aidisk").join(relative));
+    }
+
+    candidates.into_iter().find(|candidate| candidate.exists())
 }
 
 fn resolve_rules_dir(rules_dir: Option<PathBuf>, rules_repo: Option<String>) -> Result<PathBuf> {
@@ -1276,9 +1294,14 @@ fn progress_enabled_for(format: OutputFormat, ci_present: bool, stderr_is_term: 
 }
 
 fn default_policy_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("config")
-        .join("policy.yaml")
+    portable_resource_path("config")
+        .map(|config_dir| config_dir.join("policy.yaml"))
+        .filter(|policy_path| policy_path.exists())
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("config")
+                .join("policy.yaml")
+        })
 }
 
 fn default_scan_policy() -> policy::Policy {

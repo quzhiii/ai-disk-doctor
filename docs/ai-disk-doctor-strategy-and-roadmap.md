@@ -16,7 +16,7 @@ AI Disk Doctor 是一个 Rust 实现的、本地优先、安全优先、规则�
 
 ### 1.2 当前版本与成熟度
 
-- 当前 README 标注版本为 `v1.6.0`。
+- 当前 README 标注版本为 `v1.7.0`。
 - 核心 crate 位于 `aidisk/`，版本定义在 `aidisk/Cargo.toml`。
 - 当前已经具备较完整的开源 CLI 产品闭环：`scan`、`plan`、`clean`、`restore`、`doctor`、`diff`、`anomaly`、`visualize`。
 - 当前成熟度接近“可发布的开源开发者工具”，但还不是完整 SaaS 或企业商业化产品。
@@ -92,7 +92,7 @@ AI Disk Doctor 是一个 Rust 实现的、本地优先、安全优先、规则�
 - `docs/windows-ai-storage-map.md`
 - `docs/governance-manual.md`
 - `docs/notifier-adapters.md`
-- `docs/release-notes/v1.0.0.md` 到 `docs/release-notes/v1.6.0.md`
+- `docs/release-notes/v1.0.0.md` 到 `docs/release-notes/v1.7.0.md`
 
 ## 3. 当前产品判断
 

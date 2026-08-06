@@ -16,6 +16,9 @@ AI Disk Doctor release artifacts are built by `.github/workflows/release-artifac
 Each package includes:
 
 - `aidisk` or `aidisk.exe`
+- `Start-AIDiskDoctor.ps1`
+- built-in `rules/`
+- default `config/`
 - `README.md`
 - `CHANGELOG.md`
 - `LICENSE-MIT`
@@ -35,15 +38,15 @@ Verify SHA-256 before placing `aidisk` on PATH.
 Windows PowerShell:
 
 ```powershell
-Get-FileHash .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.6.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
 ```
 
 Linux / macOS:
 
 ```bash
-sha256sum -c aidisk-v1.6.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.6.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
 ```
 
 Then run:
@@ -58,16 +61,16 @@ aidisk scan --help
 Windows PowerShell:
 
 ```powershell
-Expand-Archive .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -DestinationPath "$env:LOCALAPPDATA\aidisk" -Force
-$env:Path = "$env:LOCALAPPDATA\aidisk\aidisk-v1.6.0-x86_64-pc-windows-msvc;$env:Path"
+Expand-Archive .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -DestinationPath "$env:LOCALAPPDATA\aidisk" -Force
+$env:Path = "$env:LOCALAPPDATA\aidisk\aidisk-v1.7.0-x86_64-pc-windows-msvc;$env:Path"
 aidisk --help
 ```
 
 Linux / macOS:
 
 ```bash
-tar -xzf aidisk-v1.6.0-x86_64-unknown-linux-gnu.tar.gz
-sudo install -m 0755 aidisk-v1.6.0-x86_64-unknown-linux-gnu/aidisk /usr/local/bin/aidisk
+tar -xzf aidisk-v1.7.0-x86_64-unknown-linux-gnu.tar.gz
+sudo install -m 0755 aidisk-v1.7.0-x86_64-unknown-linux-gnu/aidisk /usr/local/bin/aidisk
 aidisk --help
 ```
 

@@ -16,17 +16,21 @@ fn loads_playwright_glob_rule_yaml() {
 
 #[test]
 fn loads_sensitive_sample_rule_yaml() {
-    let content = fs::read_to_string("rules/sensitive-samples.yaml").expect("rule file should exist");
+    let content =
+        fs::read_to_string("rules/sensitive-samples.yaml").expect("rule file should exist");
     assert!(content.contains("Login Data"));
 }
 
 #[test]
 fn loads_expanded_platform_rule_yamls() {
     let wsl = fs::read_to_string("rules/wsl.yaml").expect("wsl rule should exist");
-    let docker_build = fs::read_to_string("rules/docker-build-cache.yaml").expect("docker build cache rule should exist");
-    let docker_volume = fs::read_to_string("rules/docker-volumes.yaml").expect("docker volumes rule should exist");
+    let docker_build = fs::read_to_string("rules/docker-build-cache.yaml")
+        .expect("docker build cache rule should exist");
+    let docker_volume =
+        fs::read_to_string("rules/docker-volumes.yaml").expect("docker volumes rule should exist");
     let models = fs::read_to_string("rules/models.yaml").expect("models rule should exist");
-    let huggingface = fs::read_to_string("rules/huggingface.yaml").expect("huggingface rule should exist");
+    let huggingface =
+        fs::read_to_string("rules/huggingface.yaml").expect("huggingface rule should exist");
 
     assert!(wsl.contains("ext4.vhdx"));
     assert!(docker_build.contains("build-cache"));
@@ -40,10 +44,13 @@ fn loads_expanded_ai_tooling_rule_yamls() {
     let ide = fs::read_to_string("rules/ai-ides.yaml").expect("ai ide rule should exist");
     let cli = fs::read_to_string("rules/ai-clis.yaml").expect("ai cli rule should exist");
     let cache = fs::read_to_string("rules/ai-caches.yaml").expect("ai cache rule should exist");
-    let installers = fs::read_to_string("rules/ai-installers.yaml").expect("ai installer rule should exist");
-    let installed_apps = fs::read_to_string("rules/ai-installed-apps.yaml").expect("ai installed app rule should exist");
+    let installers =
+        fs::read_to_string("rules/ai-installers.yaml").expect("ai installer rule should exist");
+    let installed_apps = fs::read_to_string("rules/ai-installed-apps.yaml")
+        .expect("ai installed app rule should exist");
     let agents = fs::read_to_string("rules/ai-agents.yaml").expect("ai agents rule should exist");
-    let test_artifacts = fs::read_to_string("rules/ai-test-artifacts.yaml").expect("ai test artifact rule should exist");
+    let test_artifacts = fs::read_to_string("rules/ai-test-artifacts.yaml")
+        .expect("ai test artifact rule should exist");
 
     assert!(ide.contains("Cursor"));
     assert!(ide.contains("Windsurf"));
@@ -68,48 +75,115 @@ fn loads_expanded_ai_tooling_rule_yamls() {
     assert!(installed_apps.contains("platforms: [windows, linux, macos]"));
 
     // Verify linux/macos path sections exist
-    assert!(ide.contains("~/.config/Cursor"), "ai-ides should include linux Cursor path");
-    assert!(ide.contains("~/Library/Application Support/Cursor"), "ai-ides should include macos Cursor path");
-    assert!(cli.contains("~/.aider*"), "ai-clis should include unix aider path");
-    assert!(cli.contains("~/.config/opencode"), "ai-clis should include unix opencode path");
-    assert!(cache.contains("~/.cache/transformers"), "ai-caches should include unix transformers cache");
-    assert!(cache.contains("~/Library/Caches/promptfoo"), "ai-caches should include macos promptfoo cache");
-    assert!(installers.contains("AppImage"), "ai-installers should include linux AppImage patterns");
-    assert!(installers.contains(".dmg"), "ai-installers should include macos dmg patterns");
-    assert!(installed_apps.contains("/Applications/"), "ai-installed-apps should include macos /Applications paths");
-    assert!(installed_apps.contains("/opt/"), "ai-installed-apps should include linux /opt paths");
+    assert!(
+        ide.contains("~/.config/Cursor"),
+        "ai-ides should include linux Cursor path"
+    );
+    assert!(
+        ide.contains("~/Library/Application Support/Cursor"),
+        "ai-ides should include macos Cursor path"
+    );
+    assert!(
+        cli.contains("~/.aider*"),
+        "ai-clis should include unix aider path"
+    );
+    assert!(
+        cli.contains("~/.config/opencode"),
+        "ai-clis should include unix opencode path"
+    );
+    assert!(
+        cache.contains("~/.cache/transformers"),
+        "ai-caches should include unix transformers cache"
+    );
+    assert!(
+        cache.contains("~/Library/Caches/promptfoo"),
+        "ai-caches should include macos promptfoo cache"
+    );
+    assert!(
+        installers.contains("AppImage"),
+        "ai-installers should include linux AppImage patterns"
+    );
+    assert!(
+        installers.contains(".dmg"),
+        "ai-installers should include macos dmg patterns"
+    );
+    assert!(
+        installed_apps.contains("/Applications/"),
+        "ai-installed-apps should include macos /Applications paths"
+    );
+    assert!(
+        installed_apps.contains("/opt/"),
+        "ai-installed-apps should include linux /opt paths"
+    );
 }
 
 #[test]
 fn loads_cross_platform_rule_paths() {
     let models = fs::read_to_string("rules/models.yaml").expect("models rule should exist");
-    let huggingface = fs::read_to_string("rules/huggingface.yaml").expect("huggingface rule should exist");
+    let huggingface =
+        fs::read_to_string("rules/huggingface.yaml").expect("huggingface rule should exist");
     let docker = fs::read_to_string("rules/docker.yaml").expect("docker rule should exist");
 
-    assert!(models.contains("~/.ollama"), "models should include unix ollama path");
-    assert!(huggingface.contains("~/.cache/huggingface"), "huggingface should include unix path");
-    assert!(docker.contains("~/.docker"), "docker should include unix path");
+    assert!(
+        models.contains("~/.ollama"),
+        "models should include unix ollama path"
+    );
+    assert!(
+        huggingface.contains("~/.cache/huggingface"),
+        "huggingface should include unix path"
+    );
+    assert!(
+        docker.contains("~/.docker"),
+        "docker should include unix path"
+    );
 
     // Verify ai-* rules include cross-platform paths
     let agents = fs::read_to_string("rules/ai-agents.yaml").expect("ai agents rule should exist");
     let ide = fs::read_to_string("rules/ai-ides.yaml").expect("ai ide rule should exist");
     let cli = fs::read_to_string("rules/ai-clis.yaml").expect("ai cli rule should exist");
     let cache = fs::read_to_string("rules/ai-caches.yaml").expect("ai cache rule should exist");
-    assert!(agents.contains("~/.claude"), "ai-agents should include linux claude path");
-    assert!(agents.contains("~/Library/Application Support/Claude"), "ai-agents should include macos claude path");
-    assert!(agents.contains("~/.codex"), "ai-agents should include linux codex path");
-    assert!(ide.contains("~/.config/Cursor"), "ai-ides should include linux Cursor path");
-    assert!(ide.contains("~/Library/Application Support/Cursor"), "ai-ides should include macos Cursor path");
-    assert!(cli.contains("~/.aider*"), "ai-clis should include unix aider path");
-    assert!(cli.contains("~/.config/opencode"), "ai-clis should include unix opencode path");
-    assert!(cache.contains("~/.cache/transformers"), "ai-caches should include unix transformers cache");
-    assert!(cache.contains("~/Library/Caches/promptfoo"), "ai-caches should include macos promptfoo cache");
+    assert!(
+        agents.contains("~/.claude"),
+        "ai-agents should include linux claude path"
+    );
+    assert!(
+        agents.contains("~/Library/Application Support/Claude"),
+        "ai-agents should include macos claude path"
+    );
+    assert!(
+        agents.contains("~/.codex"),
+        "ai-agents should include linux codex path"
+    );
+    assert!(
+        ide.contains("~/.config/Cursor"),
+        "ai-ides should include linux Cursor path"
+    );
+    assert!(
+        ide.contains("~/Library/Application Support/Cursor"),
+        "ai-ides should include macos Cursor path"
+    );
+    assert!(
+        cli.contains("~/.aider*"),
+        "ai-clis should include unix aider path"
+    );
+    assert!(
+        cli.contains("~/.config/opencode"),
+        "ai-clis should include unix opencode path"
+    );
+    assert!(
+        cache.contains("~/.cache/transformers"),
+        "ai-caches should include unix transformers cache"
+    );
+    assert!(
+        cache.contains("~/Library/Caches/promptfoo"),
+        "ai-caches should include macos promptfoo cache"
+    );
 }
 
 #[test]
 fn loads_common_dev_artifact_rule_yaml() {
-    let content = fs::read_to_string("rules/dev-artifacts.yaml")
-        .expect("dev artifact rule should exist");
+    let content =
+        fs::read_to_string("rules/dev-artifacts.yaml").expect("dev artifact rule should exist");
 
     for term in [
         "node_modules",
@@ -121,7 +195,10 @@ fn loads_common_dev_artifact_rule_yaml() {
         ".turbo",
         "category: dev-artifact",
     ] {
-        assert!(content.contains(term), "dev artifact rules should include {term}");
+        assert!(
+            content.contains(term),
+            "dev artifact rules should include {term}"
+        );
     }
 }
 
@@ -141,7 +218,8 @@ fn example_glob_fixture_can_be_created() {
 
 #[test]
 fn loads_gpu_runner_rule_yaml() {
-    let content = fs::read_to_string("rules/gpu-runners.yaml").expect("gpu runner rule should exist");
+    let content =
+        fs::read_to_string("rules/gpu-runners.yaml").expect("gpu runner rule should exist");
     assert!(content.contains("lm-studio"));
     assert!(content.contains("llama.cpp"));
     assert!(content.contains("category: ai-model"));
@@ -149,7 +227,8 @@ fn loads_gpu_runner_rule_yaml() {
 
 #[test]
 fn loads_ai_coding_agent_rule_yaml() {
-    let content = fs::read_to_string("rules/ai-coding-agents.yaml").expect("ai coding agent rule should exist");
+    let content = fs::read_to_string("rules/ai-coding-agents.yaml")
+        .expect("ai coding agent rule should exist");
     assert!(content.contains("Claude Code"));
     assert!(content.contains("Codex CLI"));
     assert!(content.contains("Gemini CLI"));
@@ -157,21 +236,24 @@ fn loads_ai_coding_agent_rule_yaml() {
 
 #[test]
 fn loads_mcp_server_rule_yaml() {
-    let content = fs::read_to_string("rules/mcp-servers.yaml").expect("mcp server rule should exist");
+    let content =
+        fs::read_to_string("rules/mcp-servers.yaml").expect("mcp server rule should exist");
     assert!(content.contains(".mcp"));
     assert!(content.contains("category: ai-agent"));
 }
 
 #[test]
 fn loads_ai_ides_next_rule_yaml() {
-    let content = fs::read_to_string("rules/ai-ides-next.yaml").expect("ai ides next rule should exist");
+    let content =
+        fs::read_to_string("rules/ai-ides-next.yaml").expect("ai ides next rule should exist");
     assert!(content.contains("Roo Code"));
     assert!(content.contains("Codeium"));
 }
 
 #[test]
 fn loads_model_files_rule_yaml() {
-    let content = fs::read_to_string("rules/model-files.yaml").expect("model files rule should exist");
+    let content =
+        fs::read_to_string("rules/model-files.yaml").expect("model files rule should exist");
     assert!(content.contains(".gguf"));
     assert!(content.contains(".safetensors"));
     assert!(content.contains(".onnx"));
@@ -183,7 +265,8 @@ fn loads_model_files_rule_yaml() {
 
 #[test]
 fn loads_ai_runtimes_rule_yaml() {
-    let content = fs::read_to_string("rules/ai-runtimes.yaml").expect("ai runtimes rule should exist");
+    let content =
+        fs::read_to_string("rules/ai-runtimes.yaml").expect("ai runtimes rule should exist");
     assert!(content.contains("CUDA"));
     assert!(content.contains("NVIDIA"));
     assert!(content.contains("category: ai-runtime"));

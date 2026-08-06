@@ -227,8 +227,9 @@ Phase 8 status: Completed
 - `docs/release-notes/v1.4.0.md`
 - `docs/release-notes/v1.5.0.md`
 - `docs/release-notes/v1.6.0.md`
+- `docs/release-notes/v1.7.0.md`
 - `scripts/release-smoke.ps1`
-- `aidisk` crate version `1.6.0`
+- `aidisk` crate version `1.7.0`
 
 ## Phase 9: Local Scheduled Governance
 
@@ -528,3 +529,22 @@ Phase 18 status: Completed
 后续方向：
 
 - v1.7.0+ 可考虑 Slack notifier adapter、性能优化、或 TUI 界面。
+
+## Phase 19: v1.7.0 One-Click Deploy Release Readiness
+
+Phase 19 status: Completed
+
+目标：
+
+- 将 v1.7.0 从工程化 CLI 进一步降低为普通用户可复制一条命令启动的只读诊断包。
+
+实施成果：
+
+- Release notes: `docs/release-notes/v1.7.0.md`
+- CHANGELOG 从 Unreleased 提升为 `## 1.7.0`
+- README / README.zh-CN 版本 badge、当前版本、What's New 更新到 v1.7.0
+- Crate version bump: `1.6.0` → `1.7.0`
+- 新增 `Start-AIDiskDoctor.ps1` 一键部署入口
+- Skill wrapper 改为优先使用已安装或本地 `aidisk` 二进制，Cargo 仅作为源码开发兜底
+- Release artifact 纳入 `Start-AIDiskDoctor.ps1`、内置 `rules/` 和默认 `config/`
+- scan snapshot 和 rules-repo cache 默认写入当前运行目录 `.aidisk/`，不再绑定编译时源码路径

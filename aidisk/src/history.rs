@@ -7,7 +7,8 @@ use chrono::Local;
 use crate::scanner::ScanReport;
 
 pub fn default_reports_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
         .join(".aidisk")
         .join("reports")
 }
@@ -74,7 +75,9 @@ mod tests {
     use chrono::Local;
     use tempfile::tempdir;
 
-    use super::{latest_scan_pair, latest_scan_pair_for_command, save_scan_snapshot};
+    use super::{
+        default_reports_dir, latest_scan_pair, latest_scan_pair_for_command, save_scan_snapshot,
+    };
     use crate::scanner::{ScanReport, Summary};
 
     fn sample_scan_report() -> ScanReport {
@@ -107,6 +110,16 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(&path).expect("snapshot should be readable"))
                 .expect("snapshot should be json");
         assert!(parsed.get("findings").is_some());
+    }
+
+    #[test]
+    fn default_reports_dir_is_working_directory_local() {
+        let expected = std::env::current_dir()
+            .expect("current dir should exist")
+            .join(".aidisk")
+            .join("reports");
+
+        assert_eq!(default_reports_dir(), expected);
     }
 
     #[test]

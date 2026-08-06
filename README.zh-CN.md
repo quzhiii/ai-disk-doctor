@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -19,7 +19,7 @@
 
 ## 目录
 
-[项目动机](#项目动机) · [项目简介](#项目简介) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
+[项目动机](#项目动机) · [项目简介](#项目简介) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [一键部署](#一键部署) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
 
 ---
 
@@ -45,7 +45,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。所有破坏性操作在执行前都会预览变更，真实执行需显式 `--yes`。
 
-**当前版本：** v1.6.0
+**当前版本：** v1.7.0
 
 详细的架构和设计决策，请参阅 [`docs/architecture.md`](./docs/architecture.md)。
 
@@ -56,6 +56,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 | 能力 | 说明 |
 |-----------|-------------|
 | **智能扫描** | 发现 AI 模型、IDE、CLI、浏览器、Docker、WSL、开发产物的空间占用 |
+| **一键部署** | `Start-AIDiskDoctor.ps1` 自动完成只读扫描并打开本地仪表盘，用户无需先学习 CLI 参数 |
 | **AI 感知规则** | 25 条 YAML 规则覆盖 200+ 路径：Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
 | **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **AI 足迹报告** | `doctor --ai-footprint` 聚合 10 个 AI 类别发现，给出可执行建议 |
@@ -86,6 +87,16 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 ---
 
 ## 最新动态
+
+### v1.7.0
+
+- **一键部署** — `Start-AIDiskDoctor.ps1`：只读新手入口，在 `.aidisk\quickstart\` 生成 `scan.md` 和 `aidisk-dashboard.html`
+- **可选深度报告** — `-IncludeDoctor -IncludePlan`：额外生成 AI 足迹诊断和 safe-only 清理预案，但不执行清理
+- **无需 Rust 的 wrapper 路径** — PowerShell Skill wrapper 优先使用 `AIDISK_EXE`、PATH 或本地二进制，最后才用 Cargo 兜底
+- **发布包资源完整** — release artifact 包含内置 `rules/`、默认 `config/` 和一键脚本，解压后可脱离源码目录运行
+- **本地数据路径可移植** — scan snapshot 和 rules-repo cache 默认写到当前运行目录的 `.aidisk/` 下
+
+完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.7.0](./docs/release-notes/v1.7.0.md)。
 
 ### v1.6.0
 
@@ -126,11 +137,47 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 ---
 
+## 一键部署
+
+给不熟悉命令行的用户，最安全的入口是仓库根目录的 PowerShell 脚本。它不会清理或删除任何文件；默认只跑一次只读扫描、写出 Markdown 报告、生成本地 HTML 仪表盘并自动打开。
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1
+```
+
+输出会写到 `.aidisk\quickstart\`：
+
+- `scan.md` — 完整扫描报告
+- `aidisk-dashboard.html` — 本地可视化仪表盘
+
+更深入的报告会额外触发扫描，默认不跑；需要时显式打开：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeDoctor -IncludePlan
+```
+
+- `doctor-ai-footprint.md` — AI 工具足迹诊断
+- `safe-cleanup-plan.md` — safe-only 清理预案，不会执行清理
+
+一键部署包含这些更新点：
+
+- 用户只需一条命令即可开始，不必先理解 `scan`、`doctor`、`plan`、`visualize` 等命令。
+- 默认流程只读，优先产出本地 dashboard，适合第一次打开项目时快速判断占用来源。
+- 更慢的深度报告需要显式加参数，避免新用户第一次运行等待过久。
+- 脚本可在 release 包或源码 checkout 中运行，会按顺序解析已安装二进制、本地二进制和 Cargo 兜底。
+- 发布包会带上运行所需的规则和配置，解压后不依赖原始源码目录。
+
+脚本会按顺序查找 `aidisk`：`AIDISK_EXE`、脚本同目录的 `aidisk.exe`、PATH 中的 `aidisk`、本地 release/debug 构建，最后才在源码 checkout 中尝试较快的 debug Cargo 构建。真实清理仍必须显式运行 `aidisk clean --yes --quarantine-root <path>`。
+
+---
+
 ## 安装
 
 ### 方式 1：预编译二进制文件（推荐 — 无需 Rust）
 
 从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载适合当前平台的包：
+
+Release 包包含 `aidisk` 二进制、`Start-AIDiskDoctor.ps1`、内置 `rules/`、默认 `config/`、README、更新日志、许可证和 `report-schema.md`。
 
 | 平台 | 包名 |
 |---|---|
@@ -144,13 +191,13 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 安装前先验证 SHA-256：
 
 ```powershell
-Get-FileHash .\aidisk-v1.6.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.6.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
 ```
 
 ```bash
-sha256sum -c aidisk-v1.6.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.6.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
 ```
 
 每个 release 还包含 `*.sbom.cargo-metadata.json` 和 `*.provenance.json`。参见 [`docs/trusted-distribution.md`](./docs/trusted-distribution.md)，了解 artifact 命名、checksum 验证、SBOM、provenance、升级、卸载、Homebrew 草案、winget 草案和 crates.io 状态。
@@ -182,14 +229,14 @@ cargo build --release
 
 ### 方式 3：PowerShell Skill 包装脚本（Agent 集成）
 
-无需 Rust 或编译。`skills/windows-ai-space-manager/scripts/` 目录包含独立的 PowerShell 包装脚本，调用 CLI 即可工作。只要预编译二进制文件在 PATH 中，这些脚本立即可用：
+安装预编译二进制后，无需 Rust 或编译。`skills/windows-ai-space-manager/scripts/` 目录包含独立的 PowerShell 包装脚本，会从 `AIDISK_EXE`、PATH 或本地构建调用 `aidisk`，只有开发兜底时才使用 Cargo：
 
 ```powershell
 # 通过 PowerShell 包装脚本扫描
-.\skills\windows-ai-space-manager\scripts\scan.ps1
+.\skills\windows-ai-space-manager\scripts\run-scan.ps1
 
 # 运行诊断
-.\skills\windows-ai-space-manager\scripts\doctor.ps1
+.\skills\windows-ai-space-manager\scripts\run-doctor.ps1
 ```
 
 ### 开发环境

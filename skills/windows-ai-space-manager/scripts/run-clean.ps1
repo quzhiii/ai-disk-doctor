@@ -9,23 +9,17 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$AidiskDir = Join-Path $PSScriptRoot "..\..\..\aidisk"
+$InvokeAidisk = Join-Path $PSScriptRoot "invoke-aidisk.ps1"
 
-$args = @("run", "--", "clean")
+$AidiskArgs = @("clean")
 
-if ($Json) { $args += "--json" }
-elseif ($Markdown) { $args += "--markdown" }
+if ($Json) { $AidiskArgs += "--json" }
+elseif ($Markdown) { $AidiskArgs += "--markdown" }
 
-if ($SafeOnly) { $args += "--safe-only" }
-if ($Category) { $args += @("--category", $Category) }
-if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
-if ($Yes) { $args += "--yes" }
-$args += @("--quarantine-root", $QuarantineRoot)
+if ($SafeOnly) { $AidiskArgs += "--safe-only" }
+if ($Category) { $AidiskArgs += @("--category", $Category) }
+if ($RulesRepo) { $AidiskArgs += @("--rules-repo", $RulesRepo) }
+if ($Yes) { $AidiskArgs += "--yes" }
+$AidiskArgs += @("--quarantine-root", $QuarantineRoot)
 
-Push-Location $AidiskDir
-try {
-    & cargo @args
-}
-finally {
-    Pop-Location
-}
+& $InvokeAidisk @AidiskArgs

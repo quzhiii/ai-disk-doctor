@@ -1629,7 +1629,10 @@ mod tests {
         let json = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
         let value: serde_json::Value = serde_json::from_str(&json).expect("json should parse");
 
-        assert!(value.get("policy").is_some(), "new structured policy field should exist");
+        assert!(
+            value.get("policy").is_some(),
+            "new structured policy field should exist"
+        );
         assert_eq!(
             value["policy_summary"],
             "sensitive markers: [token, .env]; planner actions: [quarantine, report-only]; skip modified within: 15min; max scan depth: 7"

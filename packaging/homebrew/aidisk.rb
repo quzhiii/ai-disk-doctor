@@ -1,7 +1,7 @@
 class Aidisk < Formula
   desc "AI-era disk space diagnostics and governance CLI"
   homepage "https://github.com/quzhiii/ai-disk-doctor"
-  version "1.6.0"
+  version "1.7.0"
   license any_of: ["MIT", "Apache-2.0"]
 
   on_macos do

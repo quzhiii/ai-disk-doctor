@@ -1,6 +1,6 @@
 [package]
 name = "aidisk"
-version = "1.6.0"
+version = "1.7.0"
 edition = "2021"
 license = "MIT"
 description = "Cross-platform AI disk space diagnostics and governance CLI"

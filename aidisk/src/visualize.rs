@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -55,10 +55,7 @@ fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
         for entry in fs::read_dir(reports_dir)? {
             let entry = entry?;
             let path = entry.path();
-            let file_name = path
-                .file_name()
-                .and_then(|v| v.to_str())
-                .unwrap_or("");
+            let file_name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
             if file_name.starts_with("scan-") && file_name.ends_with(".json") {
                 snapshots.push(path);
             }
@@ -71,8 +68,8 @@ fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
         .pop()
         .ok_or_else(|| anyhow::anyhow!("no scan snapshots found in {}", reports_dir.display()))?;
 
-    let content =
-        fs::read_to_string(&latest).with_context(|| format!("failed to read {}", latest.display()))?;
+    let content = fs::read_to_string(&latest)
+        .with_context(|| format!("failed to read {}", latest.display()))?;
     let snapshot: ScanSnapshot = serde_json::from_str(&content)
         .with_context(|| format!("failed to parse {}", latest.display()))?;
 
@@ -725,7 +722,13 @@ mod tests {
         let entries = vec![
             make_entry("ai-ide", "Cursor Cache", 500_000_000, "safe", true),
             make_entry("ai-model", "Ollama Models", 10_000_000_000, "review", true),
-            make_entry("ai-runtime", "CUDA Toolkit", 8_000_000_000, "dangerous", true),
+            make_entry(
+                "ai-runtime",
+                "CUDA Toolkit",
+                8_000_000_000,
+                "dangerous",
+                true,
+            ),
         ];
         let html = build_dashboard_html(&entries);
 

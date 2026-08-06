@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.7.0
+
 - Added scan and plan summary schema v2 fields to separate observed, potential, actionable, quarantine-ready, official/manual cleanup, report-only, and partial bytes.
 - Changed planner semantics so `report-only`, `guide`, and `partial` findings do not enter executable cleanup candidates.
 - Updated the visual dashboard reclaim checklist to use quarantine-ready entries instead of treating all `risk: safe` entries as cleanup-ready.
@@ -23,6 +25,10 @@
 - Added explicit allowlisted official adapter dry-run invocation: Hugging Face uses `hf cache prune --dry-run --cache-dir <root>` only after help confirms dry-run support, while Ollama is limited to `ollama ls` read-only listing.
 - Added report-only `official_cleanup_plan` normalization for Hugging Face official dry-run output; Ollama read-only list output remains evidence-only and does not create cleanup candidates.
 - Added metadata-only rollback capability to official cleanup plans; Hugging Face candidates document manual redownload recovery, while no rollback or cleanup commands are executed.
+- Added `Start-AIDiskDoctor.ps1` as a one-click, read-only onboarding entrypoint that generates a scan report and HTML dashboard without performing cleanup; optional flags add AI footprint and safe-only plan artifacts.
+- Changed Skill PowerShell wrappers to prefer an installed or local `aidisk` binary and use Cargo only as a development fallback.
+- Updated release packages to include built-in `rules/`, default `config/`, and the one-click startup script so extracted binaries work outside the source tree.
+- Changed default local report and rules-repo cache paths to resolve from the current working directory so packaged binaries do not write into the compile-time source tree.
 
 ## 1.6.0
 

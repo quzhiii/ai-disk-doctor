@@ -1,4 +1,4 @@
-﻿use std::fs;
+use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -12,6 +12,8 @@ struct ToolEntry {
     path: String,
     size_bytes: u64,
     risk: String,
+    action: String,
+    partial: bool,
     exists: bool,
 }
 
@@ -40,6 +42,10 @@ struct FindingSnapshot {
     exists: bool,
     size_bytes: u64,
     risk: String,
+    #[serde(default)]
+    action: String,
+    #[serde(default)]
+    partial: bool,
 }
 
 fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
@@ -49,10 +55,7 @@ fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
         for entry in fs::read_dir(reports_dir)? {
             let entry = entry?;
             let path = entry.path();
-            let file_name = path
-                .file_name()
-                .and_then(|v| v.to_str())
-                .unwrap_or("");
+            let file_name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
             if file_name.starts_with("scan-") && file_name.ends_with(".json") {
                 snapshots.push(path);
             }
@@ -65,8 +68,8 @@ fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
         .pop()
         .ok_or_else(|| anyhow::anyhow!("no scan snapshots found in {}", reports_dir.display()))?;
 
-    let content =
-        fs::read_to_string(&latest).with_context(|| format!("failed to read {}", latest.display()))?;
+    let content = fs::read_to_string(&latest)
+        .with_context(|| format!("failed to read {}", latest.display()))?;
     let snapshot: ScanSnapshot = serde_json::from_str(&content)
         .with_context(|| format!("failed to parse {}", latest.display()))?;
 
@@ -79,6 +82,8 @@ fn collect_tool_data(reports_dir: &Path) -> Result<Vec<ToolEntry>> {
             path: f.path,
             size_bytes: f.size_bytes,
             risk: f.risk,
+            action: f.action,
+            partial: f.partial,
             exists: f.exists,
         })
         .collect();
@@ -95,6 +100,8 @@ struct ToolEntryJson {
     size_bytes: u64,
     size_display: String,
     risk: String,
+    action: String,
+    partial: bool,
     exists: bool,
     suggestion_zh: String,
     suggestion_en: String,
@@ -102,9 +109,11 @@ struct ToolEntryJson {
 
 fn tool_suggestion_zh(e: &ToolEntry) -> String {
     match (e.risk.as_str(), e.category.as_str()) {
-        ("safe", _) =>
-            "可以安全清理的缓存或临时文件。建议使用 aidisk clean --safe-only --quarantine-root C:\\Quarantine\\ai-footprint 清理。"
+        (_, _) if is_quarantine_candidate(e) =>
+            "可进入 aidisk quarantine 预案的缓存或临时文件。建议先运行 aidisk plan --safe-only 检查详情。"
                 .to_string(),
+        ("safe", _) =>
+            "低风险项目，但当前规则未声明可由 aidisk 直接隔离。请先查看 plan 输出。".to_string(),
         ("review", "ai-model") =>
             "AI 模型权重文件。清理前请确认不再需要此模型。使用 aidisk plan --category ai-model 检查详情。"
                 .to_string(),
@@ -127,8 +136,11 @@ fn tool_suggestion_zh(e: &ToolEntry) -> String {
 
 fn tool_suggestion_en(e: &ToolEntry) -> String {
     match (e.risk.as_str(), e.category.as_str()) {
+        (_, _) if is_quarantine_candidate(e) =>
+            "Cache or temporary files eligible for an aidisk quarantine plan. Run aidisk plan --safe-only first."
+                .to_string(),
         ("safe", _) =>
-            "Cache or temporary files that can be safely cleaned. Use aidisk clean --safe-only --quarantine-root C:\\Quarantine\\ai-footprint to reclaim."
+            "Low-risk item, but this rule is not directly quarantine-ready. Review plan output first."
                 .to_string(),
         ("review", "ai-model") =>
             "AI model weight files. Confirm you no longer need this model before removal. Use aidisk plan --category ai-model for details."
@@ -148,6 +160,10 @@ fn tool_suggestion_en(e: &ToolEntry) -> String {
         _ => "Unknown risk level. Please evaluate manually before cleaning."
             .to_string(),
     }
+}
+
+fn is_quarantine_candidate(e: &ToolEntry) -> bool {
+    e.exists && !e.partial && e.action == "quarantine"
 }
 
 fn risk_stats(entries: &[ToolEntry], risk: &str) -> (usize, u64) {
@@ -170,7 +186,7 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
     let kpi_safe = format_size(
         entries
             .iter()
-            .filter(|e| e.risk == "safe" && e.exists)
+            .filter(|e| is_quarantine_candidate(e))
             .map(|e| e.size_bytes)
             .sum(),
     );
@@ -187,6 +203,8 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
             size_bytes: e.size_bytes,
             size_display: format_size(e.size_bytes),
             risk: e.risk.clone(),
+            action: e.action.clone(),
+            partial: e.partial,
             exists: e.exists,
             suggestion_zh: tool_suggestion_zh(e),
             suggestion_en: tool_suggestion_en(e),
@@ -259,17 +277,17 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
         "title": "AI 磁盘足迹",
         "generated": "生成时间",
         "total_footprint": "AI 总占用",
-        "safe_to_reclaim": "可安全回收",
+        "safe_to_reclaim": "可执行隔离",
         "tools_detected": "已检测工具",
         "by_category": "按类别",
         "tool_breakdown": "工具明细",
-        "safe_reclaim_title": "可安全回收",
+        "safe_reclaim_title": "可执行隔离候选",
         "select_all": "全部选中",
         "deselect_all": "取消全选",
-        "selected_summary": "已选 {n} 项，可回收 {size}",
+        "selected_summary": "已选 {n} 项，可隔离 {size}",
         "disclaimer": "以上均为只读报告，不会自动删除任何文件。如需清理，请手动操作。",
         "kpi_total_tip": "这是你电脑上所有 AI 工具占用的总空间",
-        "kpi_safe_tip": "可以安全清理的缓存和临时文件总大小",
+        "kpi_safe_tip": "当前规则声明可由 aidisk quarantine 的非 partial 项总大小",
         "kpi_tools_tip": "检测到的 AI 相关工具数量",
         "risk_safe": "安全",
         "risk_review": "需评估",
@@ -287,17 +305,17 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
         "title": "AI Disk Footprint",
         "generated": "Generated",
         "total_footprint": "Total AI Footprint",
-        "safe_to_reclaim": "Safe to Reclaim",
+        "safe_to_reclaim": "Quarantine-Ready",
         "tools_detected": "Tools Detected",
         "by_category": "By Category",
         "tool_breakdown": "Tool Breakdown",
-        "safe_reclaim_title": "Safe to Reclaim",
+        "safe_reclaim_title": "Quarantine-Ready Candidates",
         "select_all": "Select All",
         "deselect_all": "Deselect All",
-        "selected_summary": "{n} items selected, {size} reclaimable",
+        "selected_summary": "{n} items selected, {size} quarantine-ready",
         "disclaimer": "This is a read-only report. No files will be automatically deleted. To clean up, please do so manually.",
         "kpi_total_tip": "This is the total space used by all AI tools on your computer",
-        "kpi_safe_tip": "Total size of cache and temporary files that can be safely cleaned",
+        "kpi_safe_tip": "Total size of non-partial items declared quarantine-ready by rules",
         "kpi_tools_tip": "Number of detected AI-related tools",
         "risk_safe": "Safe",
         "risk_review": "Review",
@@ -354,8 +372,8 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
   </div>
   <div class="kpi-card" id="kpi-safe">
     <div class="kpi-value">{kpi_safe}</div>
-    <div class="kpi-label" data-i18n="safe_to_reclaim">可安全回收</div>
-    <div class="kpi-tooltip" data-i18n="kpi_safe_tip">可以安全清理的缓存和临时文件总大小</div>
+    <div class="kpi-label" data-i18n="safe_to_reclaim">可执行隔离</div>
+    <div class="kpi-tooltip" data-i18n="kpi_safe_tip">当前规则声明可由 aidisk quarantine 的非 partial 项总大小</div>
   </div>
   <div class="kpi-card" id="kpi-tools">
     <div class="kpi-value">{kpi_tools}</div>
@@ -383,10 +401,10 @@ fn build_dashboard_html(entries: &[ToolEntry]) -> String {
 </section>
 
 <section class="safe-reclaim" id="safe-reclaim">
-  <h2 class="section-title" data-i18n="safe_reclaim_title">可安全回收</h2>
+  <h2 class="section-title" data-i18n="safe_reclaim_title">可执行隔离候选</h2>
   <div class="reclaim-controls">
     <button id="select-all-btn" data-i18n="select_all">全部选中</button>
-    <div class="selected-summary" id="reclaim-summary">已选 0 项，可回收 0 B</div>
+    <div class="selected-summary" id="reclaim-summary">已选 0 项，可隔离 0 B</div>
   </div>
   <ul class="reclaim-list" id="reclaim-list">
     {reclaim_html}
@@ -550,7 +568,7 @@ fn build_reclaim_html(entries: &[ToolEntry]) -> String {
 
     let safe_entries: Vec<&ToolEntry> = entries
         .iter()
-        .filter(|e| e.risk == "safe" && e.exists)
+        .filter(|e| is_quarantine_candidate(e))
         .collect();
 
     if safe_entries.is_empty() {
@@ -632,6 +650,12 @@ mod tests {
             path: format!("C:\\test\\{}", name),
             size_bytes,
             risk: risk.to_string(),
+            action: if risk == "safe" {
+                "quarantine".to_string()
+            } else {
+                "report-only".to_string()
+            },
+            partial: false,
             exists,
         }
     }
@@ -644,7 +668,7 @@ mod tests {
 
         fs::write(
             reports_dir.join("scan-20260611-103000-000.json"),
-            r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+            r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
         )
         .expect("scan should be written");
 
@@ -676,7 +700,7 @@ mod tests {
 
         fs::write(
             reports_dir.join("scan-20260601-000000-000.json"),
-            r#"{"findings": [{"id": "old", "name": "Old Tool", "category": "test", "path": "/old", "exists": true, "size_bytes": 100, "risk": "safe"}]}"#,
+            r#"{"findings": [{"id": "old", "name": "Old Tool", "category": "test", "path": "/old", "exists": true, "size_bytes": 100, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
         )
         .unwrap();
         fs::write(
@@ -698,7 +722,13 @@ mod tests {
         let entries = vec![
             make_entry("ai-ide", "Cursor Cache", 500_000_000, "safe", true),
             make_entry("ai-model", "Ollama Models", 10_000_000_000, "review", true),
-            make_entry("ai-runtime", "CUDA Toolkit", 8_000_000_000, "dangerous", true),
+            make_entry(
+                "ai-runtime",
+                "CUDA Toolkit",
+                8_000_000_000,
+                "dangerous",
+                true,
+            ),
         ];
         let html = build_dashboard_html(&entries);
 
@@ -840,6 +870,28 @@ mod tests {
     }
 
     #[test]
+    fn dashboard_reclaim_section_excludes_report_only_safe_items() {
+        let mut report_only = make_entry("ai-model", "Unknown Model", 1_000, "safe", true);
+        report_only.action = "report-only".to_string();
+
+        let html = build_dashboard_html(&[report_only]);
+
+        assert!(!html.contains(r#"<input type="checkbox" class="reclaim-checkbox">"#));
+        assert!(html.contains("no_data"));
+    }
+
+    #[test]
+    fn dashboard_reclaim_section_excludes_partial_items() {
+        let mut partial = make_entry("ai-ide", "Partial Cache", 1_000, "safe", true);
+        partial.partial = true;
+
+        let html = build_dashboard_html(&[partial]);
+
+        assert!(!html.contains(r#"<input type="checkbox" class="reclaim-checkbox">"#));
+        assert!(html.contains("no_data"));
+    }
+
+    #[test]
     fn risk_stats_calculates_correctly() {
         let entries = vec![
             make_entry("ai-ide", "A", 100, "safe", true),
@@ -861,7 +913,7 @@ mod tests {
         let zh_model = tool_suggestion_zh(&review_model);
         let zh_runtime = tool_suggestion_zh(&dangerous_runtime);
 
-        assert!(zh_safe.contains("可以安全清理"));
+        assert!(zh_safe.contains("可进入 aidisk quarantine"));
         assert!(zh_model.contains("模型权重"));
         assert!(zh_runtime.contains("运行时环境"));
     }

@@ -1,0 +1,34 @@
+PackageIdentifier: quzhiii.AIDiskDoctor
+PackageVersion: 1.7.0
+PackageLocale: en-US
+Publisher: quzhiii
+PackageName: AI Disk Doctor
+License: MIT OR Apache-2.0
+ShortDescription: AI-era disk space diagnostics and governance CLI
+Description: Rule-driven, safety-first disk space diagnostics for AI tools, models, Docker, WSL, browsers, and development artifacts.
+PackageUrl: https://github.com/quzhiii/ai-disk-doctor
+Tags:
+  - ai
+  - disk
+  - cleanup
+  - cli
+  - rust
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: aidisk.exe
+        PortableCommandAlias: aidisk
+    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.7.0/aidisk-v1.7.0-x86_64-pc-windows-msvc.zip
+    InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT
+  - Architecture: arm64
+    InstallerType: zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: aidisk.exe
+        PortableCommandAlias: aidisk
+    InstallerUrl: https://github.com/quzhiii/ai-disk-doctor/releases/download/v1.7.0/aidisk-v1.7.0-aarch64-pc-windows-msvc.zip
+    InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT
+ManifestType: singleton
+ManifestVersion: 1.7.0

@@ -38,7 +38,10 @@ fn changelog_and_release_notes_cover_v1_2_scope() {
     assert!(release_notes.contains("## Known Limits"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
         assert!(
             release_notes.contains(term),
             "release notes should mention {term}"
@@ -100,7 +103,10 @@ fn changelog_and_release_notes_cover_v1_3_scope() {
     assert!(release_notes.contains("## Known Limits"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
         assert!(
             release_notes.contains(term),
             "release notes should mention {term}"
@@ -148,8 +154,14 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
     assert!(roadmap.contains("Phase 12 status: Completed"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
-        assert!(release_notes.contains(term), "release notes should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
     }
 
     let scheduler_scripts = [
@@ -169,7 +181,10 @@ fn changelog_readmes_and_release_notes_cover_v1_4_scope() {
 
     for script in scheduler_scripts {
         assert!(readme.contains(script), "README.md should mention {script}");
-        assert!(readme_zh.contains(script), "README.zh-CN.md should mention {script}");
+        assert!(
+            readme_zh.contains(script),
+            "README.zh-CN.md should mention {script}"
+        );
     }
 
     assert!(
@@ -214,8 +229,14 @@ fn changelog_readmes_and_release_notes_cover_v1_5_scope() {
     assert!(roadmap.contains("Phase 15 status: Completed"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
-        assert!(release_notes.contains(term), "release notes should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
     }
 
     assert!(
@@ -235,15 +256,8 @@ fn changelog_readmes_and_release_notes_cover_v1_6_scope() {
     let readme = read_repo_file("README.md");
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
-    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
-    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
 
-    let required_terms = [
-        "visualize",
-        "ai-footprint",
-        "dashboard",
-        "CUDA",
-    ];
+    let required_terms = ["visualize", "ai-footprint", "dashboard", "CUDA"];
 
     assert!(changelog.contains("## 1.6.0"));
     assert!(release_notes.contains("# Windows AI Space Manager v1.6.0"));
@@ -253,13 +267,16 @@ fn changelog_readmes_and_release_notes_cover_v1_6_scope() {
     assert!(readme.contains("v1.6.0"));
     assert!(readme_zh.contains("v1.6.0"));
     assert!(roadmap.contains("Phase 18 status: Completed"));
-    assert!(cargo_toml.contains("version = \"1.6.0\""));
-    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.6.0\""));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
-        assert!(release_notes.contains(term), "release notes should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
         assert!(readme.contains(term), "README.md should mention {term}");
     }
 
@@ -268,6 +285,56 @@ fn changelog_readmes_and_release_notes_cover_v1_6_scope() {
             && readme_zh.contains("AI 足迹")
             && readme_zh.contains("模型文件检测"),
         "Chinese README should cover v1.6.0 scope"
+    );
+}
+
+#[test]
+fn changelog_readmes_and_release_notes_cover_v1_7_scope() {
+    let changelog = read_repo_file("CHANGELOG.md");
+    let release_notes = read_repo_file("docs/release-notes/v1.7.0.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let roadmap = read_repo_file("docs/execution-plan.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
+
+    let required_terms = [
+        "Start-AIDiskDoctor.ps1",
+        "one-click",
+        "read-only",
+        "rules/",
+        "config/",
+        "current working directory",
+    ];
+
+    assert!(changelog.contains("## 1.7.0"));
+    assert!(release_notes.contains("# AI Disk Doctor v1.7.0"));
+    assert!(release_notes.contains("## Test Plan"));
+    assert!(release_notes.contains("## Safety Boundaries"));
+    assert!(release_notes.contains("## Known Limits"));
+    assert!(readme.contains("v1.7.0"));
+    assert!(readme_zh.contains("v1.7.0"));
+    assert!(roadmap.contains("Phase 19 status: Completed"));
+    assert!(cargo_toml.contains("version = \"1.7.0\""));
+    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.7.0\""));
+
+    for term in required_terms {
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
+    }
+
+    assert!(
+        readme_zh.contains("一键部署")
+            && readme_zh.contains("发布包资源完整")
+            && readme_zh.contains("本地数据路径可移植"),
+        "Chinese README should cover v1.7.0 scope"
     );
 }
 
@@ -293,7 +360,10 @@ fn changelog_and_release_notes_cover_v1_scope() {
     assert!(release_notes.contains("## Known Limits"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
         assert!(
             release_notes.contains(term),
             "release notes should mention {term}"
@@ -320,7 +390,10 @@ fn changelog_and_release_notes_cover_v1_1_scope() {
     assert!(release_notes.contains("## Known Limits"));
 
     for term in required_terms {
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
         assert!(
             release_notes.contains(term),
             "release notes should mention {term}"
@@ -439,7 +512,10 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
         "send_feishu_event",
         "FEISHU_WEBHOOK_URL",
     ] {
-        assert!(dispatcher.contains(term), "dispatcher should mention {term}");
+        assert!(
+            dispatcher.contains(term),
+            "dispatcher should mention {term}"
+        );
     }
     assert!(dispatcher.contains("del(.webhook_failure_path, .feishu_failure_path)"));
     assert!(dispatcher.contains("delivery_status: \"failed\""));
@@ -453,7 +529,10 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
         "governance-event.json",
         "feishu-failure.json",
     ] {
-        assert!(feishu.contains(term), "Feishu adapter should mention {term}");
+        assert!(
+            feishu.contains(term),
+            "Feishu adapter should mention {term}"
+        );
     }
     assert!(!feishu.contains("rm -rf"));
     assert!(!feishu.contains("clean --yes"));
@@ -463,7 +542,10 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
     assert!(feishu.contains("msg_type"));
 
     let template_path = repo_root().join("scripts/governance/templates/feishu-governance.tmpl");
-    assert!(template_path.is_file(), "template file should exist at scripts/governance/templates/feishu-governance.tmpl");
+    assert!(
+        template_path.is_file(),
+        "template file should exist at scripts/governance/templates/feishu-governance.tmpl"
+    );
     let template = read_repo_file("scripts/governance/templates/feishu-governance.tmpl");
     assert!(template.contains("${headline}"));
     assert!(template.contains("${summary_markdown}"));
@@ -487,7 +569,10 @@ fn notifier_adapter_foundation_covers_feishu_contract() {
         "feishu-failure.json",
     ] {
         assert!(docs.contains(term), "notifier docs should mention {term}");
-        assert!(changelog.contains(term), "CHANGELOG.md should mention {term}");
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
     }
 
     assert!(roadmap.contains("Phase 13"));
@@ -562,7 +647,10 @@ fn phase_9_roadmap_marks_local_governance_complete() {
     ];
 
     for term in required_terms {
-        assert!(roadmap.contains(term), "Phase 9 roadmap should mention {term}");
+        assert!(
+            roadmap.contains(term),
+            "Phase 9 roadmap should mention {term}"
+        );
     }
 
     assert!(
@@ -578,7 +666,8 @@ fn phase_9_roadmap_marks_local_governance_complete() {
 fn roadmap_and_reference_docs_reflect_post_phase_9_state() {
     let roadmap = read_repo_file("docs/execution-plan.md");
     let phase_8_plan = read_repo_file("docs/plans/2026-06-07-phase-8-hardening-operability.md");
-    let phase_10_plan = read_repo_file("docs/plans/2026-06-09-phase-10-cross-platform-scheduler-adapters.md");
+    let phase_10_plan =
+        read_repo_file("docs/plans/2026-06-09-phase-10-cross-platform-scheduler-adapters.md");
     let rules_spec = read_repo_file("docs/rules-spec.md");
     let storage_map = read_repo_file("docs/windows-ai-storage-map.md");
 
@@ -593,7 +682,10 @@ fn roadmap_and_reference_docs_reflect_post_phase_9_state() {
     ];
 
     for term in roadmap_terms {
-        assert!(roadmap.contains(term), "execution plan should mention {term}");
+        assert!(
+            roadmap.contains(term),
+            "execution plan should mention {term}"
+        );
     }
 
     assert!(
@@ -636,15 +728,62 @@ fn crate_version_and_readme_reference_release_artifacts() {
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
 
-    assert!(cargo_toml.contains("version = \"1.6.0\""));
+    assert!(cargo_toml.contains("version = \"1.7.0\""));
     let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.6.0\""));
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.7.0\""));
     assert!(readme.contains("CHANGELOG.md"));
-    assert!(readme.contains("docs/release-notes/v1.6.0.md"));
-    assert!(readme_zh.contains("docs/release-notes/v1.6.0.md"));
-    assert!(roadmap.contains("docs/release-notes/v1.6.0.md"));
-    assert!(roadmap.contains("`aidisk` crate version `1.6.0`"));
+    assert!(readme.contains("docs/release-notes/v1.7.0.md"));
+    assert!(readme_zh.contains("docs/release-notes/v1.7.0.md"));
+    assert!(roadmap.contains("docs/release-notes/v1.7.0.md"));
+    assert!(roadmap.contains("`aidisk` crate version `1.7.0`"));
     assert!(readme.contains("scripts/release-smoke.ps1"));
+    assert!(readme.contains("Start-AIDiskDoctor.ps1"));
+    assert!(readme_zh.contains("Start-AIDiskDoctor.ps1"));
+}
+
+#[test]
+fn one_click_start_script_is_read_only_and_report_oriented() {
+    let script = read_repo_file("Start-AIDiskDoctor.ps1");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let changelog = read_repo_file("CHANGELOG.md");
+
+    for term in [
+        "scan",
+        "--markdown",
+        "doctor",
+        "--ai-footprint",
+        "IncludeDoctor",
+        "plan",
+        "--safe-only",
+        "IncludePlan",
+        "visualize",
+        "--html",
+        ".aidisk\\quickstart",
+        "No files were cleaned",
+    ] {
+        assert!(
+            script.contains(term),
+            "Start-AIDiskDoctor.ps1 should mention {term}"
+        );
+    }
+
+    assert!(
+        !script.contains("@(\"clean\""),
+        "one-click start should not invoke cleanup commands"
+    );
+    assert!(
+        readme.contains("One-Click Deploy") && readme.contains("read-only scan"),
+        "README.md should explain the one-click read-only workflow"
+    );
+    assert!(
+        readme_zh.contains("一键部署") && readme_zh.contains("只读扫描"),
+        "README.zh-CN.md should explain the one-click read-only workflow"
+    );
+    assert!(
+        changelog.contains("Start-AIDiskDoctor.ps1") && changelog.contains("read-only"),
+        "CHANGELOG.md should mention the one-click entrypoint"
+    );
 }
 
 #[test]
@@ -662,16 +801,122 @@ fn cargo_toml_defines_release_profile_for_distributable_binary() {
 fn github_actions_run_tests_and_build_windows_release_artifact() {
     let ci = read_repo_file(".github/workflows/ci.yml");
     let release = read_repo_file(".github/workflows/release-artifacts.yml");
+    let trusted_distribution = read_repo_file("docs/trusted-distribution.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
 
     assert!(ci.contains("cargo test"));
     assert!(ci.contains("working-directory: aidisk"));
     assert!(ci.contains("runs-on: windows-2025"));
     assert!(ci.contains("actions/checkout@v5"));
-    assert!(release.contains("cargo build --release"));
-    assert!(release.contains("runs-on: windows-2025"));
+
+    assert!(cargo_toml
+        .contains("description = \"Cross-platform AI disk space diagnostics and governance CLI\""));
+    assert!(release.contains("strategy:"));
+    assert!(release.contains("fail-fast: false"));
     assert!(release.contains("actions/checkout@v5"));
-    assert!(release.contains("aidisk.exe"));
+    assert!(release.contains("cargo build --release --manifest-path aidisk/Cargo.toml --target"));
     assert!(release.contains("actions/upload-artifact@v7"));
+
+    for target in [
+        "x86_64-pc-windows-msvc",
+        "aarch64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+    ] {
+        assert!(
+            release.contains(target),
+            "release workflow should build {target}"
+        );
+        assert!(
+            trusted_distribution.contains(target),
+            "trusted distribution docs should mention {target}"
+        );
+        assert!(readme.contains(target), "README.md should mention {target}");
+        assert!(
+            readme_zh.contains(target),
+            "README.zh-CN.md should mention {target}"
+        );
+    }
+
+    for term in [
+        "aidisk-v$version-$target",
+        "Get-FileHash -Algorithm SHA256",
+        ".sha256",
+        ".sbom.cargo-metadata.json",
+        ".provenance.json",
+        "Start-AIDiskDoctor.ps1",
+        "aidisk/rules",
+        "aidisk/config",
+        "cargo metadata --format-version 1",
+        "Smoke test packaged binary",
+        "& $binary --help",
+        "scan --help",
+        "rules lint --json",
+    ] {
+        assert!(
+            release.contains(term),
+            "release workflow should mention {term}"
+        );
+    }
+
+    for term in [
+        "SHA-256",
+        "SBOM",
+        "provenance",
+        "Start-AIDiskDoctor.ps1",
+        "built-in `rules/`",
+        "default `config/`",
+        "Homebrew",
+        "winget",
+        "crates.io publishing is deferred",
+        "Upgrade",
+        "Uninstall",
+    ] {
+        assert!(
+            trusted_distribution.contains(term),
+            "trusted distribution docs should mention {term}"
+        );
+        assert!(readme.contains(term), "README.md should mention {term}");
+    }
+}
+
+#[test]
+fn package_manager_drafts_cover_release_metadata_contract() {
+    let homebrew = read_repo_file("packaging/homebrew/aidisk.rb");
+    let winget = read_repo_file("packaging/winget/AI-Disk-Doctor.yaml");
+
+    for term in [
+        "AI-era disk space diagnostics and governance CLI",
+        "https://github.com/quzhiii/ai-disk-doctor",
+        "TO_BE_FILLED_FROM_RELEASE_ARTIFACT",
+        "aidisk-v#{version}-x86_64-apple-darwin.tar.gz",
+        "aidisk-v#{version}-aarch64-apple-darwin.tar.gz",
+        "aidisk-v#{version}-x86_64-unknown-linux-gnu.tar.gz",
+        "aidisk-v#{version}-aarch64-unknown-linux-gnu.tar.gz",
+        "system \"#{bin}/aidisk\", \"--help\"",
+    ] {
+        assert!(
+            homebrew.contains(term),
+            "Homebrew draft should mention {term}"
+        );
+    }
+
+    for term in [
+        "PackageIdentifier: quzhiii.AIDiskDoctor",
+        "PackageVersion: 1.7.0",
+        "InstallerType: zip",
+        "NestedInstallerType: portable",
+        "PortableCommandAlias: aidisk",
+        "aidisk-v1.7.0-x86_64-pc-windows-msvc.zip",
+        "aidisk-v1.7.0-aarch64-pc-windows-msvc.zip",
+        "InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT",
+    ] {
+        assert!(winget.contains(term), "winget draft should mention {term}");
+    }
 }
 
 #[test]
@@ -731,10 +976,13 @@ fn cron_adapter_scripts_exist_and_cover_scheduler_contract() {
 
 #[test]
 fn launchd_adapter_scripts_exist_and_cover_scheduler_contract() {
-    let register_script = read_repo_file("scripts/governance/launchd/register-governance-launchd.sh");
+    let register_script =
+        read_repo_file("scripts/governance/launchd/register-governance-launchd.sh");
     let show_script = read_repo_file("scripts/governance/launchd/show-governance-launchd.sh");
-    let unregister_script = read_repo_file("scripts/governance/launchd/unregister-governance-launchd.sh");
-    let test_run_script = read_repo_file("scripts/governance/launchd/test-run-governance-launchd.sh");
+    let unregister_script =
+        read_repo_file("scripts/governance/launchd/unregister-governance-launchd.sh");
+    let test_run_script =
+        read_repo_file("scripts/governance/launchd/test-run-governance-launchd.sh");
 
     // register script
     assert!(register_script.contains("launchctl"));
@@ -768,10 +1016,13 @@ fn launchd_adapter_scripts_exist_and_cover_scheduler_contract() {
 
 #[test]
 fn systemd_timer_adapter_scripts_exist_and_cover_scheduler_contract() {
-    let register_script = read_repo_file("scripts/governance/systemd/register-governance-systemd.sh");
+    let register_script =
+        read_repo_file("scripts/governance/systemd/register-governance-systemd.sh");
     let show_script = read_repo_file("scripts/governance/systemd/show-governance-systemd.sh");
-    let unregister_script = read_repo_file("scripts/governance/systemd/unregister-governance-systemd.sh");
-    let test_run_script = read_repo_file("scripts/governance/systemd/test-run-governance-systemd.sh");
+    let unregister_script =
+        read_repo_file("scripts/governance/systemd/unregister-governance-systemd.sh");
+    let test_run_script =
+        read_repo_file("scripts/governance/systemd/test-run-governance-systemd.sh");
 
     // register script
     assert!(register_script.contains("systemctl"));
@@ -822,7 +1073,10 @@ fn governance_event_dedup_script_covers_idempotency_contract() {
         "jq",
         "dedup-skipped.json",
     ] {
-        assert!(dedup_script.contains(term), "dedup script should mention {term}");
+        assert!(
+            dedup_script.contains(term),
+            "dedup script should mention {term}"
+        );
     }
 
     assert!(!dedup_script.contains("rm -rf"));
@@ -852,7 +1106,10 @@ fn governance_notify_retry_script_covers_contract() {
         "attempt",
         "sleep",
     ] {
-        assert!(retry_script.contains(term), "retry script should contain {term}");
+        assert!(
+            retry_script.contains(term),
+            "retry script should contain {term}"
+        );
     }
 
     assert!(!retry_script.contains("rm -rf"));

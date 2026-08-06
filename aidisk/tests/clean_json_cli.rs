@@ -79,7 +79,10 @@ fn clean_dry_run_json_with_quarantine_root_emits_single_parseable_document() {
         "clean should succeed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(output.stderr.is_empty(), "stderr should be empty on success");
+    assert!(
+        output.stderr.is_empty(),
+        "stderr should be empty on success"
+    );
     let parsed: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout should be one JSON document");
     assert_eq!(parsed["mode"], "dry-run");

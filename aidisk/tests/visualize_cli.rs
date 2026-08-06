@@ -38,7 +38,11 @@ fn visualize_html_generates_valid_output() {
         .output()
         .expect("command should run");
 
-    assert!(result.status.success(), "stderr: {}", String::from_utf8_lossy(&result.stderr));
+    assert!(
+        result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
 
     let html = fs::read_to_string(&output).expect("output should be readable");
     assert!(html.contains("<!DOCTYPE html>"));
@@ -57,7 +61,7 @@ fn visualize_html_has_bilingual_support() {
 
     fs::write(
         reports_dir.join("scan-20260611-103000-000.json"),
-        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
     )
     .expect("scan json should be written");
 
@@ -76,9 +80,18 @@ fn visualize_html_has_bilingual_support() {
     assert!(result.status.success());
 
     let html = fs::read_to_string(&output).expect("output should be readable");
-    assert!(html.contains("data-i18n"), "should have data-i18n attributes");
-    assert!(html.contains("window.I18N"), "should have window.I18N object");
-    assert!(html.contains(r#"button id="lang-toggle""#), "should have lang toggle button");
+    assert!(
+        html.contains("data-i18n"),
+        "should have data-i18n attributes"
+    );
+    assert!(
+        html.contains("window.I18N"),
+        "should have window.I18N object"
+    );
+    assert!(
+        html.contains(r#"button id="lang-toggle""#),
+        "should have lang toggle button"
+    );
 }
 
 #[test]
@@ -89,7 +102,7 @@ fn visualize_html_has_interactive_js() {
 
     fs::write(
         reports_dir.join("scan-20260611-103000-000.json"),
-        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe"}]}"#,
+        r#"{"findings": [{"id": "test", "name": "Test Tool", "category": "ai-ide", "path": "/test", "exists": true, "size_bytes": 1024, "risk": "safe", "action": "quarantine", "partial": false}]}"#,
     )
     .expect("scan json should be written");
 
@@ -108,11 +121,17 @@ fn visualize_html_has_interactive_js() {
     assert!(result.status.success());
 
     let html = fs::read_to_string(&output).expect("output should be readable");
-    assert!(html.contains("addEventListener"), "should have interactive JS");
+    assert!(
+        html.contains("addEventListener"),
+        "should have interactive JS"
+    );
     assert!(html.contains("treemap-block"), "should have treemap blocks");
     assert!(html.contains("bar-clickable"), "should have clickable bars");
     assert!(html.contains("risk-card"), "should have risk cards");
-    assert!(html.contains("reclaim-checkbox"), "should have reclaim checkboxes");
+    assert!(
+        html.contains("reclaim-checkbox"),
+        "should have reclaim checkboxes"
+    );
 }
 
 #[test]

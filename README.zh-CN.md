@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -19,7 +19,7 @@
 
 ## 目录
 
-[项目动机](#项目动机) · [项目简介](#项目简介) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
+[项目动机](#项目动机) · [项目简介](#项目简介) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [一键部署](#一键部署) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
 
 ---
 
@@ -45,7 +45,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。所有破坏性操作在执行前都会预览变更，真实执行需显式 `--yes`。
 
-**当前版本：** v1.6.0
+**当前版本：** v1.7.0
 
 详细的架构和设计决策，请参阅 [`docs/architecture.md`](./docs/architecture.md)。
 
@@ -56,8 +56,9 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 | 能力 | 说明 |
 |-----------|-------------|
 | **智能扫描** | 发现 AI 模型、IDE、CLI、浏览器、Docker、WSL、开发产物的空间占用 |
+| **一键部署** | `Start-AIDiskDoctor.ps1` 自动完成只读扫描并打开本地仪表盘，用户无需先学习 CLI 参数 |
 | **AI 感知规则** | 25 条 YAML 规则覆盖 200+ 路径：Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
-| **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可安全回收清单 |
+| **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **AI 足迹报告** | `doctor --ai-footprint` 聚合 10 个 AI 类别发现，给出可执行建议 |
 | **跨平台** | 支持 Windows、Linux、macOS，为所有 AI 工具提供平台原生路径 |
 | **规则驱动分类** | 25 条规则，风险等级：`safe`、`review`、`dangerous`。无硬编码路径 |
@@ -80,19 +81,29 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 | **跨平台** | Agent 行为因 OS 而异 | Windows / Linux / macOS 同一规则、同一输出 |
 | **自动化治理** | 需要手动反复执行 | 通过 Task Scheduler / cron / launchd / systemd timer 自动调度，含异常检测 |
 | **AI 工具识别** | 依赖已知工具，容易遗漏新工具 | 25 条规则覆盖 Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
-| **仪表盘** | 无；只有原始 CLI 输出 | 可视化 HTML 仪表盘，支持中英双语、类别筛选、可安全回收清单 |
+| **仪表盘** | 无；只有原始 CLI 输出 | 可视化 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **时间成本** | 每次清理需 30-60 分钟 | 5 秒扫描，完整报告秒出 |
 
 ---
 
 ## 最新动态
 
+### v1.7.0
+
+- **一键部署** — `Start-AIDiskDoctor.ps1`：只读新手入口，在 `.aidisk\quickstart\` 生成 `scan.md` 和 `aidisk-dashboard.html`
+- **可选深度报告** — `-IncludeDoctor -IncludePlan`：额外生成 AI 足迹诊断和 safe-only 清理预案，但不执行清理
+- **无需 Rust 的 wrapper 路径** — PowerShell Skill wrapper 优先使用 `AIDISK_EXE`、PATH 或本地二进制，最后才用 Cargo 兜底
+- **发布包资源完整** — release artifact 包含内置 `rules/`、默认 `config/` 和一键脚本，解压后可脱离源码目录运行
+- **本地数据路径可移植** — scan snapshot 和 rules-repo cache 默认写到当前运行目录的 `.aidisk/` 下
+
+完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.7.0](./docs/release-notes/v1.7.0.md)。
+
 ### v1.6.0
 
-- **可视化仪表盘** — `aidisk visualize --html`：交互式中英双语 HTML 仪表盘，支持类别筛选和可安全回收清单
+- **可视化仪表盘** — `aidisk visualize --html`：交互式中英双语 HTML 仪表盘，支持类别筛选和可执行隔离候选清单
 - **AI 足迹** — `doctor --ai-footprint`：聚合 10 个 AI 类别发现
 - **5 条新 AI 规则** — GPU 推理运行器、AI 编程助手、MCP 服务器、新一代 IDE、CUDA/cuDNN 运行时
-- **模型文件检测** — GGUF/SafeTensors/ONNX/MLX glob 匹配，标记为安全
+- **模型文件检测** — GGUF/SafeTensors/ONNX/MLX glob 匹配，在来源未确认前标记为需评估且仅报告
 - **跨平台规则** — 6 条规则升级为 Windows/Linux/macOS 多平台格式
 
 完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.6.0](./docs/release-notes/v1.6.0.md)。
@@ -126,11 +137,77 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 ---
 
+## 一键部署
+
+给不熟悉命令行的用户，最安全的入口是仓库根目录的 PowerShell 脚本。它不会清理或删除任何文件；默认只跑一次只读扫描、写出 Markdown 报告、生成本地 HTML 仪表盘并自动打开。
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1
+```
+
+输出会写到 `.aidisk\quickstart\`：
+
+- `scan.md` — 完整扫描报告
+- `aidisk-dashboard.html` — 本地可视化仪表盘
+
+更深入的报告会额外触发扫描，默认不跑；需要时显式打开：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeDoctor -IncludePlan
+```
+
+- `doctor-ai-footprint.md` — AI 工具足迹诊断
+- `safe-cleanup-plan.md` — safe-only 清理预案，不会执行清理
+
+一键部署包含这些更新点：
+
+- 用户只需一条命令即可开始，不必先理解 `scan`、`doctor`、`plan`、`visualize` 等命令。
+- 默认流程只读，优先产出本地 dashboard，适合第一次打开项目时快速判断占用来源。
+- 更慢的深度报告需要显式加参数，避免新用户第一次运行等待过久。
+- 脚本可在 release 包或源码 checkout 中运行，会按顺序解析已安装二进制、本地二进制和 Cargo 兜底。
+- 发布包会带上运行所需的规则和配置，解压后不依赖原始源码目录。
+
+脚本会按顺序查找 `aidisk`：`AIDISK_EXE`、脚本同目录的 `aidisk.exe`、PATH 中的 `aidisk`、本地 release/debug 构建，最后才在源码 checkout 中尝试较快的 debug Cargo 构建。真实清理仍必须显式运行 `aidisk clean --yes --quarantine-root <path>`。
+
+---
+
 ## 安装
 
 ### 方式 1：预编译二进制文件（推荐 — 无需 Rust）
 
-从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载最新版本的 `aidisk.exe`，解压并放到 PATH 中即可使用。
+从 [Releases 页面](https://github.com/quzhiii/ai-disk-doctor/releases) 下载适合当前平台的包：
+
+Release 包包含 `aidisk` 二进制、`Start-AIDiskDoctor.ps1`、内置 `rules/`、默认 `config/`、README、更新日志、许可证和 `report-schema.md`。
+
+| 平台 | 包名 |
+|---|---|
+| Windows x86_64 | `aidisk-v<VERSION>-x86_64-pc-windows-msvc.zip` |
+| Windows ARM64 | `aidisk-v<VERSION>-aarch64-pc-windows-msvc.zip` |
+| Linux x86_64 | `aidisk-v<VERSION>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `aidisk-v<VERSION>-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS Intel | `aidisk-v<VERSION>-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `aidisk-v<VERSION>-aarch64-apple-darwin.tar.gz` |
+
+安装前先验证 SHA-256：
+
+```powershell
+Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
+```
+
+```bash
+sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
+```
+
+每个 release 还包含 `*.sbom.cargo-metadata.json` 和 `*.provenance.json`。参见 [`docs/trusted-distribution.md`](./docs/trusted-distribution.md)，了解 artifact 命名、checksum 验证、SBOM、provenance、升级、卸载、Homebrew 草案、winget 草案和 crates.io 状态。
+
+解压后将 `aidisk` / `aidisk.exe` 放到 PATH 中，并验证：
+
+```bash
+aidisk --help
+aidisk scan --help
+```
 
 ### 方式 2：从源码构建（需要 Rust）
 
@@ -152,14 +229,14 @@ cargo build --release
 
 ### 方式 3：PowerShell Skill 包装脚本（Agent 集成）
 
-无需 Rust 或编译。`skills/windows-ai-space-manager/scripts/` 目录包含独立的 PowerShell 包装脚本，调用 CLI 即可工作。只要预编译二进制文件在 PATH 中，这些脚本立即可用：
+安装预编译二进制后，无需 Rust 或编译。`skills/windows-ai-space-manager/scripts/` 目录包含独立的 PowerShell 包装脚本，会从 `AIDISK_EXE`、PATH 或本地构建调用 `aidisk`，只有开发兜底时才使用 Cargo：
 
 ```powershell
 # 通过 PowerShell 包装脚本扫描
-.\skills\windows-ai-space-manager\scripts\scan.ps1
+.\skills\windows-ai-space-manager\scripts\run-scan.ps1
 
 # 运行诊断
-.\skills\windows-ai-space-manager\scripts\doctor.ps1
+.\skills\windows-ai-space-manager\scripts\run-doctor.ps1
 ```
 
 ### 开发环境
@@ -360,6 +437,9 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 | `clean` | 执行隔离或预览 | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | 恢复隔离的文件 | `--dry-run`, `--yes`, `--index` |
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
+| `rules lint` | 校验规则 schema 并展示来源 digest | `--json`, `--rules-dir`, `--rules-repo` |
+| `models inventory` | 只读模型资产清单 | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
+| `models adapters` | 只读模型 adapter 能力报告 | `--tool`, `--root`, `--max-depth`, `--probe-official-cli`, `--run-official-dry-run`, `--probe-timeout-ms`, `--probe-output-chars`, `--json`, `--markdown` |
 | `diff` | 对比扫描快照 | `--latest`, `--before`, `--after` |
 | `anomaly` | 从扫描快照中检测增长异常 | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -382,6 +462,20 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 ---
 
 ## 安全第一
+
+### 规则 Schema 与来源
+
+- 新规则使用 Rule Schema v2，将 `detector`、`decision`、`action` 分离。
+- 现有 v1 规则仍可通过兼容加载器读取。
+- `rules lint` 会校验全部 YAML 规则、拒绝重复 ID，并报告 SHA-256 来源 digest。
+- `scan --json` 会在 `summary.rule_sources` 中记录每条已加载规则的路径、schema 版本和 digest。
+- 模型文件和未知模型缓存仍保持 review/report-only，除非规则明确提供更安全的动作。
+- `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face/LM Studio 官方索引。
+- 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系。LM Studio 模型文件会被识别为托管但 unresolved，因为当前不解析安全的官方清理索引；无法确认来源的资产仍保持 `report-only`。
+- `--stale-after-days` 控制只基于元数据的 stale 标记，默认 90 天；不会启用清理动作。
+- `models inventory` 还会在大型托管模型资产同时具备 stale、duplicate、detached 或 orphaned 等元数据信号时标记 external-drive/cold-storage candidate。该标记只是 report-only 复核信号，不迁移文件，也不修改工具配置。
+- `models inventory` 还会输出 metadata-only 的 `eviction_cost` 解释，包括预计释放空间、恢复大小/时间分级、网络/离线恢复信号、共享 blob 保护和规则化 utility 分级。这些字段仅用于 `report-only` 解释，不会授权清理。
+- `models adapters` 默认只检查本地元数据。显式指定 `--probe-official-cli` 后，仅调用受限的 `hf` 或 `ollama` version/help 命令；LM Studio 没有已确认的官方清理 CLI，因此不会探测。显式指定 `--run-official-dry-run` 后，仅运行 allowlist 中的非修改命令：帮助确认 `--dry-run` 后的 `hf cache prune --dry-run --cache-dir <root>`，或只读的 `ollama ls`。Hugging Face dry-run 输出可归一化为 report-only cleanup plan，并附带 manual-redownload rollback 元数据；Ollama list 输出和 LM Studio 元数据不会变成清理候选。不会执行清理、rollback，也不会修改索引，所有 action 仍为 `report-only`。
 
 ### 默认行为
 

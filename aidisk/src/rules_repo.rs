@@ -5,7 +5,8 @@ use std::process::Command;
 use anyhow::{Context, Result};
 
 pub fn default_rules_repo_cache_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
         .join(".aidisk")
         .join("rules-repos")
 }

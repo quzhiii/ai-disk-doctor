@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+## 1.7.0
+
+- Added scan and plan summary schema v2 fields to separate observed, potential, actionable, quarantine-ready, official/manual cleanup, report-only, and partial bytes.
+- Changed planner semantics so `report-only`, `guide`, and `partial` findings do not enter executable cleanup candidates.
+- Updated the visual dashboard reclaim checklist to use quarantine-ready entries instead of treating all `risk: safe` entries as cleanup-ready.
+- Changed generic model file detection (`.gguf`, `.safetensors`, `.onnx`, `.mlx`) to `risk: review` with `cleanup.method: report-only` so unknown or custom models are not shown as safe-to-clean.
+- Added `docs/report-schema.md` to document summary v2 semantics for downstream agents and JSON consumers.
+- Hardened quarantine execution with platform-native destination paths, root containment checks, source/destination nesting guards, versioned execution indexes, execution stages, and copy-verify-remove fallback for rename failures.
+- Added trusted distribution foundation with six-target release artifact matrix, versioned package naming, SHA-256 checksums, Cargo metadata SBOM, provenance JSON, package smoke tests, and Homebrew/winget draft manifests.
+- Updated Cargo metadata and install docs to describe AI Disk Doctor as a cross-platform CLI with checksum verification, upgrade, uninstall, SBOM, and provenance guidance.
+- Added Rule Schema v2 compatibility loading and validation with separated detector, decision, and action fields; migrated model cache and model file rules while retaining v1 rule loading.
+- Added `aidisk rules lint` and scan rule source metadata with SHA-256 digests for rule provenance.
+- Added read-only `aidisk models inventory` for conservative model asset discovery, logical versus physical size reporting, basic shared-path accounting, custom-model detection, and provenance graph output.
+- Extended model inventory with bounded Hugging Face refs/snapshot/blob and Ollama manifest/blob reference analysis, conservative detached/orphan/incomplete states, and reference evidence in the provenance graph; all actions remain report-only.
+- Added metadata-only stale and duplicate logical model markers, configurable via `--stale-after-days`, with explanatory reclaim confidence that never enables cleanup.
+- Added metadata-only external-drive/cold-storage candidate markers for large managed model assets with stale, duplicate, detached, or orphaned cache signals; recommendations remain report-only.
+- Added metadata-only cost-aware eviction signals for expected reclaim bytes, recovery size/time bands, network/offline recovery hints, shared-blob protection, and report-only utility bands.
+- Added metadata-only LM Studio support to `models inventory` and `models adapters`; LM Studio model files are reported as managed, unresolved, report-only assets and do not invoke any official cleanup CLI.
+- Added `aidisk models adapters` as a read-only capability report for Hugging Face, Ollama, and LM Studio model tooling boundaries; external CLIs are not invoked unless explicitly requested and allowlisted.
+- Added explicit opt-in, bounded official CLI version/help probing for `models adapters`; probing never executes cleanup or mutation commands.
+- Added explicit allowlisted official adapter dry-run invocation: Hugging Face uses `hf cache prune --dry-run --cache-dir <root>` only after help confirms dry-run support, while Ollama is limited to `ollama ls` read-only listing.
+- Added report-only `official_cleanup_plan` normalization for Hugging Face official dry-run output; Ollama read-only list output remains evidence-only and does not create cleanup candidates.
+- Added metadata-only rollback capability to official cleanup plans; Hugging Face candidates document manual redownload recovery, while no rollback or cleanup commands are executed.
+- Added `Start-AIDiskDoctor.ps1` as a one-click, read-only onboarding entrypoint that generates a scan report and HTML dashboard without performing cleanup; optional flags add AI footprint and safe-only plan artifacts.
+- Changed Skill PowerShell wrappers to prefer an installed or local `aidisk` binary and use Cargo only as a development fallback.
+- Updated release packages to include built-in `rules/`, default `config/`, and the one-click startup script so extracted binaries work outside the source tree.
+- Changed default local report and rules-repo cache paths to resolve from the current working directory so packaged binaries do not write into the compile-time source tree.
+
 ## 1.6.0
 
 - Added `aidisk visualize --html` to generate an interactive Swiss Style HTML dashboard with bilingual Chinese/English support, category filtering, tool detail expansion, KPI tooltips, and a safe reclaim checklist.

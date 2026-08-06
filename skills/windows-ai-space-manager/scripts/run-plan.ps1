@@ -8,24 +8,18 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$AidiskDir = Join-Path $PSScriptRoot "..\..\..\aidisk"
+$InvokeAidisk = Join-Path $PSScriptRoot "invoke-aidisk.ps1"
 
-$args = @("run", "--", "plan")
+$AidiskArgs = @("plan")
 
-if ($Json) { $args += "--json" }
-elseif ($Markdown) { $args += "--markdown" }
+if ($Json) { $AidiskArgs += "--json" }
+elseif ($Markdown) { $AidiskArgs += "--markdown" }
 
-if ($SafeOnly) { $args += "--safe-only" }
-if ($Category) { $args += @("--category", $Category) }
-if ($RulesRepo) { $args += @("--rules-repo", $RulesRepo) }
+if ($SafeOnly) { $AidiskArgs += "--safe-only" }
+if ($Category) { $AidiskArgs += @("--category", $Category) }
+if ($RulesRepo) { $AidiskArgs += @("--rules-repo", $RulesRepo) }
 if ($SkipModifiedWithinMinutes -ge 0) {
-    $args += @("--skip-modified-within-minutes", "$SkipModifiedWithinMinutes")
+    $AidiskArgs += @("--skip-modified-within-minutes", "$SkipModifiedWithinMinutes")
 }
 
-Push-Location $AidiskDir
-try {
-    & cargo @args
-}
-finally {
-    Pop-Location
-}
+& $InvokeAidisk @AidiskArgs

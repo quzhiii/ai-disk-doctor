@@ -1,13 +1,28 @@
+schema_version: 2
 id: huggingface-cache
 name: Hugging Face cache
 category: models
 platform: cross-platform
-paths:
-  - "%USERPROFILE%\\.cache\\huggingface"
-  - "~/.cache/huggingface"
-risk: review
-cleanup:
-  method: guide
+detector:
+  paths:
+    - "%USERPROFILE%\\.cache\\huggingface"
+    - "~/.cache/huggingface"
+  evidence:
+    - path-pattern
+    - cache-layout
+data_kind: model-cache
+recoverability: redownload
+sensitivity: none
+default_liveness: unknown
+decision:
+  risk: review
+  confidence: medium
+action:
+  type: official-command
+  adapter: huggingface
+  supports_dry_run: true
+  supports_rollback: false
+content_access: metadata-only
 exclusions: []
 reason: "Hugging Face cache may contain reusable model downloads and should be reviewed before cleanup. Use `huggingface-cli scan-cache` to see what is stored and estimate reclaimable space."
 warnings:

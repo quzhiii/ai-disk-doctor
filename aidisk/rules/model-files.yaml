@@ -1,29 +1,44 @@
+schema_version: 2
 id: model-files
 name: AI model weight files
 category: ai-model
 platforms: [windows, linux, macos]
-paths:
-  windows:
-    - '%USERPROFILE%\**\*.gguf'
-    - '%USERPROFILE%\**\*.safetensors'
-    - '%USERPROFILE%\**\*.onnx'
-    - '%USERPROFILE%\**\*.mlx'
-  linux:
-    - '~/**/*.gguf'
-    - '~/**/*.safetensors'
-    - '~/**/*.onnx'
-    - '~/**/*.mlx'
-  macos:
-    - '~/**/*.gguf'
-    - '~/**/*.safetensors'
-    - '~/**/*.onnx'
-    - '~/**/*.mlx'
-risk: safe
-cleanup:
-  method: report-only
+detector:
+  paths:
+    windows:
+      - '%USERPROFILE%\**\*.gguf'
+      - '%USERPROFILE%\**\*.safetensors'
+      - '%USERPROFILE%\**\*.onnx'
+      - '%USERPROFILE%\**\*.mlx'
+    linux:
+      - '~/**/*.gguf'
+      - '~/**/*.safetensors'
+      - '~/**/*.onnx'
+      - '~/**/*.mlx'
+    macos:
+      - '~/**/*.gguf'
+      - '~/**/*.safetensors'
+      - '~/**/*.onnx'
+      - '~/**/*.mlx'
+  evidence:
+    - path-pattern
+    - model-format
+data_kind: model-file
+recoverability: unknown
+sensitivity: potentially-private
+default_liveness: unknown
+decision:
+  risk: review
+  confidence: high
+action:
+  type: report-only
+  adapter: none
+  supports_dry_run: true
+  supports_rollback: false
+content_access: metadata-only
 exclusions: []
-reason: "Model weight files in standard formats can be safely removed and re-downloaded from HuggingFace or the original source. Use caution with fine-tuned or custom models."
+reason: "Model weight files in standard formats can be public downloads, private fine-tunes, or locally converted assets. Treat unknown model files as report-only until provenance is verified."
 warnings:
-  - "GGUF files are used by Ollama, llama.cpp, and LM Studio for local inference. Default models can be re-downloaded."
-  - "SafeTensors files are downloaded from HuggingFace and can be re-fetched. Check for custom fine-tuned models."
+  - "GGUF files are used by Ollama, llama.cpp, and LM Studio for local inference. Do not assume they are re-downloadable."
+  - "SafeTensors files may be downloaded from HuggingFace or produced by private fine-tunes. Check provenance before cleanup."
   - "ONNX files are cross-platform model weights. Verify the original source is available before removal."

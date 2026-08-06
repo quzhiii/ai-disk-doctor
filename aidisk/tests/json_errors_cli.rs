@@ -22,16 +22,20 @@ fn assert_json_error(output: &std::process::Output, command: &str) -> serde_json
     let parsed = parse_json(&output.stderr);
     assert_eq!(parsed["ok"], false);
     assert_eq!(parsed["error"]["command"], command);
-    assert!(parsed["error"]["message"]
-        .as_str()
-        .expect("message should be string")
-        .len()
-        > 0);
-    assert!(parsed["error"]["type"]
-        .as_str()
-        .expect("type should be string")
-        .len()
-        > 0);
+    assert!(
+        parsed["error"]["message"]
+            .as_str()
+            .expect("message should be string")
+            .len()
+            > 0
+    );
+    assert!(
+        parsed["error"]["type"]
+            .as_str()
+            .expect("type should be string")
+            .len()
+            > 0
+    );
     assert!(
         parsed["error"]["details"].as_array().is_some(),
         "details should be an array"
@@ -62,7 +66,12 @@ fn scan_json_error_is_parseable_and_keeps_stdout_empty() {
     let missing_rules = temp.path().join("missing-rules");
 
     let output = Command::new(aidisk_bin())
-        .args(["scan", "--rules-dir", missing_rules.to_str().unwrap(), "--json"])
+        .args([
+            "scan",
+            "--rules-dir",
+            missing_rules.to_str().unwrap(),
+            "--json",
+        ])
         .output()
         .expect("scan should run");
 

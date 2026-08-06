@@ -120,8 +120,8 @@ fn scan_large_files_filters_below_min_size() {
         .expect("scan --large-files should run");
 
     assert!(output.status.success());
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("stdout should be parseable JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be parseable JSON");
 
     assert!(
         !parsed["entries"]
@@ -157,8 +157,8 @@ fn scan_large_files_accepts_human_readable_min_size() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("stdout should be parseable JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be parseable JSON");
 
     assert_eq!(parsed["min_size_bytes"], 524_288_000_u64);
 }
@@ -193,9 +193,12 @@ fn scan_json_accepts_policy_override_and_reports_snapshot() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .expect("stdout should be parseable JSON");
-    assert_eq!(parsed["policy"]["planner"]["skip_modified_within_minutes"], 12);
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should be parseable JSON");
+    assert_eq!(
+        parsed["policy"]["planner"]["skip_modified_within_minutes"],
+        12
+    );
     assert_eq!(parsed["policy"]["planner"]["max_scan_depth"], 3);
 }
 

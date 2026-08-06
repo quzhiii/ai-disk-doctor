@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -19,7 +19,7 @@ Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, an
 
 ## Table of Contents
 
-[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [One-Click Deploy](#one-click-deploy) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
 ---
 
@@ -45,7 +45,7 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.6.0
+**Current release:** v1.7.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
@@ -56,8 +56,9 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 | Capability | What it does |
 |-----------|-------------|
 | **Intelligent Scanning** | Discover space usage across AI models, IDEs, CLIs, browsers, Docker, WSL, and dev artifacts |
+| **One-Click Deploy** | `Start-AIDiskDoctor.ps1` runs a read-only scan and opens a local dashboard without requiring users to learn CLI flags first |
 | **AI-Aware Rules** | 25 YAML rules covering 200+ paths: Claude, Codex, Gemini, Ollama, LM Studio, MCP servers, CUDA, etc. |
-| **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, safe reclaim checklist |
+| **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, and quarantine-ready checklist |
 | **AI Footprint Report** | `doctor --ai-footprint` aggregates all AI findings across 10 categories with actionable recommendations |
 | **Cross-Platform** | Windows, Linux, macOS with platform-native paths for all AI tools |
 | **Rule-Driven Classification** | 25 rules with risk levels: `safe`, `review`, `dangerous`. No hardcoded paths. |
@@ -87,12 +88,22 @@ For detailed architecture and design decisions, see [`docs/architecture.md`](./d
 
 ## What's New
 
+### v1.7.0
+
+- **One-click deploy** — `Start-AIDiskDoctor.ps1`: read-only onboarding script that generates `scan.md` and `aidisk-dashboard.html` in `.aidisk\quickstart\`
+- **Optional deeper reports** — `-IncludeDoctor -IncludePlan`: adds AI footprint diagnosis and safe-only cleanup preview without running cleanup
+- **No-Rust wrapper path** — PowerShell skill wrappers now prefer `AIDISK_EXE`, PATH, or local binaries before falling back to Cargo
+- **Packaged resources** — release artifacts now include built-in `rules/`, default `config/`, and the one-click script so extracted packages work outside the source tree
+- **Portable local data** — scan snapshots and rules-repo caches now resolve under the current working directory instead of the compile-time source path
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.7.0.md`](./docs/release-notes/v1.7.0.md).
+
 ### v1.6.0
 
-- **Visual dashboard** — `aidisk visualize --html`: interactive bilingual HTML dashboard with category filtering and safe reclaim checklist
+- **Visual dashboard** — `aidisk visualize --html`: interactive bilingual HTML dashboard with category filtering and quarantine-ready checklist
 - **AI footprint** — `doctor --ai-footprint`: aggregates all AI findings across 10 categories
 - **5 new AI rules** — GPU runners, coding agents, MCP servers, next-gen IDEs, CUDA/cuDNN runtime
-- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: safe`
+- **Model file detection** — GGUF/SafeTensors/ONNX/MLX glob matching with `risk: review` and `report-only` semantics until provenance is known
 - **Cross-platform rules** — 6 rules upgraded to Windows/Linux/macOS
 
 Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`](./docs/release-notes/v1.6.0.md).
@@ -124,9 +135,83 @@ Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.6.0.md`]
 
 - **Complete workflow** — scan, plan, clean, restore, doctor, diff
 
+---
+
+## One-Click Deploy
+
+For non-technical users, the safest entrypoint is the repository-level PowerShell script. It does not clean or delete anything; by default it runs one read-only scan, writes a Markdown report, generates a local HTML dashboard, and opens it automatically.
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1
+```
+
+Outputs are written to `.aidisk\quickstart\`:
+
+- `scan.md` — full scan report
+- `aidisk-dashboard.html` — local visual dashboard
+
+Optional deeper reports run extra scans and are opt-in:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeDoctor -IncludePlan
+```
+
+- `doctor-ai-footprint.md` — AI-tool footprint diagnosis
+- `safe-cleanup-plan.md` — safe-only cleanup preview, not execution
+
+Update points included in one-click deploy:
+
+- Users can start with one command instead of learning `scan`, `doctor`, `plan`, and `visualize` separately.
+- Default execution is read-only and produces a dashboard-first result for immediate review.
+- Optional deeper reports stay explicit so first-run latency remains low.
+- The script can run from a release package or source checkout by resolving installed binaries, local binaries, and Cargo fallback in order.
+- Release packages include the rules and config needed for the extracted binary to work without the original source tree.
+
+The script looks for `aidisk` in this order: `AIDISK_EXE`, `aidisk.exe` beside the script, `aidisk` on PATH, local release/debug build, then a debug Cargo build fallback for source checkouts. Real cleanup still requires an explicit `aidisk clean --yes --quarantine-root <path>` command.
+
+---
+
+## Installation
+
 ### Option 1: Pre-built Binary (Recommended — No Rust Required)
 
-Download the latest release binary from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases). Extract `aidisk.exe` and place it on your PATH.
+Download the latest package for your platform from the [Releases page](https://github.com/quzhiii/ai-disk-doctor/releases):
+
+Release packages include the `aidisk` binary, `Start-AIDiskDoctor.ps1`, built-in `rules/`, default `config/`, README, changelog, licenses, and `report-schema.md`.
+
+| Platform | Package |
+|---|---|
+| Windows x86_64 | `aidisk-v<VERSION>-x86_64-pc-windows-msvc.zip` |
+| Windows ARM64 | `aidisk-v<VERSION>-aarch64-pc-windows-msvc.zip` |
+| Linux x86_64 | `aidisk-v<VERSION>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux ARM64 | `aidisk-v<VERSION>-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS Intel | `aidisk-v<VERSION>-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `aidisk-v<VERSION>-aarch64-apple-darwin.tar.gz` |
+
+Verify the SHA-256 checksum before installing:
+
+```powershell
+Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
+```
+
+```bash
+sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
+```
+
+Each release also includes `*.sbom.cargo-metadata.json` and `*.provenance.json` files. See [`docs/trusted-distribution.md`](./docs/trusted-distribution.md) for artifact naming, checksum verification, SBOM, provenance, upgrade, uninstall, Homebrew draft, winget draft, and crates.io status. crates.io publishing is deferred until the CLI name, package description, release signing expectations, and support policy are stable.
+
+Extract the package and place `aidisk` / `aidisk.exe` on your PATH, then verify:
+
+```bash
+aidisk --help
+aidisk scan --help
+```
+
+**Upgrade:** download the new package, verify its checksum, replace the old `aidisk` binary, and rerun `aidisk --help` plus `aidisk scan --help`.
+
+**Uninstall:** remove the installed binary or package directory. Optional project-local data lives in `.aidisk/` under directories where you ran the tool.
 
 ### Option 2: Build from Source (Rust Required)
 
@@ -148,7 +233,7 @@ cargo build --release
 
 ### Option 3: PowerShell Skill Wrappers (Agent Integration)
 
-No Rust or compilation needed. The `skills/windows-ai-space-manager/scripts/` directory contains standalone PowerShell wrappers that call the CLI. If you have the pre-built binary on PATH, these work immediately:
+No Rust or compilation needed when the pre-built binary is installed. The `skills/windows-ai-space-manager/scripts/` directory contains standalone PowerShell wrappers that call `aidisk` from `AIDISK_EXE`, PATH, or a local build, with Cargo used only as a development fallback:
 
 ```powershell
 # Scan via PowerShell wrapper
@@ -354,6 +439,9 @@ For comprehensive governance documentation covering all four platforms, deduplic
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
+| `rules lint` | Validate rule schemas and show source digests | `--json`, `--rules-dir`, `--rules-repo` |
+| `models inventory` | Read-only model asset inventory | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
+| `models adapters` | Read-only model adapter capability report | `--tool`, `--root`, `--max-depth`, `--probe-official-cli`, `--run-official-dry-run`, `--probe-timeout-ms`, `--probe-output-chars`, `--json`, `--markdown` |
 | `diff` | Compare scan snapshots | `--latest`, `--before`, `--after` |
 | `anomaly` | Detect growth anomalies from scan snapshots | `--latest`, `--before`, `--after`, `--min-growth`, `--min-growth-percent` |
 
@@ -376,6 +464,20 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 ---
 
 ## Safety First
+
+### Rule Schema and Provenance
+
+- New rules use Rule Schema v2 to separate `detector`, `decision`, and `action`.
+- Existing v1 rules remain loadable through the compatibility loader.
+- `rules lint` validates all YAML rules, rejects duplicate IDs, and reports SHA-256 source digests.
+- `scan --json` records each loaded rule's path, schema version, and digest under `summary.rule_sources`.
+- Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
+- `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face/LM Studio indexes.
+- When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships. LM Studio model files are identified as managed but unresolved because no safe official cleanup index is parsed. Unresolved or unknown assets remain `report-only`.
+- `--stale-after-days` controls the metadata-only stale marker and defaults to 90 days; it never enables cleanup.
+- `models inventory` also flags large managed assets as external-drive/cold-storage candidates only when metadata suggests stale, duplicate, detached, or orphaned cache state. This is a report-only review signal; it never migrates files or changes tool configuration.
+- `models inventory` includes a metadata-only `eviction_cost` explanation with expected reclaim bytes, recovery size/time bands, qualitative network/offline recovery signals, shared-blob protection, and a rule-based utility band. These fields are report-only and never authorize cleanup.
+- `models adapters` only inspects local metadata by default. With explicit `--probe-official-cli`, it invokes only bounded `hf` or `ollama` version/help commands; LM Studio has no confirmed official cleanup CLI and is not probed. With explicit `--run-official-dry-run`, it runs only allowlisted non-mutating commands: `hf cache prune --dry-run --cache-dir <root>` after help confirms `--dry-run`, or `ollama ls` as a read-only list. Hugging Face dry-run output can be normalized into a report-only cleanup plan with manual-redownload rollback metadata; Ollama list output and LM Studio metadata never become cleanup candidates. It never performs cleanup, rollback, or index mutation, and all actions remain `report-only`.
 
 ### Default Behavior
 

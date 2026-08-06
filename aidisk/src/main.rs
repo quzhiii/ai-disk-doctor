@@ -3,15 +3,16 @@ mod cleaner;
 mod diff;
 mod doctor;
 mod history;
+mod model_inventory;
 mod planner;
 mod policy;
 mod reporter;
 mod rules;
 mod rules_repo;
 mod scanner;
-mod visualize;
 #[cfg(test)]
 mod test_support;
+mod visualize;
 
 use std::path::PathBuf;
 
@@ -184,6 +185,14 @@ enum Command {
         #[arg(long)]
         policy: Option<PathBuf>,
     },
+    Rules {
+        #[command(subcommand)]
+        command: RulesCommand,
+    },
+    Models {
+        #[command(subcommand)]
+        command: ModelsCommand,
+    },
     Visualize {
         #[arg(long, default_value = "true")]
         html: bool,
@@ -193,6 +202,68 @@ enum Command {
 
         #[arg(long, default_value = "aidisk-footprint.html")]
         output: PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RulesCommand {
+    Lint {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        rules_dir: Option<PathBuf>,
+        #[arg(long)]
+        rules_repo: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ModelsCommand {
+    Inventory {
+        #[arg(long, value_enum, default_value_t = model_inventory::InventoryTool::Auto)]
+        tool: model_inventory::InventoryTool,
+        #[arg(long)]
+        root: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        max_depth: usize,
+        #[arg(long, default_value_t = 90)]
+        stale_after_days: u64,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
+    },
+    Adapters {
+        #[arg(long, value_enum, default_value_t = model_inventory::AdapterTool::Auto)]
+        tool: model_inventory::AdapterTool,
+        #[arg(long)]
+        root: Option<PathBuf>,
+        #[arg(long, default_value_t = 20)]
+        max_depth: usize,
+        #[arg(
+            long,
+            help = "Explicitly probe only official CLI version/help commands"
+        )]
+        probe_official_cli: bool,
+        #[arg(
+            long,
+            help = "Explicitly run only allowlisted official dry-run or read-only list commands"
+        )]
+        run_official_dry_run: bool,
+        #[arg(
+            long,
+            default_value_t = model_inventory::DEFAULT_OFFICIAL_CLI_PROBE_TIMEOUT_MS
+        )]
+        probe_timeout_ms: u64,
+        #[arg(
+            long,
+            default_value_t = model_inventory::DEFAULT_OFFICIAL_CLI_OUTPUT_CHARS
+        )]
+        probe_output_chars: usize,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        markdown: bool,
     },
 }
 
@@ -525,6 +596,332 @@ fn run(cli: Cli) -> Result<()> {
                 reporter::render_doctor(&doctor_report, effective_format)?
             );
         }
+        Command::Rules { command } => match command {
+            RulesCommand::Lint {
+                json,
+                rules_dir,
+                rules_repo,
+            } => {
+                let rules_dir = resolve_rules_dir(rules_dir, rules_repo)?;
+                let report = rules::lint_rules(&rules_dir)?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else {
+                    println!("AI Disk Rule Lint");
+                    println!("Rules Directory: {}", rules_dir.display());
+                    println!("Total Rules: {}", report.total_rules);
+                    for (version, count) in report.schema_versions {
+                        println!("Schema v{version}: {count}");
+                    }
+                    println!("Sources:");
+                    for source in report.rules {
+                        println!(
+                            "- schema=v{} | {} | {}",
+                            source.schema_version, source.digest, source.path
+                        );
+                    }
+                }
+            }
+        },
+        Command::Models { command } => match command {
+            ModelsCommand::Inventory {
+                tool,
+                root,
+                max_depth,
+                stale_after_days,
+                json,
+                markdown,
+            } => {
+                let report =
+                    model_inventory::build_inventory(&model_inventory::InventoryOptions {
+                        root,
+                        tool,
+                        max_depth,
+                        stale_after_days,
+                    })?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else if markdown {
+                    println!("# Model Asset Inventory");
+                    println!();
+                    println!("- Schema Version: {}", report.schema_version);
+                    println!("- Assets: {}", report.summary.total_assets);
+                    println!(
+                        "- Logical Bytes: {}",
+                        format_inventory_bytes(report.summary.logical_bytes)
+                    );
+                    println!(
+                        "- Exclusive Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.exclusive_physical_bytes)
+                    );
+                    println!(
+                        "- Shared Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.shared_physical_bytes)
+                    );
+                    println!("- Referenced Assets: {}", report.summary.referenced_assets);
+                    println!(
+                        "- Detached Revision Assets: {}",
+                        report.summary.detached_revision_assets
+                    );
+                    println!(
+                        "- Orphan Blob Assets: {}",
+                        report.summary.orphan_blob_assets
+                    );
+                    println!(
+                        "- Incomplete Download Assets: {}",
+                        report.summary.incomplete_download_assets
+                    );
+                    println!("- Stale Assets: {}", report.summary.stale_assets);
+                    println!(
+                        "- Duplicate Logical Model Assets: {}",
+                        report.summary.duplicate_logical_model_assets
+                    );
+                    println!(
+                        "- External Drive Candidate Assets: {}",
+                        report.summary.external_drive_candidate_assets
+                    );
+                    println!(
+                        "- Expected Reclaim Bytes: {}",
+                        format_inventory_bytes(report.summary.expected_reclaim_bytes)
+                    );
+                    println!(
+                        "- Recovery Size: {}",
+                        format_inventory_bytes(report.summary.recovery_size_bytes)
+                    );
+                    println!(
+                        "- High Utility Eviction Assets: {}",
+                        report.summary.high_utility_eviction_assets
+                    );
+                    println!(
+                        "- Blocked Eviction Assets: {}",
+                        report.summary.blocked_eviction_assets
+                    );
+                    println!();
+                    println!("| Model | Format | Manager | State | Size | Action |");
+                    println!("|---|---|---|---|---:|---|");
+                    for asset in report.assets {
+                        println!(
+                            "| `{}` | `{}` | `{}` | `{}` | {} | `{}` |",
+                            asset.logical_name,
+                            asset.format,
+                            asset.manager,
+                            asset.state,
+                            format_inventory_bytes(asset.logical_size_bytes),
+                            asset.action
+                        );
+                    }
+                } else {
+                    println!("Model Asset Inventory");
+                    println!("Schema Version: {}", report.schema_version);
+                    println!("Assets: {}", report.summary.total_assets);
+                    println!(
+                        "Logical Bytes: {}",
+                        format_inventory_bytes(report.summary.logical_bytes)
+                    );
+                    println!(
+                        "Exclusive Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.exclusive_physical_bytes)
+                    );
+                    println!(
+                        "Shared Physical Bytes: {}",
+                        format_inventory_bytes(report.summary.shared_physical_bytes)
+                    );
+                    println!("Referenced Assets: {}", report.summary.referenced_assets);
+                    println!(
+                        "Detached Revision Assets: {}",
+                        report.summary.detached_revision_assets
+                    );
+                    println!("Orphan Blob Assets: {}", report.summary.orphan_blob_assets);
+                    println!(
+                        "Incomplete Download Assets: {}",
+                        report.summary.incomplete_download_assets
+                    );
+                    println!("Stale Assets: {}", report.summary.stale_assets);
+                    println!(
+                        "Duplicate Logical Model Assets: {}",
+                        report.summary.duplicate_logical_model_assets
+                    );
+                    println!(
+                        "External Drive Candidate Assets: {}",
+                        report.summary.external_drive_candidate_assets
+                    );
+                    println!(
+                        "Expected Reclaim Bytes: {}",
+                        format_inventory_bytes(report.summary.expected_reclaim_bytes)
+                    );
+                    println!(
+                        "Recovery Size: {}",
+                        format_inventory_bytes(report.summary.recovery_size_bytes)
+                    );
+                    println!(
+                        "High Utility Eviction Assets: {}",
+                        report.summary.high_utility_eviction_assets
+                    );
+                    println!(
+                        "Blocked Eviction Assets: {}",
+                        report.summary.blocked_eviction_assets
+                    );
+                    for asset in report.assets {
+                        println!(
+                            "- [{}] {} | manager={} | format={} | state={} | size={} | action={} | confidence={}/100",
+                            asset.recoverability,
+                            asset.logical_name,
+                            asset.manager,
+                            asset.format,
+                            asset.state,
+                            format_inventory_bytes(asset.logical_size_bytes),
+                            asset.action,
+                            asset.reclaim_confidence
+                        );
+                    }
+                }
+            }
+            ModelsCommand::Adapters {
+                tool,
+                root,
+                max_depth,
+                probe_official_cli,
+                run_official_dry_run,
+                probe_timeout_ms,
+                probe_output_chars,
+                json,
+                markdown,
+            } => {
+                let report =
+                    model_inventory::build_adapter_report(&model_inventory::AdapterOptions {
+                        root,
+                        tool,
+                        max_depth,
+                        probe_official_cli,
+                        run_official_dry_run,
+                        probe_timeout_ms,
+                        probe_output_chars,
+                    })?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else if markdown {
+                    println!("# Model Adapter Capability Report");
+                    println!();
+                    println!("- Schema Version: {}", report.schema_version);
+                    println!("- Adapters: {}", report.summary.total_adapters);
+                    println!(
+                        "- Parseable Indexes: {}",
+                        report.summary.index_parseable_adapters
+                    );
+                    println!(
+                        "- Official CLI Probed: {}",
+                        report.summary.official_cli_probed_adapters
+                    );
+                    println!(
+                        "- Official Dry-Run Capable: {}",
+                        report.summary.official_dry_run_capable_adapters
+                    );
+                    println!(
+                        "- Official Dry-Run Invoked: {}",
+                        report.summary.official_dry_run_invoked_adapters
+                    );
+                    println!(
+                        "- Official Read-Only Lists: {}",
+                        report.summary.official_read_only_list_invoked_adapters
+                    );
+                    println!(
+                        "- Official Cleanup Plan Items: {}",
+                        report.summary.official_cleanup_plan_items
+                    );
+                    println!(
+                        "- Official Rollback Capable Items: {}",
+                        report.summary.official_cleanup_rollback_capable_items
+                    );
+                    println!();
+                    println!("| Tool | Root | Index | Official CLI | Dry-Run | Official Run | Plan Mode | Action |");
+                    println!("|---|---|---|---|---|---|---|---|");
+                    for adapter in report.adapters {
+                        let official_cli = adapter.official_cli.as_ref();
+                        let official_dry_run = adapter.official_dry_run.as_ref();
+                        println!(
+                            "| `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` | `{}` |",
+                            adapter.tool,
+                            adapter.root.unwrap_or_else(|| "not detected".to_string()),
+                            if adapter.index_parseable {
+                                "parseable"
+                            } else if adapter.index_present {
+                                "present/unresolved"
+                            } else {
+                                "missing"
+                            },
+                            official_cli
+                                .map(|cli| cli.available.map_or("not-probed", |available| {
+                                    if available {
+                                        "available"
+                                    } else {
+                                        "not-available"
+                                    }
+                                }))
+                                .unwrap_or("unknown"),
+                            official_cli.and_then(|cli| cli.supports_dry_run).map_or(
+                                "unknown",
+                                |supported| if supported { "yes" } else { "no" }
+                            ),
+                            official_dry_run
+                                .map(|dry_run| dry_run.status.as_str())
+                                .unwrap_or("unknown"),
+                            adapter.plan_mode,
+                            adapter.action
+                        );
+                    }
+                } else {
+                    println!("Model Adapter Capability Report");
+                    println!("Schema Version: {}", report.schema_version);
+                    println!("Adapters: {}", report.summary.total_adapters);
+                    println!(
+                        "Parseable Indexes: {}",
+                        report.summary.index_parseable_adapters
+                    );
+                    println!(
+                        "Official CLI Probed: {}",
+                        report.summary.official_cli_probed_adapters
+                    );
+                    println!(
+                        "Official Dry-Run Invoked: {}",
+                        report.summary.official_dry_run_invoked_adapters
+                    );
+                    println!(
+                        "Official Read-Only Lists: {}",
+                        report.summary.official_read_only_list_invoked_adapters
+                    );
+                    println!(
+                        "Official Cleanup Plan Items: {}",
+                        report.summary.official_cleanup_plan_items
+                    );
+                    println!(
+                        "Official Rollback Capable Items: {}",
+                        report.summary.official_cleanup_rollback_capable_items
+                    );
+                    for adapter in report.adapters {
+                        let official_cli = adapter.official_cli.as_ref();
+                        let official_dry_run = adapter.official_dry_run.as_ref();
+                        println!(
+                            "- {} | root={} | index_present={} | index_parseable={} | cli={} | dry_run={} | official_run={} | plan={} | action={}",
+                            adapter.tool,
+                            adapter.root.unwrap_or_else(|| "not detected".to_string()),
+                            adapter.index_present,
+                            adapter.index_parseable,
+                            official_cli
+                                .map(|cli| cli.available.map_or("not-probed", |available| if available { "available" } else { "not-available" }))
+                                .unwrap_or("unknown"),
+                            official_cli
+                                .and_then(|cli| cli.supports_dry_run)
+                                .map_or("unknown", |supported| if supported { "yes" } else { "no" }),
+                            official_dry_run
+                                .map(|dry_run| dry_run.status.as_str())
+                                .unwrap_or("unknown"),
+                            adapter.plan_mode,
+                            adapter.action
+                        );
+                    }
+                }
+            }
+        },
         Command::Visualize {
             html,
             reports_dir,
@@ -572,6 +969,8 @@ impl ErrorContext {
                 "diff" => Some("diff"),
                 "anomaly" => Some("anomaly"),
                 "doctor" => Some("doctor"),
+                "rules" => Some("rules"),
+                "models" => Some("models"),
                 "visualize" => Some("visualize"),
                 _ => None,
             })
@@ -650,6 +1049,25 @@ impl ErrorContext {
                 command: "doctor",
                 format: effective_format(*format, *json, *markdown),
             },
+            Command::Rules { command } => Self {
+                command: "rules",
+                format: match command {
+                    RulesCommand::Lint { json, .. } if *json => OutputFormat::Json,
+                    _ => OutputFormat::Text,
+                },
+            },
+            Command::Models { command } => Self {
+                command: "models",
+                format: match command {
+                    ModelsCommand::Inventory { json, .. } if *json => OutputFormat::Json,
+                    ModelsCommand::Inventory { markdown, .. } if *markdown => {
+                        OutputFormat::Markdown
+                    }
+                    ModelsCommand::Adapters { json, .. } if *json => OutputFormat::Json,
+                    ModelsCommand::Adapters { markdown, .. } if *markdown => OutputFormat::Markdown,
+                    _ => OutputFormat::Text,
+                },
+            },
             Command::Visualize { .. } => Self {
                 command: "visualize",
                 format: OutputFormat::Text,
@@ -676,6 +1094,21 @@ fn effective_format(format: OutputFormat, json: bool, markdown: bool) -> OutputF
         OutputFormat::Markdown
     } else {
         format
+    }
+}
+
+fn format_inventory_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64;
+    let mut unit = 0_usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.2} {}", UNITS[unit])
     }
 }
 
@@ -775,6 +1208,9 @@ fn classify_cli_error(error: &anyhow::Error) -> &'static str {
         || message.contains("requires at least two scan snapshots")
         || message.contains("no such file")
         || message.contains("not found")
+        || message.contains("duplicate rule id")
+        || message.contains("unsupported rule schema")
+        || message.contains("schema v2")
         || error.downcast_ref::<std::io::Error>().is_some()
     {
         return "input";
@@ -783,7 +1219,25 @@ fn classify_cli_error(error: &anyhow::Error) -> &'static str {
 }
 
 fn default_rules_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("rules")
+    portable_resource_path("rules")
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("rules"))
+}
+
+fn portable_resource_path(relative: &str) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join(relative));
+        }
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join(relative));
+        candidates.push(current_dir.join("aidisk").join(relative));
+    }
+
+    candidates.into_iter().find(|candidate| candidate.exists())
 }
 
 fn resolve_rules_dir(rules_dir: Option<PathBuf>, rules_repo: Option<String>) -> Result<PathBuf> {
@@ -840,9 +1294,14 @@ fn progress_enabled_for(format: OutputFormat, ci_present: bool, stderr_is_term: 
 }
 
 fn default_policy_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("config")
-        .join("policy.yaml")
+    portable_resource_path("config")
+        .map(|config_dir| config_dir.join("policy.yaml"))
+        .filter(|policy_path| policy_path.exists())
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("config")
+                .join("policy.yaml")
+        })
 }
 
 fn default_scan_policy() -> policy::Policy {
@@ -922,7 +1381,10 @@ mod tests {
             .allow_actions
             .iter()
             .any(|action| action == "quarantine"));
-        assert!(policy.sensitive_markers.iter().any(|marker| marker == "token"));
+        assert!(policy
+            .sensitive_markers
+            .iter()
+            .any(|marker| marker == "token"));
     }
 
     #[test]

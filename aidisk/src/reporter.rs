@@ -180,11 +180,40 @@ fn render_text(report: &ScanReport) -> String {
     lines.extend(render_scan_limit_lines(report.policy.as_ref(), false));
     lines.extend([
         format!("Rules: {}", report.summary.total_rules),
+        format!("Rule Sources: {}", report.summary.rule_sources.len()),
         format!("Matched Paths: {}", report.summary.matched_paths),
         format!("Partial Findings: {}", report.summary.partial_findings),
         format!(
             "Total Size: {}",
             human_bytes(report.summary.total_size_bytes)
+        ),
+        format!(
+            "Observed Bytes: {}",
+            human_bytes(report.summary.observed_bytes)
+        ),
+        format!(
+            "Potential Bytes: {}",
+            human_bytes(report.summary.potential_bytes)
+        ),
+        format!(
+            "Actionable Bytes: {}",
+            human_bytes(report.summary.actionable_bytes)
+        ),
+        format!(
+            "Quarantine Bytes: {}",
+            human_bytes(report.summary.quarantine_bytes)
+        ),
+        format!(
+            "Official Cleanup Bytes: {}",
+            human_bytes(report.summary.official_cleanup_bytes)
+        ),
+        format!(
+            "Report Only Bytes: {}",
+            human_bytes(report.summary.report_only_bytes)
+        ),
+        format!(
+            "Partial Bytes: {}",
+            human_bytes(report.summary.partial_bytes)
         ),
         format!("Safe Bytes: {}", human_bytes(report.summary.safe_bytes)),
         format!("Review Bytes: {}", human_bytes(report.summary.review_bytes)),
@@ -194,7 +223,7 @@ fn render_text(report: &ScanReport) -> String {
         ),
         format!("System Bytes: {}", human_bytes(report.summary.system_bytes)),
         format!(
-            "Reclaimable Safe Bytes: {}",
+            "Quarantine Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
     ]);
@@ -259,11 +288,40 @@ fn render_markdown(report: &ScanReport) -> String {
     lines.extend(render_scan_limit_lines(report.policy.as_ref(), true));
     lines.extend([
         format!("- Rules: {}", report.summary.total_rules),
+        format!("- Rule Sources: {}", report.summary.rule_sources.len()),
         format!("- Matched Paths: {}", report.summary.matched_paths),
         format!("- Partial Findings: {}", report.summary.partial_findings),
         format!(
             "- Total Size: {}",
             human_bytes(report.summary.total_size_bytes)
+        ),
+        format!(
+            "- Observed Bytes: {}",
+            human_bytes(report.summary.observed_bytes)
+        ),
+        format!(
+            "- Potential Bytes: {}",
+            human_bytes(report.summary.potential_bytes)
+        ),
+        format!(
+            "- Actionable Bytes: {}",
+            human_bytes(report.summary.actionable_bytes)
+        ),
+        format!(
+            "- Quarantine Bytes: {}",
+            human_bytes(report.summary.quarantine_bytes)
+        ),
+        format!(
+            "- Official Cleanup Bytes: {}",
+            human_bytes(report.summary.official_cleanup_bytes)
+        ),
+        format!(
+            "- Report Only Bytes: {}",
+            human_bytes(report.summary.report_only_bytes)
+        ),
+        format!(
+            "- Partial Bytes: {}",
+            human_bytes(report.summary.partial_bytes)
         ),
         format!("- Safe Bytes: {}", human_bytes(report.summary.safe_bytes)),
         format!(
@@ -279,7 +337,7 @@ fn render_markdown(report: &ScanReport) -> String {
             human_bytes(report.summary.system_bytes)
         ),
         format!(
-            "- Reclaimable Safe Bytes: {}",
+            "- Quarantine Safe Bytes: {}",
             human_bytes(report.summary.reclaimable_safe_bytes)
         ),
     ]);
@@ -372,8 +430,24 @@ fn render_plan_text(report: &PlanReport) -> String {
             report.summary.skipped_recently_modified
         ),
         format!(
-            "Reclaimable Bytes: {}",
+            "Actionable Bytes: {}",
             human_bytes(report.summary.reclaimable_bytes)
+        ),
+        format!(
+            "Quarantine Bytes: {}",
+            human_bytes(report.summary.quarantine_bytes)
+        ),
+        format!(
+            "Official Cleanup Bytes: {}",
+            human_bytes(report.summary.official_cleanup_bytes)
+        ),
+        format!(
+            "Report Only Bytes: {}",
+            human_bytes(report.summary.report_only_bytes)
+        ),
+        format!(
+            "Skipped Partial Findings: {}",
+            report.summary.skipped_partial_findings
         ),
         String::new(),
         "Action Groups:".to_string(),
@@ -452,8 +526,24 @@ fn render_plan_markdown(report: &PlanReport) -> String {
             report.summary.skipped_recently_modified
         ),
         format!(
-            "- Reclaimable Bytes: {}",
+            "- Actionable Bytes: {}",
             human_bytes(report.summary.reclaimable_bytes)
+        ),
+        format!(
+            "- Quarantine Bytes: {}",
+            human_bytes(report.summary.quarantine_bytes)
+        ),
+        format!(
+            "- Official Cleanup Bytes: {}",
+            human_bytes(report.summary.official_cleanup_bytes)
+        ),
+        format!(
+            "- Report Only Bytes: {}",
+            human_bytes(report.summary.report_only_bytes)
+        ),
+        format!(
+            "- Skipped Partial Findings: {}",
+            report.summary.skipped_partial_findings
         ),
         String::new(),
         "## Action Groups".to_string(),
@@ -522,7 +612,7 @@ fn render_clean_text(report: &CleanReport) -> String {
         format!("Mode: {}", report.mode),
         format!("Candidate Count: {}", report.candidate_count),
         format!(
-            "Reclaimable Bytes: {}",
+            "Actionable Bytes: {}",
             human_bytes(report.reclaimable_bytes)
         ),
         String::new(),
@@ -568,7 +658,7 @@ fn render_clean_markdown(report: &CleanReport) -> String {
         format!("- Mode: {}", report.mode),
         format!("- Candidate Count: {}", report.candidate_count),
         format!(
-            "- Reclaimable Bytes: {}",
+            "- Actionable Bytes: {}",
             human_bytes(report.reclaimable_bytes)
         ),
         String::new(),
@@ -661,19 +751,26 @@ fn render_execution_text(report: &ExecutionReport) -> String {
         "Windows AI Space Quarantine Result".to_string(),
         format!("Generated At: {}", report.generated_at),
         format!("Mode: {}", report.mode),
+        format!("Schema Version: {}", report.schema_version),
         format!("Root: {}", report.root),
         format!("Success Count: {}", report.success_count),
         format!("Failure Count: {}", report.failure_count),
         format!("Index Path: {}", report.index_path),
         format!("Log Path: {}", report.log_path),
+        format!("Journal Path: {}", report.journal_path),
         String::new(),
         "Results:".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "- {} => {} | {} | {}",
-            result.source_path, result.destination_path, result.status, result.message
+            "- {} => {} | {} | {} | {} | {}",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 
@@ -686,22 +783,29 @@ fn render_execution_markdown(report: &ExecutionReport) -> String {
         String::new(),
         format!("- Generated At: {}", report.generated_at),
         format!("- Mode: {}", report.mode),
+        format!("- Schema Version: {}", report.schema_version),
         format!("- Root: {}", report.root),
         format!("- Success Count: {}", report.success_count),
         format!("- Failure Count: {}", report.failure_count),
         format!("- Index Path: `{}`", report.index_path),
         format!("- Log Path: `{}`", report.log_path),
+        format!("- Journal Path: `{}`", report.journal_path),
         String::new(),
         "## Results".to_string(),
         String::new(),
-        "| Source | Destination | Status | Message |".to_string(),
-        "|---|---|---|---|".to_string(),
+        "| Source | Destination | Status | Stage | Recovery | Message |".to_string(),
+        "|---|---|---|---|---|---|".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "| `{}` | `{}` | {} | {} |",
-            result.source_path, result.destination_path, result.status, result.message
+            "| `{}` | `{}` | {} | {} | {} | {} |",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 
@@ -718,14 +822,20 @@ fn render_restore_text(report: &RestoreReport) -> String {
         format!("Entry Count: {}", report.entry_count),
         format!("Success Count: {}", report.success_count),
         format!("Failure Count: {}", report.failure_count),
+        format!("Journal Path: {}", report.journal_path),
         String::new(),
         "Results:".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "- {} => {} | {} | {}",
-            result.source_path, result.destination_path, result.status, result.message
+            "- {} => {} | {} | {} | {} | {}",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 
@@ -743,17 +853,23 @@ fn render_restore_markdown(report: &RestoreReport) -> String {
         format!("- Entry Count: {}", report.entry_count),
         format!("- Success Count: {}", report.success_count),
         format!("- Failure Count: {}", report.failure_count),
+        format!("- Journal Path: `{}`", report.journal_path),
         String::new(),
         "## Results".to_string(),
         String::new(),
-        "| Source | Destination | Status | Message |".to_string(),
-        "|---|---|---|---|".to_string(),
+        "| Source | Destination | Status | Stage | Recovery | Message |".to_string(),
+        "|---|---|---|---|---|---|".to_string(),
     ];
 
     for result in &report.results {
         lines.push(format!(
-            "| `{}` | `{}` | {} | {} |",
-            result.source_path, result.destination_path, result.status, result.message
+            "| `{}` | `{}` | {} | {} | {} | {} |",
+            result.source_path,
+            result.destination_path,
+            result.status,
+            result.stage,
+            result.recovery,
+            result.message
         ));
     }
 
@@ -1263,8 +1379,24 @@ fn render_scan_executive_summary_lines(report: &ScanReport, markdown: bool) -> V
         },
         String::new(),
         format!(
-            "{prefix}Reclaimable now: {}",
-            human_bytes(report.summary.reclaimable_safe_bytes)
+            "{prefix}Actionable now: {}",
+            human_bytes(report.summary.actionable_bytes)
+        ),
+        format!(
+            "{prefix}Quarantine-ready: {}",
+            human_bytes(report.summary.quarantine_bytes)
+        ),
+        format!(
+            "{prefix}Official/manual cleanup: {}",
+            human_bytes(report.summary.official_cleanup_bytes)
+        ),
+        format!(
+            "{prefix}Report-only: {}",
+            human_bytes(report.summary.report_only_bytes)
+        ),
+        format!(
+            "{prefix}Partial lower-bound bytes: {}",
+            human_bytes(report.summary.partial_bytes)
         ),
         format!(
             "{prefix}Needs review: {}",
@@ -1497,7 +1629,10 @@ mod tests {
         let json = render_doctor(&report, OutputFormat::Json).expect("doctor json should render");
         let value: serde_json::Value = serde_json::from_str(&json).expect("json should parse");
 
-        assert!(value.get("policy").is_some(), "new structured policy field should exist");
+        assert!(
+            value.get("policy").is_some(),
+            "new structured policy field should exist"
+        );
         assert_eq!(
             value["policy_summary"],
             "sensitive markers: [token, .env]; planner actions: [quarantine, report-only]; skip modified within: 15min; max scan depth: 7"
@@ -1541,6 +1676,7 @@ mod tests {
                 }],
                 reclaimable_safe_bytes: 10,
                 partial_findings: 1,
+                ..Default::default()
             },
         };
 
@@ -1574,6 +1710,7 @@ mod tests {
                 top_findings: Vec::new(),
                 reclaimable_safe_bytes: 10,
                 partial_findings: 2,
+                ..Default::default()
             },
         };
 
@@ -1602,6 +1739,7 @@ mod tests {
                 reclaimable_bytes: 10,
                 blocked_sensitive_paths: 0,
                 skipped_recently_modified: 0,
+                ..Default::default()
             },
             groups: Vec::new(),
             candidates: vec![PlanCandidate {
@@ -1999,7 +2137,10 @@ mod tests {
                 system_bytes: 0,
                 top_findings: Vec::new(),
                 reclaimable_safe_bytes: 6,
+                actionable_bytes: 6,
+                quarantine_bytes: 6,
                 partial_findings: 0,
+                ..Default::default()
             },
         };
 
@@ -2007,7 +2148,8 @@ mod tests {
             super::render(&report, OutputFormat::Markdown).expect("scan markdown should render");
 
         assert!(output.contains("## Executive Summary"));
-        assert!(output.contains("Reclaimable now: 6 B"));
+        assert!(output.contains("Actionable now: 6 B"));
+        assert!(output.contains("Quarantine-ready: 6 B"));
         assert!(output.contains("Risk Distribution"));
         assert!(output.contains("SAFE"));
         assert!(output.contains("REVIEW"));

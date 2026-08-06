@@ -197,7 +197,7 @@ window.TOOL_DATA = __TOOL_DATA__;
     });
   }
 
-  // --- safe reclaim checkboxes ---
+  // --- quarantine-ready checkboxes ---
   var cbs2 = document.querySelectorAll('.reclaim-checkbox');
   for (var i = 0; i < cbs2.length; i++) {
     cbs2[i].addEventListener('change', updateReclaimSummary);

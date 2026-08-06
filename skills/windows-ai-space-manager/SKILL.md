@@ -1,18 +1,23 @@
-# Windows AI Space Manager
+# AI Disk Doctor
 
 ## Purpose
 
-这个 skill 用于在 Windows 上围绕 `aidisk` CLI 做完整的磁盘空间诊断、风险解释、清理预演、隔离清理与恢复编排。
+这个 skill 用于围绕 `aidisk` CLI 做磁盘空间诊断、风险解释、清理预演、隔离清理与恢复说明。它重点处理 AI 工具、模型缓存、浏览器测试产物、Docker / WSL 和开发环境产生的磁盘占用问题。
+
+当前 SkillHub 包内提供 PowerShell wrapper，优先适用于 Windows 或已安装 PowerShell 的环境；如果用户使用原生 `aidisk` CLI，可以按同一工作流说明等价命令。不要夸大清理效果，默认先做诊断和预演。
 
 适用场景：
 
 - 用户说 C 盘突然变小、磁盘满了、空间不够
 - 用户怀疑 Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue / Playwright / Docker / WSL / Ollama 占空间
+- 用户想查看 AI 工具、模型缓存、MCP server、AI IDE 状态目录占了多少
 - 用户想先看诊断报告，再决定是否清理
 - 用户想做安全的 quarantine 清理，而不是直接删除
 - 用户想从 quarantine index 预演或执行恢复
 - 用户想比较两次 scan 之间是谁变大了
 - 用户想加载本地或社区维护的规则库
+- 用户想生成本地可视化 HTML dashboard 或诊断报告
+- 用户不知道怎么开始，希望一键生成本地诊断报告
 
 ## Core Principles
 
@@ -20,29 +25,54 @@
 - 默认安全：优先 `dry-run` 和 `quarantine`
 - 默认可恢复：真实清理优先走 quarantine，并生成 index / log
 - 默认分级：按 `safe / review / dangerous / system` 解释，不混淆风险
+- 默认说明运行环境：先区分 PowerShell wrapper 和原生 `aidisk` CLI，不把 wrapper 误说成所有系统通用
 - 默认不越权：如果用户没有明确要求执行，就停在诊断或预演层
 
 ## Trigger Phrases
 
 以下表达应优先触发本 skill：
 
-- "看看 C 盘" / "C 盘怎么满了"
+- "看看 C 盘" / "C 盘怎么满了" / "磁盘空间怎么没了"
 - "帮我分析磁盘空间" / "看下存储占用"
 - "Claude / Codex / Gemini / opencode / Cursor / Windsurf / Trae / aider / Continue 占了多少"
 - "Playwright / Docker / WSL / Ollama 占空间"
+- "AI footprint" / "模型文件太大" / "AI IDE 缓存太多"
 - "先做清理预演" / "先别删" / "先 dry-run"
 - "隔离清理" / "恢复隔离文件"
 - "最近谁变大了" / "对比两次扫描" / "diff scan"
+- "生成 dashboard" / "可视化报告"
 - "社区规则库" / "rules repo" / "--rules-repo"
 
 ## Workflow
 
+### 0. One-Click Deploy
+
+如果用户只是想知道“怎么用”或不熟悉命令行，优先建议仓库根目录的一键入口。它默认只跑一次只读扫描并生成 HTML dashboard，不会清理或删除文件：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1
+```
+
+输出位于 `.aidisk\quickstart\`，真实清理仍必须由用户明确确认后再走 `clean --yes`。
+
+如果用户明确想要更完整但更慢的诊断包，可加：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-AIDiskDoctor.ps1 -IncludeDoctor -IncludePlan
+```
+
 ### 1. Scan First
 
-优先执行：
+在当前 Skill wrapper 环境中优先执行；wrapper 会优先使用 `AIDISK_EXE`、PATH 或本地 `aidisk` 二进制，只有开发兜底时才使用 Cargo：
 
 ```powershell
 pwsh -File scripts/run-scan.ps1 -Json
+```
+
+如果用户明确使用原生 CLI，可说明等价命令：
+
+```bash
+aidisk scan --json
 ```
 
 如果用户只关注某个方向，可加分类：
@@ -51,6 +81,8 @@ pwsh -File scripts/run-scan.ps1 -Json
 pwsh -File scripts/run-scan.ps1 -Category docker -Json
 pwsh -File scripts/run-scan.ps1 -Category models -Json
 ```
+
+可重点解释的 AI 相关分类包括 `ai-agent`、`ai-cache`、`ai-cli`、`ai-ide`、`ai-model`、`ai-test-artifact`。
 
 如果用户提供本地或 HTTPS 社区规则库：
 
@@ -150,6 +182,14 @@ Markdown/Text 输出会聚焦 active findings，并把未命中的规则路径�
 `-ProbeTools` 用于显式开启外部命令探测；默认 doctor 不调用 Docker / WSL / Ollama CLI。
 `-Latest` 用于在 doctor 输出中追加最近两次 scan snapshot 的增长摘要；默认读取 `aidisk/.aidisk/reports`，需要覆盖时使用 `-ReportsDir`。
 
+如果用户关心整体 AI 工具足迹，优先说明原生 CLI 的聚合视角：
+
+```bash
+aidisk visualize --html
+```
+
+`visualize --html` 用于生成本地交互式 HTML dashboard，适合用户复盘空间占用和可预演清理项。
+
 ### 7. Diff Between Two Scans
 
 当用户已经有两次 scan 输出，或者明确在问“最近谁涨了”，执行：
@@ -202,6 +242,7 @@ pwsh -File scripts/run-diff.ps1 -Before "..\examples\diff-before.example.json" -
 - `scripts/run-restore.ps1`
 - `scripts/run-doctor.ps1`
 - `scripts/run-diff.ps1`
+- `scripts/invoke-aidisk.ps1`
 
 ## Community Rules
 

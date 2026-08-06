@@ -676,9 +676,16 @@ fn is_ai_tooling_finding(finding: &Finding) -> bool {
 fn is_ai_footprint_finding(finding: &Finding) -> bool {
     matches!(
         finding.category.as_str(),
-        "ai-agent" | "ai-cache" | "ai-cli" | "ai-ide" 
-        | "ai-installer" | "ai-installed-app" | "ai-model" 
-        | "ai-test-artifact" | "ai-runtime" | "models"
+        "ai-agent"
+            | "ai-cache"
+            | "ai-cli"
+            | "ai-ide"
+            | "ai-installer"
+            | "ai-installed-app"
+            | "ai-model"
+            | "ai-test-artifact"
+            | "ai-runtime"
+            | "models"
     )
 }
 
@@ -933,9 +940,9 @@ mod tests {
             ollama: false,
             playwright: false,
             huggingface: false,
-                agents: true,
-                ai_footprint: false,
-                probe_tools: true,
+            agents: true,
+            ai_footprint: false,
+            probe_tools: true,
         };
 
         super::apply_default_topics_if_none_selected(&mut options);

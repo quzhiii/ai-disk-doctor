@@ -157,7 +157,15 @@ fn skill_and_readme_document_agents_doctor_workflow() {
         readme.contains("scripts\\run-doctor.ps1"),
         "README.md should reference the existing run-doctor.ps1 wrapper"
     );
-    for term in ["Cursor", "Windsurf", "Trae", "aider", "Continue", "installers", "test artifacts"] {
+    for term in [
+        "Cursor",
+        "Windsurf",
+        "Trae",
+        "aider",
+        "Continue",
+        "installers",
+        "test artifacts",
+    ] {
         assert!(
             skill.contains(term) || readme.contains(term),
             "skill or README should document expanded AI tooling coverage term {term}"
@@ -192,6 +200,55 @@ fn skill_and_wrappers_document_rules_repo() {
         assert!(
             wrapper.contains("--rules-repo"),
             "{wrapper_name} should pass --rules-repo"
+        );
+    }
+}
+
+#[test]
+fn skill_wrappers_prefer_binary_before_cargo_fallback() {
+    let skill = read_repo_file("skills/windows-ai-space-manager/SKILL.md");
+    let helper = read_repo_file("skills/windows-ai-space-manager/scripts/invoke-aidisk.ps1");
+    let wrapper_names = [
+        "run-scan.ps1",
+        "run-plan.ps1",
+        "run-clean-dry-run.ps1",
+        "run-clean.ps1",
+        "run-doctor.ps1",
+        "run-diff.ps1",
+        "run-restore.ps1",
+    ];
+
+    assert!(
+        skill.contains("Start-AIDiskDoctor.ps1")
+            && skill.contains("只读扫描")
+            && skill.contains("不会清理或删除文件"),
+        "SKILL.md should recommend the one-click read-only entrypoint"
+    );
+
+    for wrapper_name in wrapper_names {
+        let wrapper = read_repo_file(&format!(
+            "skills/windows-ai-space-manager/scripts/{wrapper_name}"
+        ));
+        assert!(
+            wrapper.contains("invoke-aidisk.ps1"),
+            "{wrapper_name} should call the shared aidisk invoker"
+        );
+        assert!(
+            !wrapper.contains("cargo run"),
+            "{wrapper_name} should not require cargo directly"
+        );
+    }
+
+    for term in [
+        "$env:AIDISK_EXE",
+        "Get-Command \"aidisk\"",
+        "target",
+        "cargo",
+        "Build-AIDiskDebug",
+    ] {
+        assert!(
+            helper.contains(term),
+            "invoke-aidisk.ps1 should mention {term}"
         );
     }
 }

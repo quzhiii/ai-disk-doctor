@@ -16,6 +16,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Run tests
         run: cargo test
+      - name: Lint built-in rules
+        run: cargo run --quiet -- rules lint --json
 
   test-ubuntu:
     runs-on: ubuntu-latest

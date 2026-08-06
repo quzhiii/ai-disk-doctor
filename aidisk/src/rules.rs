@@ -527,11 +527,20 @@ pub fn expand_path(pattern: &str) -> Option<PathBuf> {
     expanded = expand_windows_env_tokens(&expanded)?;
 
     #[cfg(not(windows))]
-    if used_windows_separators && Path::new(&expanded).is_absolute() {
+    if used_windows_separators && !looks_like_windows_drive_path(&expanded) {
         expanded = expanded.replace('\\', "/");
     }
 
     Some(PathBuf::from(expanded))
+}
+
+#[cfg(not(windows))]
+fn looks_like_windows_drive_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'\\' | b'/')
 }
 
 fn expand_windows_env_tokens(pattern: &str) -> Option<String> {
@@ -689,6 +698,12 @@ reason: Review model cache
             assert_eq!(
                 expand_path("%AIDISK_TEST_HOME%\\.cache\\huggingface"),
                 Some(PathBuf::from("/home/demo/.cache/huggingface"))
+            );
+
+            std::env::set_var("AIDISK_TEST_HOME", "tests/fixtures/windows-user");
+            assert_eq!(
+                expand_path("%AIDISK_TEST_HOME%\\**\\*.gguf"),
+                Some(PathBuf::from("tests/fixtures/windows-user/**/*.gguf"))
             );
         }
 

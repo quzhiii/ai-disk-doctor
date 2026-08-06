@@ -69,7 +69,7 @@ jobs:
 
           $archive = "dist/$packageName${{ matrix.archive_ext }}"
           if ("${{ matrix.archive_ext }}" -eq ".zip") {
-            Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
+            Compress-Archive -Path $packageDir -DestinationPath $archive -Force
           } else {
             tar -czf $archive -C dist $packageName
           }
@@ -108,6 +108,13 @@ jobs:
             tar -xzf $archive -C $smokeDir
           }
           $binary = Join-Path $smokeDir "$packageName/aidisk${{ matrix.exe_suffix }}"
+          if (-not (Test-Path $binary)) {
+            throw "Packaged binary not found: $binary"
+          }
+          if ($target -eq "aarch64-pc-windows-msvc") {
+            Write-Host "Skipping execution smoke for $target on x64 Windows runner; archive contents verified."
+            return
+          }
           if ("${{ matrix.exe_suffix }}" -eq "") { chmod +x $binary }
           & $binary --help
           & $binary scan --help

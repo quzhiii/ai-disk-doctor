@@ -815,6 +815,8 @@ fn github_actions_run_tests_and_build_windows_release_artifact() {
         .contains("description = \"Cross-platform AI disk space diagnostics and governance CLI\""));
     assert!(release.contains("strategy:"));
     assert!(release.contains("fail-fast: false"));
+    assert!(release.contains("macos-15-intel"));
+    assert!(!release.contains("macos-13"));
     assert!(release.contains("actions/checkout@v5"));
     assert!(release.contains("cargo build --release --manifest-path aidisk/Cargo.toml --target"));
     assert!(release.contains("actions/upload-artifact@v7"));

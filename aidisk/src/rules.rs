@@ -521,7 +521,15 @@ pub fn expand_path(pattern: &str) -> Option<PathBuf> {
             .into_owned();
     }
 
+    #[cfg(not(windows))]
+    let used_windows_separators = expanded.contains('\\');
+
     expanded = expand_windows_env_tokens(&expanded)?;
+
+    #[cfg(not(windows))]
+    if used_windows_separators && Path::new(&expanded).is_absolute() {
+        expanded = expanded.replace('\\', "/");
+    }
 
     Some(PathBuf::from(expanded))
 }
@@ -674,6 +682,15 @@ reason: Review model cache
             expand_path("%USERPROFILE%\\.cache\\huggingface"),
             Some(PathBuf::from("C:\\Users\\demo\\.cache\\huggingface"))
         );
+
+        #[cfg(not(windows))]
+        {
+            std::env::set_var("AIDISK_TEST_HOME", "/home/demo");
+            assert_eq!(
+                expand_path("%AIDISK_TEST_HOME%\\.cache\\huggingface"),
+                Some(PathBuf::from("/home/demo/.cache/huggingface"))
+            );
+        }
 
         std::env::remove_var("AIDISK_TEST_HOME");
         assert_eq!(expand_path("%AIDISK_TEST_HOME%\\cache"), None);

@@ -17,6 +17,7 @@ This index is the supersession map for current, historical, implementation, and 
 | `product/ROADMAP_2026_H2.md` | proposed current roadmap after M0 acceptance |
 | `product/COLLABORATION_PROTOCOL.md` | Web ChatGPT <-> Local Agent handoff process |
 | `adr/0001-desktop-architecture.md` | Desktop architecture ADR/spike |
+| `adr/0002-m1a-readonly-core-application-boundary.md` | M1A read-only Core application boundary implementation note |
 
 ## Implementation / Reference Docs That Remain Useful
 

@@ -4,13 +4,13 @@ use crate::anomaly::AnomalyReport;
 use crate::cleaner::{
     CleanDryRunOutput, CleanReport, ExecutionReport, QuarantinePlan, RestoreReport,
 };
+use crate::cli::OutputFormat;
 use crate::diff::DiffReport;
 use crate::doctor::DoctorReport;
 use crate::planner::PlanReport;
 use crate::policy::PolicySnapshot;
 use crate::scanner::LargeFilesReport;
 use crate::scanner::ScanReport;
-use crate::OutputFormat;
 
 pub fn render(report: &ScanReport, format: OutputFormat) -> Result<String> {
     let output = match format {
@@ -1510,10 +1510,10 @@ mod tests {
     use chrono::Local;
 
     use super::render_doctor;
+    use crate::cli::OutputFormat;
     use crate::doctor::{DoctorBreakdownItem, DoctorFinding, DoctorReport, DoctorTopic};
     use crate::planner::{PlanCandidate, PlanReport, PlanSummary, SkippedItem};
     use crate::policy::{PlannerPolicySnapshot, PolicySnapshot};
-    use crate::OutputFormat;
 
     fn sample_policy_snapshot() -> PolicySnapshot {
         PolicySnapshot {

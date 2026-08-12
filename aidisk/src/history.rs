@@ -3,8 +3,15 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::Local;
+use serde::Serialize;
 
 use crate::scanner::ScanReport;
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+pub struct ScanSnapshot {
+    pub path: PathBuf,
+    pub file_name: String,
+}
 
 pub fn default_reports_dir() -> PathBuf {
     std::env::current_dir()
@@ -29,14 +36,7 @@ pub fn save_scan_snapshot(report: &ScanReport, reports_dir: &Path) -> Result<Pat
     Ok(candidate)
 }
 
-pub fn latest_scan_pair(reports_dir: &Path) -> Result<(PathBuf, PathBuf)> {
-    latest_scan_pair_for_command(reports_dir, "diff --latest")
-}
-
-pub fn latest_scan_pair_for_command(
-    reports_dir: &Path,
-    command_name: &str,
-) -> Result<(PathBuf, PathBuf)> {
+pub fn list_scan_snapshots(reports_dir: &Path) -> Result<Vec<ScanSnapshot>> {
     let mut snapshots = Vec::new();
 
     if reports_dir.exists() {
@@ -46,14 +46,29 @@ pub fn latest_scan_pair_for_command(
             let file_name = path
                 .file_name()
                 .and_then(|value| value.to_str())
-                .unwrap_or("");
+                .unwrap_or("")
+                .to_string();
             if file_name.starts_with("scan-") && file_name.ends_with(".json") {
-                snapshots.push(path);
+                snapshots.push(ScanSnapshot { path, file_name });
             }
         }
     }
 
-    snapshots.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    snapshots.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+    Ok(snapshots)
+}
+
+#[cfg(test)]
+pub fn latest_scan_pair(reports_dir: &Path) -> Result<(PathBuf, PathBuf)> {
+    latest_scan_pair_for_command(reports_dir, "diff --latest")
+}
+
+#[cfg(test)]
+pub fn latest_scan_pair_for_command(
+    reports_dir: &Path,
+    command_name: &str,
+) -> Result<(PathBuf, PathBuf)> {
+    let mut snapshots = list_scan_snapshots(reports_dir)?;
 
     if snapshots.len() < 2 {
         anyhow::bail!(
@@ -63,8 +78,8 @@ pub fn latest_scan_pair_for_command(
         );
     }
 
-    let after = snapshots.pop().expect("snapshot count was checked");
-    let before = snapshots.pop().expect("snapshot count was checked");
+    let after = snapshots.pop().expect("snapshot count was checked").path;
+    let before = snapshots.pop().expect("snapshot count was checked").path;
     Ok((before, after))
 }
 

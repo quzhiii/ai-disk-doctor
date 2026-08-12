@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
 
-[中文](./README.zh-CN.md) · [Changelog](./CHANGELOG.md) · [Contributing](./CONTRIBUTING.md)
+[中文](./README.zh-CN.md) · [Docs](./docs/README.md) · [Changelog](./CHANGELOG.md) · [Contributing](./CONTRIBUTING.md)
 
 **AI-era disk space diagnostics and governance.**
 
@@ -19,7 +19,7 @@ Identify, analyze, and safely reclaim storage consumed by AI tools, browsers, an
 
 ## Table of Contents
 
-[Motivation](#motivation) · [Overview](#overview) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [One-Click Deploy](#one-click-deploy) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
+[Motivation](#motivation) · [Overview](#overview) · [Product Foundation](#product-foundation) · [Key Features](#key-features) · [Why aidisk vs Manual Cleanup](#why-aidisk-vs-manual-cleanup) · [What's New](#whats-new) · [One-Click Deploy](#one-click-deploy) · [Installation](#installation) · [Quick Start](#quick-start) · [Command Reference](#command-reference) · [Safety First](#safety-first) · [Architecture](#architecture) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [License](#license)
 
 ---
 
@@ -48,6 +48,18 @@ The default posture is **conservative**: scan and report first, dry-run second, 
 **Current release:** v1.7.0
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
+
+---
+
+## Product Foundation
+
+Current source-of-truth docs live under [`docs/product/`](./docs/product/), with the supersession map in [`docs/README.md`](./docs/README.md). The current implementation is the CLI/Core and local dashboard; Desktop, Recovery Intelligence, and commercial Pro concepts are roadmap items, not implemented features.
+
+Key starting points:
+
+- [`docs/product/CURRENT_PRODUCT_TRUTH.md`](./docs/product/CURRENT_PRODUCT_TRUTH.md) — repo reality and capability matrix
+- [`docs/product/ROADMAP_2026_H2.md`](./docs/product/ROADMAP_2026_H2.md) — current milestone order after M0 acceptance
+- [`docs/adr/0001-desktop-architecture.md`](./docs/adr/0001-desktop-architecture.md) — Desktop architecture recommendation, with no Desktop dependency added
 
 ---
 
@@ -237,7 +249,7 @@ aidisk scan --help
 
 | Requirement | Version |
 |------------|---------|
-| Windows | 10/11 |
+| OS | Windows 10/11, Linux, or macOS |
 | Rust | 1.78+ |
 
 Install Rust via [rustup](https://rustup.rs/) if needed.
@@ -246,7 +258,7 @@ Install Rust via [rustup](https://rustup.rs/) if needed.
 git clone https://github.com/quzhiii/ai-disk-doctor.git
 cd ai-disk-doctor/aidisk
 cargo build --release
-# Binary: target/release/aidisk.exe
+# Binary: target/release/aidisk (aidisk.exe on Windows)
 ```
 
 ### Option 3: PowerShell Skill Wrappers (Agent Integration)

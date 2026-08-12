@@ -1,5 +1,7 @@
 # Windows AI Space Manager 项目计划书
 
+> Supersession note: after M0 is accepted, this original Windows-first plan is historical. Current product direction lives in `docs/product/`.
+
 项目名建议：`windows-ai-space-manager`  
 CLI 命令名建议：`aidisk`  
 Skill 名建议：`windows-ai-space-manager`

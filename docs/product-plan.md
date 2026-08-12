@@ -1,5 +1,7 @@
 # Product Plan
 
+> Supersession note: after M0 is accepted, this early plan is superseded by `docs/product/`. It remains as a historical seed document.
+
 源文档：`../windows-ai-space-manager-project-plan.md`
 
 当前阶段先保留原始计划书，并在 `docs/` 中建立结构化文档，便于后续演进。

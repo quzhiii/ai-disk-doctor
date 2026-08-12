@@ -1,5 +1,7 @@
 # Execution Plan
 
+> Supersession note: after M0 is accepted, current roadmap and product direction live in `docs/product/`. This file remains a historical implementation log through v1.7.0.
+
 ## Goal
 
 按原始项目规划，把实现拆成可交付、可验证的阶段，优先形成只读扫描 MVP，再逐步进入风险计划和安全清理。

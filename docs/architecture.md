@@ -1,5 +1,7 @@
 # Architecture
 
+> Current implementation reference. For current product architecture direction, Desktop constraints, and one-execution-truth decisions, see `docs/product/PRODUCT_ARCHITECTURE.md` and `docs/adr/0001-desktop-architecture.md`.
+
 ## Runtime Flow
 
 ```text
@@ -40,7 +42,7 @@ User / AI Agent
 - Automatically saves snapshot to `.aidisk/reports/scan-*.json`
 
 ### Planner
-- Filters findings by risk level (`safe`, `careful`, `dangerous`)
+- Filters findings by risk level (`safe`, `review`, `dangerous`, `system`)
 - Applies `skip-modified-within-minutes` threshold
 - Blocks sensitive paths (system directories, active user data)
 - Generates action groups with destination paths for quarantine
@@ -63,7 +65,7 @@ User / AI Agent
 - All mutations require explicit `--yes`; default is `--dry-run`
 
 ### Doctor
-- Analyzes specific topics: Docker, WSL, Ollama, Playwright, Hugging Face
+- Analyzes specific topics: Docker, WSL, Ollama, Playwright, Hugging Face, Agents, and AI Footprint
 - Generates policy-aware recommendations
 - Explains empty results and missing paths
 - Outputs actionable cleanup suggestions per topic
@@ -134,4 +136,4 @@ Scanner --> Findings (path, size, risk, category)
 - All mutation commands default to dry-run
 - No hardcoded paths — everything is rule-driven
 - Agent-friendly structured output
-- Cross-platform path handling (Windows primary, extensible)
+- Cross-platform path handling

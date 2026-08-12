@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
 
-[English](./README.md) · [更新日志](./CHANGELOG.md) · [贡献指南](./CONTRIBUTING.md)
+[English](./README.md) · [文档](./docs/README.md) · [更新日志](./CHANGELOG.md) · [贡献指南](./CONTRIBUTING.md)
 
 **AI 时代的磁盘空间诊断与治理工具。**
 
@@ -19,7 +19,7 @@
 
 ## 目录
 
-[项目动机](#项目动机) · [项目简介](#项目简介) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [一键部署](#一键部署) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
+[项目动机](#项目动机) · [项目简介](#项目简介) · [产品基础](#产品基础) · [核心特性](#核心特性) · [为什么用 aidisk 而非手动清理](#为什么用-aidisk-而非手动清理) · [最新动态](#最新动态) · [一键部署](#一键部署) · [安装](#安装) · [快速开始](#快速开始) · [命令参考](#命令参考) · [安全第一](#安全第一) · [架构设计](#架构设计) · [常见问题](#常见问题) · [贡献指南](#贡献指南) · [许可证](#许可证)
 
 ---
 
@@ -48,6 +48,18 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 **当前版本：** v1.7.0
 
 详细的架构和设计决策，请参阅 [`docs/architecture.md`](./docs/architecture.md)。
+
+---
+
+## 产品基础
+
+当前 source-of-truth 文档位于 [`docs/product/`](./docs/product/)，文档索引和 supersession map 位于 [`docs/README.md`](./docs/README.md)。当前已实现的是 CLI/Core 和本地 dashboard；Desktop、Recovery Intelligence 和商业 Pro 概念属于 roadmap，不是已实现功能。
+
+关键入口：
+
+- [`docs/product/CURRENT_PRODUCT_TRUTH.md`](./docs/product/CURRENT_PRODUCT_TRUTH.md) — 仓库现实与能力矩阵
+- [`docs/product/ROADMAP_2026_H2.md`](./docs/product/ROADMAP_2026_H2.md) — M0 接受后的当前 milestone 顺序
+- [`docs/adr/0001-desktop-architecture.md`](./docs/adr/0001-desktop-architecture.md) — Desktop 架构建议，本 PR 不添加 Desktop 依赖
 
 ---
 
@@ -233,7 +245,7 @@ aidisk scan --help
 
 | 要求 | 版本 |
 |------------|---------|
-| Windows | 10/11 |
+| OS | Windows 10/11、Linux 或 macOS |
 | Rust | 1.78+ |
 
 如果没有 Rust，通过 [rustup](https://rustup.rs/) 安装。
@@ -242,7 +254,7 @@ aidisk scan --help
 git clone https://github.com/quzhiii/ai-disk-doctor.git
 cd ai-disk-doctor/aidisk
 cargo build --release
-# 二进制文件位于 target/release/aidisk.exe
+# 二进制文件位于 target/release/aidisk（Windows 上为 aidisk.exe）
 ```
 
 ### 方式 3：PowerShell Skill 包装脚本（Agent 集成）

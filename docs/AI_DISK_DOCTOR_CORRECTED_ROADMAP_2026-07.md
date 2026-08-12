@@ -1,5 +1,7 @@
 # AI Disk Doctor 修正版战略与迭代路线图
 
+> Supersession note: after M0 is accepted, the current roadmap moves to `docs/product/ROADMAP_2026_H2.md`. This file remains a historical v1.7/v1.8 planning record.
+
 > 仓库：`quzhiii/ai-disk-doctor`
 > 基线版本：v1.6.0
 > 日期：2026-07-14

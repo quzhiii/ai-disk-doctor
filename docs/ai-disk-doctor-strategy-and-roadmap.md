@@ -1,5 +1,7 @@
 # AI Disk Doctor Strategy And Roadmap
 
+> Supersession note: after M0 is accepted, current product strategy moves to `docs/product/`. This file remains a historical strategy and market-analysis record.
+
 日期：2026-07-11
 
 > Superseded by `docs/AI_DISK_DOCTOR_CORRECTED_ROADMAP_2026-07.md` as the implementation roadmap. This document remains a strategy/market-analysis companion.

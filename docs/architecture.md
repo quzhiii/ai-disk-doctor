@@ -134,6 +134,6 @@ Scanner --> Findings (path, size, risk, category)
 
 - Unknown paths are reported, never processed
 - All mutation commands default to dry-run
-- No hardcoded paths — everything is rule-driven
+- General scanning is primarily rule-driven; specialized model/Agent adapters may use verified tool-specific default paths and metadata conventions
 - Agent-friendly structured output
 - Cross-platform path handling

@@ -19,7 +19,29 @@ Constraints:
 - no new detectors
 - no billing, auth, SaaS, telemetry, or cloud sync
 
-## M1 - Desktop Alpha: Understand
+## M1A - Core Application Boundary: Read-Only Understand
+
+Target release family: candidate for v1.8.0 or later after M0 acceptance.
+
+Goal: define the minimum shared read-only application-service boundary needed for a Desktop or other UI to ask Core for scan, AI asset inventory, and history outputs without duplicating CLI orchestration logic.
+
+Candidate scope:
+
+- read-only scan application service
+- read-only AI asset inventory service
+- read-only history/snapshot access service
+- stable request/response/error shape for these read-only flows
+- CLI and future Desktop both call or preserve the same Core execution truth
+
+Out of scope:
+
+- cleanup, quarantine, restore, or policy-gate refactoring beyond what is needed to keep read-only flows separated
+- Desktop shell implementation
+- Tauri or GUI dependency additions
+
+Validation question: can read-only UI consumers reuse Core outputs without creating a second scanner, asset inventory, or history engine?
+
+## M1B - Desktop Alpha: Understand
 
 Target release family: candidate for v1.8.0 or later after M0 acceptance.
 
@@ -35,7 +57,7 @@ Candidate scope:
 - plain-language explanations
 - read-only Activity from existing snapshots/history where feasible
 
-Safety: read-only.
+Safety: read-only. This milestone should use the M1A read-only boundary for scan, asset inventory, and history. It does not require cleanup, quarantine, or restore refactoring to be complete before a read-only Desktop Alpha.
 
 Validation question: can a beginner understand what is taking space and why?
 

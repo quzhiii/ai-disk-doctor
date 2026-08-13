@@ -5,7 +5,7 @@ This file is the persistent instruction layer for coding agents working in this 
 ## 1. Product Direction
 
 - Product decision: AI Disk Doctor is a local-first storage, recovery, and AI-workspace health product for machines used with AI tools.
-- Current repo fact: the public repository currently contains the `aidisk` Rust CLI/Core, local dashboard generation, rules, scripts, release workflows, and Skill wrappers.
+- Current repo fact: the public repository currently contains the `aidisk` Rust CLI/Core, read-only Core application boundary, local dashboard generation, rules, scripts, release workflows, and Skill wrappers.
 - Product decision: the CLI/Core remains the execution authority for scan, plan, safety policy, quarantine, restore, history, diff, anomaly, reporting, rules, and model inventory.
 - Product decision: a future Desktop must reuse the same execution truth instead of creating another cleanup engine.
 
@@ -61,7 +61,10 @@ Treat changes to these areas as high risk and request line-by-line review in the
 ## 7. Repository Map
 
 - `aidisk/` - Rust CLI/Core crate.
-- `aidisk/src/main.rs` - CLI entrypoint and command wiring.
+- `aidisk/src/lib.rs` - library crate boundary; exposes `aidisk::application` and the binary entrypoint shim.
+- `aidisk/src/application.rs` - public read-only Core application boundary for scan, AI asset inventory, and history metadata.
+- `aidisk/src/main.rs` - thin binary entrypoint.
+- `aidisk/src/cli.rs` - internal CLI command wiring and rendering orchestration.
 - `aidisk/src/scanner.rs` - rule-driven scans, path sizing, snapshots, summary metrics.
 - `aidisk/src/planner.rs` - dry-run cleanup planning and policy gates.
 - `aidisk/src/cleaner.rs` - quarantine, journal, and restore execution.
@@ -119,6 +122,7 @@ If several answers are no, defer the feature.
 - `docs/product/ROADMAP_2026_H2.md` - current roadmap after M0 acceptance.
 - `docs/product/COLLABORATION_PROTOCOL.md` - Web ChatGPT <-> Local Agent process.
 - `docs/adr/0001-desktop-architecture.md` - Desktop architecture ADR/spike.
+- `docs/adr/0002-m1a-readonly-core-application-boundary.md` - M1A read-only Core application boundary implementation note.
 
 ## 12. Web <-> Local Agent PR Handoff Protocol
 

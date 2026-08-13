@@ -10,6 +10,11 @@ User / AI Agent
        v
    aidisk CLI
        |
+       +-- Internal CLI orchestration (`src/cli.rs`)
+       +-- Read-only application boundary (`aidisk::application`)
+       |       +-- Scan / scan progress
+       |       +-- AI asset inventory
+       |       +-- History snapshot metadata
        +-- Policy and config loader
        +-- Rules engine
        +-- Scanner
@@ -40,6 +45,8 @@ developer / Agent                     human-first UI
 ```
 
 The Desktop must be an adapter over shared Core/domain services. It must not create its own scanner, planner, cleaner, restore engine, risk model, or path policy.
+
+Current repo fact: M1A adds a public read-only Core application boundary for scan, AI asset inventory, and history metadata. It does not implement Desktop, Tauri, Desktop packaging, or mutation-side application services.
 
 ## Core Responsibilities
 
@@ -87,7 +94,9 @@ Shared application/domain service
        CLI          Desktop adapter
 ```
 
-Current gap: `aidisk/src/main.rs` wires command-specific orchestration directly. Future milestones should extract shared application/domain services before any Desktop starts invoking cleanup or restore flows. M0 does not perform that refactor.
+Current repo fact: `aidisk/src/main.rs` is now a thin binary entrypoint, CLI orchestration lives in internal `aidisk/src/cli.rs`, and `aidisk::application` provides the M1A read-only shared boundary for scan, AI asset inventory, and history metadata.
+
+Current remaining gap: mutation-side shared application services for clean/quarantine/restore are not established. Future milestones must still avoid Desktop-specific cleanup, restore, risk, or path-policy logic.
 
 ## Recovery Intelligence Layer
 

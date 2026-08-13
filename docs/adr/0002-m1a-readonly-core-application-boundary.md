@@ -53,6 +53,8 @@ The binary entrypoint is now intentionally thin: `src/main.rs` delegates to `aid
 
 Snapshot persistence is explicit at the application boundary. CLI `aidisk scan` continues to request `SnapshotPersistence::Save`, preserving current snapshot/history behavior. Future read-only UI consumers can request `SnapshotPersistence::Skip` when they need scan computation without writing an AI Disk Doctor-owned snapshot.
 
+Rules-repository resolution follows the existing rules repo subsystem. Local rules directory/repository resolution can be read-only. When a caller explicitly requests a remote HTTPS rules repository, resolution may access the network and create/update an AI Disk Doctor-owned shallow clone cache under `.aidisk/rules-repos`. M1A does not redesign that subsystem.
+
 ### AI Asset Inventory
 
 `application::AssetInventoryRequest` includes root, tool, max depth, and stale cutoff. `application::inventory_assets` delegates to existing `model_inventory::build_inventory` and returns the existing `ModelInventoryReport` shape. It does not add providers or reimplement Ollama, Hugging Face, LM Studio, or generic model detection.
@@ -92,7 +94,7 @@ M1A is intended to preserve existing CLI behavior:
 
 ## Safety
 
-The application boundary is read-only with respect to user/workspace content. The only write option in this boundary is explicit AI Disk Doctor-owned snapshot persistence under the reports directory, preserving current scan history behavior while allowing future consumers to skip it.
+The application boundary is read-only with respect to user/workspace content. It does not move, delete, or modify user/workspace files and does not expose cleanup, quarantine, or restore execution services. Explicit AI Disk Doctor-owned side effects may include scan snapshot persistence and, when a remote rules repository is requested, rules-repository cache creation/network clone under `.aidisk/rules-repos`.
 
 M1A does not add:
 

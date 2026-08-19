@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::Serialize;
 
+use crate::explainability;
+pub use crate::explainability::ExplainabilityReport;
 use crate::history;
 pub use crate::history::ScanSnapshot;
 use crate::model_inventory;
@@ -36,6 +38,17 @@ pub struct ScanResult {
     pub report: ScanReport,
     pub snapshot_path: Option<PathBuf>,
     pub rules_dir: PathBuf,
+}
+
+#[derive(Debug)]
+pub struct ExplainableScanResult {
+    pub scan: ScanResult,
+    pub explainability: ExplainabilityReport,
+}
+
+struct ScanExecution {
+    result: ScanResult,
+    rules: Vec<Rule>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +107,36 @@ pub fn run_scan_with_progress<F>(request: ScanRequest, on_progress: F) -> Result
 where
     F: FnMut(ScanProgressEvent<'_>),
 {
+    Ok(run_scan_execution_with_progress(request, on_progress)?.result)
+}
+
+pub fn run_explainable_scan(request: ScanRequest) -> Result<ExplainableScanResult> {
+    run_explainable_scan_with_progress(request, |_| {})
+}
+
+pub fn run_explainable_scan_with_progress<F>(
+    request: ScanRequest,
+    on_progress: F,
+) -> Result<ExplainableScanResult>
+where
+    F: FnMut(ScanProgressEvent<'_>),
+{
+    let execution = run_scan_execution_with_progress(request, on_progress)?;
+    let explainability = explainability::build(&execution.result.report, &execution.rules);
+
+    Ok(ExplainableScanResult {
+        scan: execution.result,
+        explainability,
+    })
+}
+
+fn run_scan_execution_with_progress<F>(
+    request: ScanRequest,
+    on_progress: F,
+) -> Result<ScanExecution>
+where
+    F: FnMut(ScanProgressEvent<'_>),
+{
     let rules_dir = resolve_rules_dir(
         request.rules_dir,
         request.rules_repo,
@@ -115,10 +158,13 @@ where
         SnapshotPersistence::Skip => None,
     };
 
-    Ok(ScanResult {
-        report,
-        snapshot_path,
-        rules_dir,
+    Ok(ScanExecution {
+        result: ScanResult {
+            report,
+            snapshot_path,
+            rules_dir,
+        },
+        rules,
     })
 }
 
@@ -213,8 +259,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        inventory_assets, read_history, run_scan, ApplicationInventoryTool, AssetInventoryRequest,
-        HistoryRequest, ScanRequest, SnapshotPersistence,
+        inventory_assets, read_history, run_explainable_scan, run_scan, ApplicationInventoryTool,
+        AssetInventoryRequest, HistoryRequest, ScanRequest, SnapshotPersistence,
     };
 
     fn write_policy(path: &std::path::Path) {
@@ -294,6 +340,41 @@ warnings: []
         assert!(
             !temp.path().join("reports").exists(),
             "explicit Skip must not create AI Disk Doctor snapshots"
+        );
+    }
+
+    #[test]
+    fn explainable_scan_boundary_adds_contract_without_changing_scan_result() {
+        let temp = tempdir().expect("tempdir should exist");
+        let rules_dir = temp.path().join("rules");
+        let cache = temp.path().join("cache");
+        let policy = temp.path().join("policy.yaml");
+        fs::create_dir_all(&rules_dir).expect("rules dir should exist");
+        fs::create_dir_all(&cache).expect("cache dir should exist");
+        fs::write(cache.join("artifact.bin"), vec![0_u8; 12]).expect("artifact should write");
+        write_rule(&rules_dir.join("cache.yaml"), &cache);
+        write_policy(&policy);
+
+        let result = run_explainable_scan(ScanRequest {
+            rules_dir: Some(rules_dir.clone()),
+            rules_repo: None,
+            category: Some("test".to_string()),
+            policy: Some(policy),
+            default_rules_dir: temp.path().join("unused-rules"),
+            default_policy_path: temp.path().join("unused-policy.yaml"),
+            reports_dir: Some(temp.path().join("reports")),
+            persist_snapshot: SnapshotPersistence::Skip,
+        })
+        .expect("explainable scan boundary should run");
+
+        assert_eq!(result.scan.rules_dir, rules_dir);
+        assert_eq!(result.scan.report.summary.observed_bytes, 12);
+        assert_eq!(result.explainability.contract, "explainability-v1");
+        assert_eq!(result.explainability.storage.observed_bytes, 12);
+        assert_eq!(result.explainability.categories.len(), 1);
+        assert!(
+            !temp.path().join("reports").exists(),
+            "snapshot skip must not create reports as a side effect"
         );
     }
 

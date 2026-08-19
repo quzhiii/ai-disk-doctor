@@ -4,6 +4,7 @@ mod cleaner;
 mod cli;
 mod diff;
 mod doctor;
+pub mod explainability;
 pub(crate) mod history;
 pub(crate) mod model_inventory;
 mod planner;

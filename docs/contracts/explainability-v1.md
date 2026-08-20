@@ -66,9 +66,15 @@ Handling and risk are independent. A finding may be `risk = review` and `handlin
 
 ## Evidence State
 
-`evidence.status` is `complete` when the scan has no partial bytes, otherwise `partial`.
+`evidence.status` is `partial` when the scan reports any partial finding evidence, including a
+partial finding whose currently observed byte count is zero. The status is also partial when
+partial bytes are present, even if a malformed or older report does not provide a partial-finding
+count. Zero observed bytes do not prove complete discovery.
 
-`evidence.partial_findings` is the number of partial findings. `evidence.warnings[]` contains stable warning codes plus language-neutral source text from rules or scanner partial reasons.
+`evidence.partial_findings` is the number of partial findings. `evidence.warnings[]` contains stable
+warning codes plus language-neutral source text from rules or scanner partial reasons. Any partial
+finding emits `partial-lower-bound`, including zero-byte partial findings, so consumers can explain
+that discovery is incomplete and the totals are lower bounds.
 
 Consumers must retain `partial` and `unknown` labels. They must not infer complete discovery, action eligibility, or recoverability from missing evidence.
 
@@ -113,7 +119,7 @@ The contract does not read file contents, prompts, transcripts, source files, do
 
 ## Volume Mapping
 
-`volumes[]` mirrors scanner volume metadata. Each path group may include a `volume` reference when Core can match the path to a known mount point. Matching normalizes path separators and case, uses the longest matching mount point, and requires either exact match or a path boundary after the mount. Empty mount points do not match. If no volume matches, `volume` is `null`; unknown remains unknown.
+`volumes[]` mirrors scanner volume metadata. Each path group may include a `volume` reference when Core can match the path to a known mount point. Matching normalizes path separators and uses the longest matching mount point, and requires either exact match or a path boundary after the mount. Windows drive-style paths use case-insensitive comparison; Unix-style paths preserve case. Empty mount points do not match. If no volume matches, `volume` is `null`; unknown remains unknown.
 
 ## Rationale And Provenance
 

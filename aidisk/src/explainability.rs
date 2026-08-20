@@ -390,7 +390,7 @@ pub(crate) fn build(report: &ScanReport, rules: &[Rule]) -> ExplainabilityReport
             system_bytes: report.summary.system_bytes,
         },
         evidence: EvidenceSummary {
-            status: if report.summary.partial_bytes > 0 {
+            status: if has_partial_evidence(report) {
                 EvidenceStatus::Partial
             } else {
                 EvidenceStatus::Complete
@@ -651,18 +651,53 @@ fn path_matches_mount(path: &str, mount_point: &str) -> bool {
     if mount_point.trim().is_empty() {
         return false;
     }
-    let path = normalize_path(path);
-    let mount = normalize_path(mount_point);
+    let semantics = PathSemantics::for_paths(path, mount_point);
+    let path = normalize_path(path, semantics);
+    let mount = normalize_path(mount_point, semantics);
     path == mount || path.starts_with(&(mount.trim_end_matches('/').to_string() + "/"))
 }
 
-fn normalize_path(path: &str) -> String {
-    path.replace('\\', "/").to_ascii_lowercase()
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PathSemantics {
+    Windows,
+    Unix,
+}
+
+impl PathSemantics {
+    fn for_paths(path: &str, mount_point: &str) -> Self {
+        if is_windows_path(path) || is_windows_path(mount_point) {
+            Self::Windows
+        } else {
+            Self::Unix
+        }
+    }
+}
+
+fn is_windows_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'\\' | b'/')
+}
+
+fn normalize_path(path: &str, semantics: PathSemantics) -> String {
+    let normalized = path.replace('\\', "/");
+    match semantics {
+        PathSemantics::Windows => normalized.to_ascii_lowercase(),
+        PathSemantics::Unix => normalized,
+    }
+}
+
+fn has_partial_evidence(report: &ScanReport) -> bool {
+    report.summary.partial_findings > 0
+        || report.summary.partial_bytes > 0
+        || report.findings.iter().any(|finding| finding.partial)
 }
 
 fn collect_report_warnings(report: &ScanReport) -> Vec<EvidenceWarning> {
     let mut warnings = Vec::new();
-    if report.summary.partial_bytes > 0 {
+    if has_partial_evidence(report) {
         push_warning(
             &mut warnings,
             EvidenceWarningCode::PartialLowerBound,
@@ -1026,6 +1061,36 @@ mod tests {
     }
 
     #[test]
+    fn zero_byte_partial_findings_remain_partial_and_warn_about_lower_bound() {
+        let scan = report(
+            vec![finding(
+                "partial-zero",
+                "C:\\AI\\incomplete",
+                0,
+                true,
+                RiskLevel::Review,
+                "report-only",
+            )],
+            Summary {
+                partial_findings: 1,
+                ..Summary::default()
+            },
+            Vec::new(),
+        );
+
+        let contract = build(&scan, &[]);
+
+        assert_eq!(contract.evidence.status, EvidenceStatus::Partial);
+        assert_eq!(contract.evidence.partial_findings, 1);
+        assert!(contract
+            .evidence
+            .warnings
+            .iter()
+            .any(|warning| warning.code == EvidenceWarningCode::PartialLowerBound));
+        assert!(contract.categories[0].rules[0].path_groups[0].partial);
+    }
+
+    #[test]
     fn groups_multiple_findings_by_rule_path_and_reports_byte_accounting() {
         let scan = report(
             vec![
@@ -1151,5 +1216,66 @@ mod tests {
         assert!(matching_volume("D:\\AI", &volumes).is_none());
         assert!(!path_matches_mount("C:\\AI2", "C:\\AI"));
         assert!(!path_matches_mount("C:\\AI", ""));
+    }
+
+    #[test]
+    fn windows_volume_matching_normalizes_separators_and_drive_case() {
+        let volumes = vec![Volume {
+            name: "Windows".to_string(),
+            mount_point: "C:\\".to_string(),
+            total_bytes: 100,
+            available_bytes: 50,
+        }];
+
+        assert_eq!(
+            matching_volume("c:/AI/Models", &volumes).unwrap().name,
+            "Windows"
+        );
+    }
+
+    #[test]
+    fn unix_volume_matching_preserves_case() {
+        let volumes = vec![Volume {
+            name: "Cache".to_string(),
+            mount_point: "/mnt/cache".to_string(),
+            total_bytes: 100,
+            available_bytes: 50,
+        }];
+
+        assert!(matching_volume("/mnt/Cache/models", &volumes).is_none());
+        assert_eq!(
+            matching_volume("/mnt/cache/models", &volumes).unwrap().name,
+            "Cache"
+        );
+    }
+
+    #[test]
+    fn volume_matching_requires_boundaries_and_keeps_unknown_paths_unknown() {
+        let volumes = vec![
+            Volume {
+                name: "Root".to_string(),
+                mount_point: "/mnt".to_string(),
+                total_bytes: 100,
+                available_bytes: 50,
+            },
+            Volume {
+                name: "Cache".to_string(),
+                mount_point: "/mnt/cache".to_string(),
+                total_bytes: 80,
+                available_bytes: 40,
+            },
+        ];
+
+        assert_eq!(
+            matching_volume("/mnt/cache/models", &volumes).unwrap().name,
+            "Cache"
+        );
+        assert_eq!(
+            matching_volume("/mnt/cache2/models", &volumes)
+                .unwrap()
+                .name,
+            "Root"
+        );
+        assert!(matching_volume("/other/models", &volumes).is_none());
     }
 }

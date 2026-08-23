@@ -3,12 +3,16 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::{ProgressBar, ProgressStyle};
+use serde::Serialize;
 
 use crate::application::ApplicationInventoryTool;
 use crate::{
-    anomaly, application, cleaner, diff, doctor, history, model_inventory, planner, reporter,
-    rules, rules_repo, scanner, visualize,
+    anomaly, application, cleaner, diff, doctor, explainability, history, model_inventory, planner,
+    reporter, rules, rules_repo, scanner, visualize,
 };
+
+const AGENT_DIAGNOSTIC_CLI_CONTRACT: &str = "agent-diagnostic-cli-v1";
+const AGENT_CAPABILITIES_CONTRACT: &str = "agent-capabilities-v1";
 
 #[derive(Parser, Debug)]
 #[command(name = "aidisk")]
@@ -20,6 +24,18 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
+    Explain {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long, value_enum, default_value_t = SnapshotMode::Save)]
+        snapshot: SnapshotMode,
+    },
+    Capabilities {
+        #[arg(long)]
+        json: bool,
+    },
     Scan {
         #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
         format: OutputFormat,
@@ -195,6 +211,54 @@ enum Command {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum SnapshotMode {
+    Save,
+    Skip,
+}
+
+#[derive(Debug, Serialize)]
+struct ExplainCliOutput {
+    ok: bool,
+    command: &'static str,
+    contract: &'static str,
+    schema_version: u16,
+    core_version: &'static str,
+    snapshot: SnapshotOutput,
+    explainability: application::ExplainabilityReport,
+}
+
+#[derive(Debug, Serialize)]
+struct SnapshotOutput {
+    requested: &'static str,
+    persisted: bool,
+    path: Option<PathBuf>,
+}
+
+#[derive(Debug, Serialize)]
+struct CapabilitiesOutput {
+    ok: bool,
+    command: &'static str,
+    contract: &'static str,
+    schema_version: u16,
+    core_version: &'static str,
+    capabilities: AgentCapabilities,
+}
+
+#[derive(Debug, Serialize)]
+struct AgentCapabilities {
+    explainability: ExplainabilityCapabilities,
+}
+
+#[derive(Debug, Serialize)]
+struct ExplainabilityCapabilities {
+    contract: &'static str,
+    schema_versions: Vec<u16>,
+    cli_available: bool,
+    snapshot_modes: Vec<&'static str>,
+    bounded_path_groups: bool,
+}
+
 #[derive(Subcommand, Debug)]
 enum RulesCommand {
     Lint {
@@ -292,6 +356,72 @@ pub fn run_from_env() -> std::process::ExitCode {
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Command::Explain {
+            json,
+            category,
+            snapshot,
+        } => {
+            if !json {
+                anyhow::bail!("explain requires --json");
+            }
+
+            let persist_snapshot = match snapshot {
+                SnapshotMode::Save => application::SnapshotPersistence::Save,
+                SnapshotMode::Skip => application::SnapshotPersistence::Skip,
+            };
+            let result = application::run_explainable_scan(application::ScanRequest {
+                rules_dir: None,
+                rules_repo: None,
+                category,
+                policy: None,
+                default_rules_dir: default_rules_dir(),
+                default_policy_path: default_policy_path(),
+                reports_dir: None,
+                persist_snapshot,
+            })?;
+            let persisted = result.scan.snapshot_path.is_some();
+            let requested = match snapshot {
+                SnapshotMode::Save => "save",
+                SnapshotMode::Skip => "skip",
+            };
+            let output = ExplainCliOutput {
+                ok: true,
+                command: "explain",
+                contract: AGENT_DIAGNOSTIC_CLI_CONTRACT,
+                schema_version: 1,
+                core_version: env!("CARGO_PKG_VERSION"),
+                snapshot: SnapshotOutput {
+                    requested,
+                    persisted,
+                    path: result.scan.snapshot_path,
+                },
+                explainability: result.explainability,
+            };
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        }
+        Command::Capabilities { json } => {
+            if !json {
+                anyhow::bail!("capabilities requires --json");
+            }
+
+            let output = CapabilitiesOutput {
+                ok: true,
+                command: "capabilities",
+                contract: AGENT_CAPABILITIES_CONTRACT,
+                schema_version: 1,
+                core_version: env!("CARGO_PKG_VERSION"),
+                capabilities: AgentCapabilities {
+                    explainability: ExplainabilityCapabilities {
+                        contract: explainability::EXPLAINABILITY_CONTRACT,
+                        schema_versions: vec![explainability::EXPLAINABILITY_SCHEMA_VERSION],
+                        cli_available: true,
+                        snapshot_modes: vec!["save", "skip"],
+                        bounded_path_groups: true,
+                    },
+                },
+            };
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        }
         Command::Scan {
             format,
             json,
@@ -964,6 +1094,8 @@ impl ErrorContext {
             .iter()
             .skip(1)
             .find_map(|arg| match arg.as_str() {
+                "explain" => Some("explain"),
+                "capabilities" => Some("capabilities"),
                 "scan" => Some("scan"),
                 "plan" => Some("plan"),
                 "clean" => Some("clean"),
@@ -988,6 +1120,22 @@ impl ErrorContext {
 
     fn from_command(command: &Command) -> Self {
         match command {
+            Command::Explain { json, .. } => Self {
+                command: "explain",
+                format: if *json {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Text
+                },
+            },
+            Command::Capabilities { json } => Self {
+                command: "capabilities",
+                format: if *json {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Text
+                },
+            },
             Command::Scan {
                 format,
                 json,

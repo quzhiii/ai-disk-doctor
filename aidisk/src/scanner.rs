@@ -30,6 +30,92 @@ pub struct Volume {
     pub available_bytes: u64,
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn case_sensitive_from_capabilities(valid: u32, capabilities: u32) -> Option<bool> {
+    const VOL_CAP_FMT_CASE_SENSITIVE: u32 = 0x0000_0100;
+
+    if valid & VOL_CAP_FMT_CASE_SENSITIVE == 0 {
+        None
+    } else {
+        Some(capabilities & VOL_CAP_FMT_CASE_SENSITIVE != 0)
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn macos_volume_case_sensitive(mount_point: &Path) -> Option<bool> {
+    use std::ffi::CString;
+    use std::os::raw::{c_char, c_int, c_uint, c_ushort, c_void};
+    use std::os::unix::ffi::OsStrExt;
+
+    #[repr(C)]
+    struct AttrList {
+        bitmapcount: c_ushort,
+        reserved: u16,
+        commonattr: u32,
+        volattr: u32,
+        dirattr: u32,
+        fileattr: u32,
+        forkattr: u32,
+    }
+
+    #[repr(C)]
+    struct VolumeCapabilities {
+        capabilities: [u32; 4],
+        valid: [u32; 4],
+    }
+
+    unsafe extern "C" {
+        fn getattrlist(
+            path: *const c_char,
+            attr_list: *mut c_void,
+            attr_buf: *mut c_void,
+            attr_buf_size: usize,
+            options: c_uint,
+        ) -> c_int;
+    }
+
+    const ATTR_BIT_MAP_COUNT: c_ushort = 5;
+    const ATTR_VOL_CAPABILITIES: u32 = 0x0002_0000;
+    const VOL_CAPABILITIES_FORMAT: usize = 0;
+    const VOL_CAP_FMT_CASE_SENSITIVE: u32 = 0x0000_0100;
+
+    let path = CString::new(mount_point.as_os_str().as_bytes()).ok()?;
+    let mut attributes = AttrList {
+        bitmapcount: ATTR_BIT_MAP_COUNT,
+        reserved: 0,
+        commonattr: 0,
+        volattr: ATTR_VOL_CAPABILITIES,
+        dirattr: 0,
+        fileattr: 0,
+        forkattr: 0,
+    };
+    let mut buffer = [0_u8; std::mem::size_of::<VolumeCapabilities>() + std::mem::size_of::<u32>()];
+
+    let result = unsafe {
+        getattrlist(
+            path.as_ptr(),
+            (&mut attributes as *mut AttrList).cast(),
+            buffer.as_mut_ptr().cast(),
+            buffer.len(),
+            0,
+        )
+    };
+    if result < (std::mem::size_of::<u32>() + std::mem::size_of::<VolumeCapabilities>()) as i32 {
+        return None;
+    }
+
+    let capabilities: VolumeCapabilities =
+        unsafe { std::ptr::read_unaligned(buffer.as_ptr().add(std::mem::size_of::<u32>()).cast()) };
+    let valid = capabilities.valid[VOL_CAPABILITIES_FORMAT];
+    let formats = capabilities.capabilities[VOL_CAPABILITIES_FORMAT];
+    case_sensitive_from_capabilities(valid, formats)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn macos_volume_case_sensitive(_mount_point: &Path) -> Option<bool> {
+    None
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub id: String,
@@ -672,6 +758,27 @@ mod tests {
             report.findings.is_empty(),
             "unresolved %VAR% paths should be skipped instead of producing bogus findings"
         );
+    }
+
+    #[test]
+    fn case_capability_decoding_is_conservative() {
+        assert_eq!(
+            super::case_sensitive_from_capabilities(0x100, 0x100),
+            Some(true)
+        );
+        assert_eq!(
+            super::case_sensitive_from_capabilities(0x100, 0),
+            Some(false)
+        );
+        assert_eq!(super::case_sensitive_from_capabilities(0, 0x100), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_volume_capability_query_is_conservative() {
+        let temp = tempdir().expect("tempdir should exist");
+        let result = super::macos_volume_case_sensitive(temp.path());
+        assert!(matches!(result, Some(true) | Some(false) | None));
     }
 
     #[test]

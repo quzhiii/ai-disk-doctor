@@ -18,7 +18,9 @@ This index is the supersession map for current, historical, implementation, and 
 | `product/COLLABORATION_PROTOCOL.md` | Web ChatGPT <-> Local Agent handoff process |
 | `adr/0001-desktop-architecture.md` | Desktop architecture ADR/spike |
 | `adr/0002-m1a-readonly-core-application-boundary.md` | M1A read-only Core application boundary implementation note |
+| `adr/0003-agent-diagnostic-cli-bridge.md` | M1D Agent diagnostic CLI bridge decision |
 | `contracts/explainability-v1.md` | stable read-only downstream explainability contract |
+| `contracts/agent-diagnostic-cli-v1.md` | stable bounded Agent diagnostic and capability CLI contract |
 
 ## Implementation / Reference Docs That Remain Useful
 

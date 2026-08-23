@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::rules::{RiskLevel, Rule};
-use crate::scanner::{Finding, ScanReport, Volume};
+use crate::scanner::{self, Finding, ScanReport, Volume};
 
 pub const EXPLAINABILITY_CONTRACT: &str = "explainability-v1";
 pub const EXPLAINABILITY_SCHEMA_VERSION: u16 = 1;
@@ -639,7 +639,7 @@ fn volume_explanation(volume: &Volume) -> VolumeExplanation {
 fn matching_volume(path: &str, volumes: &[Volume]) -> Option<VolumeReference> {
     volumes
         .iter()
-        .filter(|volume| path_matches_mount(path, &volume.mount_point))
+        .filter(|volume| path_matches_mount(path, volume))
         .max_by_key(|volume| volume.mount_point.len())
         .map(|volume| VolumeReference {
             name: volume.name.clone(),
@@ -647,28 +647,34 @@ fn matching_volume(path: &str, volumes: &[Volume]) -> Option<VolumeReference> {
         })
 }
 
-fn path_matches_mount(path: &str, mount_point: &str) -> bool {
-    if mount_point.trim().is_empty() {
+fn path_matches_mount(path: &str, volume: &Volume) -> bool {
+    if volume.mount_point.trim().is_empty() {
         return false;
     }
-    let semantics = PathSemantics::for_paths(path, mount_point);
+    let semantics = PathSemantics::for_volume(path, volume);
     let path = normalize_path(path, semantics);
-    let mount = normalize_path(mount_point, semantics);
+    let mount = normalize_path(&volume.mount_point, semantics);
     path == mount || path.starts_with(&(mount.trim_end_matches('/').to_string() + "/"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PathSemantics {
     Windows,
-    Unix,
+    CaseSensitive,
+    CaseInsensitive,
 }
 
 impl PathSemantics {
-    fn for_paths(path: &str, mount_point: &str) -> Self {
-        if is_windows_path(path) || is_windows_path(mount_point) {
+    fn for_volume(path: &str, volume: &Volume) -> Self {
+        if is_windows_path(path) || is_windows_path(&volume.mount_point) {
             Self::Windows
+        } else if cfg!(target_os = "macos") {
+            match scanner::macos_volume_case_sensitive(std::path::Path::new(&volume.mount_point)) {
+                Some(true) | None => Self::CaseSensitive,
+                Some(false) => Self::CaseInsensitive,
+            }
         } else {
-            Self::Unix
+            Self::CaseSensitive
         }
     }
 }
@@ -684,8 +690,8 @@ fn is_windows_path(path: &str) -> bool {
 fn normalize_path(path: &str, semantics: PathSemantics) -> String {
     let normalized = path.replace('\\', "/");
     match semantics {
-        PathSemantics::Windows => normalized.to_ascii_lowercase(),
-        PathSemantics::Unix => normalized,
+        PathSemantics::Windows | PathSemantics::CaseInsensitive => normalized.to_ascii_lowercase(),
+        PathSemantics::CaseSensitive => normalized,
     }
 }
 
@@ -1214,8 +1220,24 @@ mod tests {
             "System"
         );
         assert!(matching_volume("D:\\AI", &volumes).is_none());
-        assert!(!path_matches_mount("C:\\AI2", "C:\\AI"));
-        assert!(!path_matches_mount("C:\\AI", ""));
+        assert!(!path_matches_mount(
+            "C:\\AI2",
+            &Volume {
+                name: "Nested".to_string(),
+                mount_point: "C:\\AI".to_string(),
+                total_bytes: 80,
+                available_bytes: 40,
+            }
+        ));
+        assert!(!path_matches_mount(
+            "C:\\AI",
+            &Volume {
+                name: "Unknown".to_string(),
+                mount_point: String::new(),
+                total_bytes: 0,
+                available_bytes: 0,
+            }
+        ));
     }
 
     #[test]
@@ -1277,5 +1299,22 @@ mod tests {
             "Root"
         );
         assert!(matching_volume("/other/models", &volumes).is_none());
+    }
+
+    #[test]
+    fn macos_unknown_case_semantics_fail_closed() {
+        let volume = Volume {
+            name: "Cache".to_string(),
+            mount_point: "/mnt/cache".to_string(),
+            total_bytes: 100,
+            available_bytes: 50,
+        };
+
+        assert!(!matches!(
+            PathSemantics::CaseSensitive,
+            PathSemantics::CaseInsensitive
+        ));
+        assert!(!path_matches_mount("/mnt/Cache/models", &volume));
+        assert!(path_matches_mount("/mnt/cache/models", &volume));
     }
 }

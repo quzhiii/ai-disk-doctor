@@ -3,6 +3,14 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::Serialize;
 
+use crate::action_proposal;
+pub use crate::action_proposal::{
+    ActionProposal, ActionProposalSet, EvidenceReferences, EvidenceState, FindingReference,
+    ImpactConfidence, ImpactEstimate, ImpactNonGuarantee, ProposalActionType, ProposalBlocker,
+    ProposalBlockerCode, ProposalDecision, ProposalEligibility, ProposalRationale,
+    ProposalReasonCode, ProposalSafety, ProposalScope, ProposalSetScope, ProposalSummary,
+    RiskEvidence, ScanReference, ACTION_PROPOSAL_CONTRACT, ACTION_PROPOSAL_SCHEMA_VERSION,
+};
 use crate::explainability;
 pub use crate::explainability::ExplainabilityReport;
 use crate::history;
@@ -44,6 +52,13 @@ pub struct ScanResult {
 pub struct ExplainableScanResult {
     pub scan: ScanResult,
     pub explainability: ExplainabilityReport,
+}
+
+#[derive(Debug)]
+pub struct ActionProposalResult {
+    pub scan: ScanResult,
+    pub explainability: ExplainabilityReport,
+    pub proposals: ActionProposalSet,
 }
 
 struct ScanExecution {
@@ -127,6 +142,31 @@ where
     Ok(ExplainableScanResult {
         scan: execution.result,
         explainability,
+    })
+}
+
+pub fn run_action_proposals(request: ScanRequest) -> Result<ActionProposalResult> {
+    run_action_proposals_with_progress(request, |_| {})
+}
+
+pub fn run_action_proposals_with_progress<F>(
+    request: ScanRequest,
+    on_progress: F,
+) -> Result<ActionProposalResult>
+where
+    F: FnMut(ScanProgressEvent<'_>),
+{
+    let explainable = run_explainable_scan_with_progress(request, on_progress)?;
+    let proposals = action_proposal::build(
+        &explainable.explainability,
+        &explainable.scan.report.scan_time,
+        explainable.scan.snapshot_path.clone(),
+    );
+
+    Ok(ActionProposalResult {
+        scan: explainable.scan,
+        explainability: explainable.explainability,
+        proposals,
     })
 }
 
@@ -259,8 +299,9 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        inventory_assets, read_history, run_explainable_scan, run_scan, ApplicationInventoryTool,
-        AssetInventoryRequest, HistoryRequest, ScanRequest, SnapshotPersistence,
+        inventory_assets, read_history, run_action_proposals, run_explainable_scan, run_scan,
+        ApplicationInventoryTool, AssetInventoryRequest, HistoryRequest, ScanRequest,
+        SnapshotPersistence,
     };
 
     fn write_policy(path: &std::path::Path) {
@@ -376,6 +417,49 @@ warnings: []
             !temp.path().join("reports").exists(),
             "snapshot skip must not create reports as a side effect"
         );
+    }
+
+    #[test]
+    fn action_proposal_boundary_is_read_only_and_reuses_explainability() {
+        let temp = tempdir().expect("tempdir should exist");
+        let rules_dir = temp.path().join("rules");
+        let cache = temp.path().join("cache");
+        let policy = temp.path().join("policy.yaml");
+        let source_file = cache.join("artifact.bin");
+        fs::create_dir_all(&rules_dir).expect("rules dir should exist");
+        fs::create_dir_all(&cache).expect("cache dir should exist");
+        fs::write(&source_file, vec![0_u8; 12]).expect("artifact should write");
+        write_rule_with_method(&rules_dir.join("cache.yaml"), &cache, "quarantine");
+        write_policy(&policy);
+
+        let result = run_action_proposals(ScanRequest {
+            rules_dir: Some(rules_dir),
+            rules_repo: None,
+            category: None,
+            policy: Some(policy),
+            default_rules_dir: temp.path().join("unused-rules"),
+            default_policy_path: temp.path().join("unused-policy.yaml"),
+            reports_dir: Some(temp.path().join("reports")),
+            persist_snapshot: SnapshotPersistence::Skip,
+        })
+        .expect("proposal boundary should run");
+
+        assert_eq!(result.proposals.contract, "action-proposal-v1");
+        assert!(result.proposals.safety.read_only);
+        assert!(!result.proposals.safety.mutation_authorized);
+        assert_eq!(
+            result.proposals.source_scan.evidence_contract,
+            "explainability-v1"
+        );
+        assert!(
+            source_file.exists(),
+            "proposal generation must not move or delete files"
+        );
+        assert!(
+            cache.exists(),
+            "proposal generation must not execute quarantine"
+        );
+        assert!(!temp.path().join("reports").exists());
     }
 
     #[test]

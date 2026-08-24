@@ -89,6 +89,22 @@ fn capabilities_is_structured_and_does_not_trigger_a_scan() {
         json["capabilities"]["explainability"]["snapshot_modes"][1],
         "skip"
     );
+    assert_eq!(
+        json["capabilities"]["action_proposals"]["contract"],
+        "action-proposal-v1"
+    );
+    assert_eq!(
+        json["capabilities"]["action_proposals"]["schema_versions"][0],
+        1
+    );
+    assert_eq!(
+        json["capabilities"]["action_proposals"]["read_only"],
+        serde_json::Value::Bool(true)
+    );
+    assert_eq!(
+        json["capabilities"]["action_proposals"]["mutation_authorized"],
+        serde_json::Value::Bool(false)
+    );
     assert!(!temp.path().join(".aidisk").exists());
 }
 

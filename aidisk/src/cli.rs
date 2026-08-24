@@ -7,8 +7,8 @@ use serde::Serialize;
 
 use crate::application::ApplicationInventoryTool;
 use crate::{
-    anomaly, application, cleaner, diff, doctor, explainability, history, model_inventory, planner,
-    reporter, rules, rules_repo, scanner, visualize,
+    action_proposal, anomaly, application, cleaner, diff, doctor, explainability, history,
+    model_inventory, planner, reporter, rules, rules_repo, scanner, visualize,
 };
 
 const AGENT_DIAGNOSTIC_CLI_CONTRACT: &str = "agent-diagnostic-cli-v1";
@@ -248,6 +248,7 @@ struct CapabilitiesOutput {
 #[derive(Debug, Serialize)]
 struct AgentCapabilities {
     explainability: ExplainabilityCapabilities,
+    action_proposals: ActionProposalCapabilities,
 }
 
 #[derive(Debug, Serialize)]
@@ -257,6 +258,16 @@ struct ExplainabilityCapabilities {
     cli_available: bool,
     snapshot_modes: Vec<&'static str>,
     bounded_path_groups: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionProposalCapabilities {
+    contract: &'static str,
+    schema_versions: Vec<u16>,
+    application_api_available: bool,
+    read_only: bool,
+    human_preview_required: bool,
+    mutation_authorized: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -417,6 +428,14 @@ fn run(cli: Cli) -> Result<()> {
                         cli_available: true,
                         snapshot_modes: vec!["save", "skip"],
                         bounded_path_groups: true,
+                    },
+                    action_proposals: ActionProposalCapabilities {
+                        contract: action_proposal::ACTION_PROPOSAL_CONTRACT,
+                        schema_versions: vec![action_proposal::ACTION_PROPOSAL_SCHEMA_VERSION],
+                        application_api_available: true,
+                        read_only: true,
+                        human_preview_required: true,
+                        mutation_authorized: false,
                     },
                 },
             };

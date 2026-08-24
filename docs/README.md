@@ -21,8 +21,10 @@ This index is the supersession map for current, historical, implementation, and 
 | `adr/0002-m1a-readonly-core-application-boundary.md` | M1A read-only Core application boundary implementation note |
 | `adr/0003-agent-diagnostic-cli-bridge.md` | M1D Agent diagnostic CLI bridge decision |
 | `adr/0004-safe-action-architecture.md` | M2 safe action architecture design gate |
+| `adr/0005-action-proposal-contract.md` | M2A.1 additive read-only Action Proposal contract |
 | `contracts/explainability-v1.md` | stable read-only downstream explainability contract |
 | `contracts/agent-diagnostic-cli-v1.md` | stable bounded Agent diagnostic and capability CLI contract |
+| `contracts/action-proposal-v1.md` | stable read-only downstream Action Proposal contract |
 
 ## Implementation / Reference Docs That Remain Useful
 

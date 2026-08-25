@@ -16,11 +16,15 @@ This index is the supersession map for current, historical, implementation, and 
 | `product/LICENSING_AND_COMMERCIAL_ARCHITECTURE.md` | licensing and commercial planning audit |
 | `product/ROADMAP_2026_H2.md` | proposed current roadmap after M0 acceptance |
 | `product/COLLABORATION_PROTOCOL.md` | Web ChatGPT <-> Local Agent handoff process |
+| `product/M2_SAFE_ACTION_DESIGN.md` | M2 safe action architecture design gate; implementation not authorized |
 | `adr/0001-desktop-architecture.md` | Desktop architecture ADR/spike |
 | `adr/0002-m1a-readonly-core-application-boundary.md` | M1A read-only Core application boundary implementation note |
 | `adr/0003-agent-diagnostic-cli-bridge.md` | M1D Agent diagnostic CLI bridge decision |
+| `adr/0004-safe-action-architecture.md` | M2 safe action architecture design gate |
+| `adr/0005-action-proposal-contract.md` | M2A.1 additive read-only Action Proposal contract |
 | `contracts/explainability-v1.md` | stable read-only downstream explainability contract |
 | `contracts/agent-diagnostic-cli-v1.md` | stable bounded Agent diagnostic and capability CLI contract |
+| `contracts/action-proposal-v1.md` | stable read-only downstream Action Proposal contract |
 
 ## Implementation / Reference Docs That Remain Useful
 

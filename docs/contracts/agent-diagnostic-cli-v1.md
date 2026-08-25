@@ -38,6 +38,14 @@ The Agent consumer uses only this fixed subset. Human commands retain their exis
       "cli_available": true,
       "snapshot_modes": ["save", "skip"],
       "bounded_path_groups": true
+    },
+    "action_proposals": {
+      "contract": "action-proposal-v1",
+      "schema_versions": [1],
+      "application_api_available": true,
+      "read_only": true,
+      "human_preview_required": true,
+      "mutation_authorized": false
     }
   }
 }
@@ -113,6 +121,7 @@ With `--json`, failures are emitted as one JSON document on stderr and stdout re
 - Handling and risk remain orthogonal.
 - This is additive. Existing `scan`, `history`, `clean`, `quarantine`, `restore`, and other human CLI behavior is unchanged.
 - The CLI envelope contract is separate from the embedded explainability contract so consumers can distinguish transport metadata from Core evidence.
+- `capabilities.action_proposals` advertises the additive read-only application contract. It does not add an `aidisk action-proposals` mutation command or imply that a proposal can be executed.
 
 ## Volume Evidence Note
 

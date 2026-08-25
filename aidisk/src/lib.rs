@@ -1,3 +1,4 @@
+mod action_proposal;
 mod anomaly;
 pub mod application;
 mod cleaner;

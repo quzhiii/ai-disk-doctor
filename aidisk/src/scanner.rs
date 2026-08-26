@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use chrono::{DateTime, Local};
-use glob::glob;
+use glob::{glob, Pattern};
 use serde::Serialize;
 use sysinfo::Disks;
 use walkdir::WalkDir;
@@ -210,6 +210,7 @@ where
 {
     let mut findings = Vec::new();
     let volumes = collect_volumes();
+    let mut shared_recursive_roots = SharedRecursiveRootCache::default();
     let mut summary = Summary {
         total_rules: rules.len(),
         rule_sources: rules
@@ -227,11 +228,10 @@ where
             rule_id: &rule.id,
         });
 
-        for raw_path in &rule.paths {
-            let Some(expanded_path) = expand_windows_path(raw_path) else {
-                continue;
-            };
-            let matched_paths = resolve_rule_paths(&expanded_path)?;
+        for resolved_path in resolve_rule_paths_for_rule(&rule.paths, &mut shared_recursive_roots)?
+        {
+            let expanded_path = resolved_path.expanded_path;
+            let matched_paths = resolved_path.matched_paths;
 
             if matched_paths.is_empty() {
                 if !seen_paths.insert(expanded_path.clone()) {
@@ -246,7 +246,7 @@ where
                     size_bytes: 0,
                     partial: false,
                     partial_reasons: Vec::new(),
-                    risk: rule.risk.clone(),
+                    risk: rule.risk,
                     action: rule.cleanup.method.clone(),
                     reason: rule.reason.clone(),
                     warnings: rule.warnings.clone(),
@@ -307,7 +307,7 @@ where
                     size_bytes,
                     partial: computed_size.partial,
                     partial_reasons: computed_size.partial_reasons,
-                    risk: rule.risk.clone(),
+                    risk: rule.risk,
                     action: rule.cleanup.method.clone(),
                     reason: rule.reason.clone(),
                     warnings: rule.warnings.clone(),
@@ -386,9 +386,155 @@ fn resolve_rule_paths(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(vec![path.to_path_buf()])
 }
 
+struct ResolvedRulePath {
+    expanded_path: PathBuf,
+    matched_paths: Vec<PathBuf>,
+}
+
+struct SharedRecursivePattern {
+    index: usize,
+    expanded_path: PathBuf,
+    pattern: Pattern,
+}
+
+#[derive(Default)]
+struct SharedRecursiveRootCache {
+    candidates: BTreeMap<String, Vec<PathBuf>>,
+}
+
+struct SharedRecursiveGroup {
+    root: PathBuf,
+    patterns: Vec<SharedRecursivePattern>,
+}
+
+fn resolve_rule_paths_for_rule(
+    raw_paths: &[String],
+    shared_roots: &mut SharedRecursiveRootCache,
+) -> Result<Vec<ResolvedRulePath>> {
+    let mut resolved: Vec<Option<ResolvedRulePath>> = (0..raw_paths.len()).map(|_| None).collect();
+    let mut shared_groups: BTreeMap<String, SharedRecursiveGroup> = BTreeMap::new();
+
+    for (index, raw_path) in raw_paths.iter().enumerate() {
+        let Some(expanded_path) = expand_windows_path(raw_path) else {
+            continue;
+        };
+
+        if let Some((root, pattern)) = shared_recursive_pattern(&expanded_path)? {
+            let key = shared_root_key(&root);
+            shared_groups
+                .entry(key)
+                .or_insert_with(|| SharedRecursiveGroup {
+                    root,
+                    patterns: Vec::new(),
+                })
+                .patterns
+                .push(SharedRecursivePattern {
+                    index,
+                    expanded_path,
+                    pattern,
+                });
+            continue;
+        }
+
+        let matched_paths = resolve_rule_paths(&expanded_path)?;
+        resolved[index] = Some(ResolvedRulePath {
+            expanded_path,
+            matched_paths,
+        });
+    }
+
+    for group in shared_groups.into_values() {
+        let candidates = shared_roots.candidates_for(&group.root)?;
+        for pattern in group.patterns {
+            let mut matched_paths: Vec<PathBuf> = candidates
+                .iter()
+                .filter(|candidate| pattern.pattern.matches_path(candidate))
+                .cloned()
+                .collect();
+            matched_paths.sort();
+            matched_paths.dedup();
+            resolved[pattern.index] = Some(ResolvedRulePath {
+                expanded_path: pattern.expanded_path,
+                matched_paths,
+            });
+        }
+    }
+
+    Ok(resolved.into_iter().flatten().collect())
+}
+
+impl SharedRecursiveRootCache {
+    fn candidates_for(&mut self, root: &Path) -> Result<&Vec<PathBuf>> {
+        let key = shared_root_key(root);
+        if !self.candidates.contains_key(&key) {
+            let candidates = enumerate_shared_recursive_root(root)?;
+            self.candidates.insert(key.clone(), candidates);
+        }
+        Ok(self
+            .candidates
+            .get(&key)
+            .expect("shared root candidates should exist after insertion"))
+    }
+}
+
+fn shared_root_key(root: &Path) -> String {
+    let mut key = root.display().to_string().replace('\\', "/");
+    while key.ends_with('/') {
+        key.pop();
+    }
+    if cfg!(windows) {
+        key.make_ascii_lowercase();
+    }
+    key
+}
+
+fn shared_recursive_pattern(path: &Path) -> Result<Option<(PathBuf, Pattern)>> {
+    let pattern = path.display().to_string();
+    let Some((root, _tail)) = split_shared_recursive_pattern(&pattern) else {
+        return Ok(None);
+    };
+    Ok(Some((PathBuf::from(root), Pattern::new(&pattern)?)))
+}
+
+fn split_shared_recursive_pattern(pattern: &str) -> Option<(&str, &str)> {
+    for marker in ["\\**\\", "/**/", "\\**/", "/**\\"] {
+        if let Some(index) = pattern.find(marker) {
+            let root = &pattern[..index];
+            let tail = &pattern[index + marker.len()..];
+            if root.is_empty() || tail.is_empty() || contains_glob(root) || tail.contains("**") {
+                return None;
+            }
+            return Some((root, tail));
+        }
+    }
+    None
+}
+
+fn enumerate_shared_recursive_root(root: &Path) -> Result<Vec<PathBuf>> {
+    #[cfg(test)]
+    SHARED_ROOT_ENUMERATIONS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    let pattern = root.join("**").join("*").display().to_string();
+    let mut candidates = Vec::new();
+    for entry in glob(&pattern)? {
+        let matched_path = match entry {
+            Ok(path) => path,
+            Err(_) => continue,
+        };
+        candidates.push(matched_path);
+    }
+    candidates.sort();
+    candidates.dedup();
+    Ok(candidates)
+}
+
 fn contains_glob(path: &str) -> bool {
     path.contains('*') || path.contains('?') || path.contains('[')
 }
+
+#[cfg(test)]
+static SHARED_ROOT_ENUMERATIONS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
 
 fn collect_volumes() -> Vec<Volume> {
     Disks::new_with_refreshed_list()
@@ -470,10 +616,11 @@ where
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::sync::atomic::Ordering;
 
     use tempfile::tempdir;
 
-    use super::{resolve_rule_paths, Summary, TopFinding};
+    use super::{resolve_rule_paths, resolve_rule_paths_for_rule, Summary, TopFinding};
     use crate::rules::RiskLevel;
     use crate::test_support::{env_lock, EnvSnapshot};
 
@@ -489,6 +636,167 @@ mod tests {
 
         assert_eq!(matched.len(), 1);
         assert_eq!(matched[0], nested);
+    }
+
+    #[test]
+    fn shared_recursive_root_matches_individual_glob_results() {
+        let _env_lock = env_lock();
+        let temp = tempdir().expect("tempdir should exist");
+        let user = temp.path().join("user");
+        create_shared_root_fixture(&user);
+        let raw_paths = shared_root_patterns(&user);
+
+        let expected: Vec<_> = raw_paths
+            .iter()
+            .map(|raw_path| resolve_rule_paths(std::path::Path::new(raw_path)).unwrap())
+            .collect();
+
+        super::SHARED_ROOT_ENUMERATIONS.store(0, Ordering::SeqCst);
+        let mut shared_roots = super::SharedRecursiveRootCache::default();
+        let actual = resolve_rule_paths_for_rule(&raw_paths, &mut shared_roots)
+            .expect("shared resolver should run");
+
+        assert_eq!(actual.len(), raw_paths.len());
+        for (index, resolved) in actual.iter().enumerate() {
+            assert_eq!(
+                resolved.expanded_path,
+                std::path::PathBuf::from(&raw_paths[index])
+            );
+            assert_eq!(resolved.matched_paths, expected[index]);
+        }
+        assert_eq!(
+            super::SHARED_ROOT_ENUMERATIONS.load(Ordering::SeqCst),
+            1,
+            "same recursive root should be enumerated once"
+        );
+    }
+
+    #[test]
+    fn shared_recursive_root_preserves_findings_and_accounting() {
+        let _env_lock = env_lock();
+        let temp = tempdir().expect("tempdir should exist");
+        let user = temp.path().join("user");
+        create_shared_root_fixture(&user);
+
+        super::SHARED_ROOT_ENUMERATIONS.store(0, Ordering::SeqCst);
+        let report = super::scan(
+            &[crate::rules::Rule {
+                id: "shared-root".to_string(),
+                name: "Shared Root".to_string(),
+                category: "test".to_string(),
+                platform: "windows".to_string(),
+                paths: shared_root_patterns(&user),
+                risk: RiskLevel::Safe,
+                cleanup: crate::rules::Cleanup {
+                    method: "quarantine".to_string(),
+                },
+                exclusions: Vec::new(),
+                reason: "test".to_string(),
+                warnings: vec!["review generated artifacts".to_string()],
+                metadata: crate::rules::RuleMetadata::default(),
+            }],
+            20,
+        )
+        .expect("scan should succeed");
+
+        let mut matched_paths: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|finding| finding.exists)
+            .map(|finding| std::path::PathBuf::from(&finding.path))
+            .collect();
+        matched_paths.sort();
+
+        let mut expected_paths = vec![
+            user.join("project-a").join("node_modules"),
+            user.join("project-a").join("dist"),
+            user.join("project-b").join("node_modules"),
+            user.join("project-b").join("__pycache__"),
+            user.join("rust-project").join("target"),
+            user.join("models").join("model.onnx"),
+            user.join("models").join("model.gguf"),
+        ];
+        expected_paths.sort();
+
+        assert_eq!(matched_paths, expected_paths);
+        assert_eq!(report.summary.matched_paths, 7);
+        assert_eq!(report.findings.len(), 7);
+        assert_eq!(report.summary.total_size_bytes, 280);
+        assert_eq!(report.summary.quarantine_bytes, 280);
+        assert_eq!(report.summary.safe_bytes, 280);
+        assert_eq!(report.summary.partial_findings, 0);
+        assert!(report
+            .findings
+            .iter()
+            .all(|finding| finding.action == "quarantine" && finding.risk == RiskLevel::Safe));
+        assert_eq!(super::SHARED_ROOT_ENUMERATIONS.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn shared_recursive_root_is_cached_across_rules() {
+        let _env_lock = env_lock();
+        let temp = tempdir().expect("tempdir should exist");
+        let user = temp.path().join("user");
+        create_shared_root_fixture(&user);
+
+        let dev_patterns = ["node_modules", "dist"]
+            .into_iter()
+            .map(|tail| user.join("**").join(tail).display().to_string())
+            .collect();
+        let model_patterns = ["*.onnx", "*.gguf"]
+            .into_iter()
+            .map(|tail| user.join("**").join(tail).display().to_string())
+            .collect();
+
+        super::SHARED_ROOT_ENUMERATIONS.store(0, Ordering::SeqCst);
+        let report = super::scan(
+            &[
+                crate::rules::Rule {
+                    id: "dev-artifacts".to_string(),
+                    name: "Dev Artifacts".to_string(),
+                    category: "dev-artifact".to_string(),
+                    platform: "windows".to_string(),
+                    paths: dev_patterns,
+                    risk: RiskLevel::Safe,
+                    cleanup: crate::rules::Cleanup {
+                        method: "quarantine".to_string(),
+                    },
+                    exclusions: Vec::new(),
+                    reason: "generated artifacts".to_string(),
+                    warnings: Vec::new(),
+                    metadata: crate::rules::RuleMetadata::default(),
+                },
+                crate::rules::Rule {
+                    id: "model-files".to_string(),
+                    name: "Model Files".to_string(),
+                    category: "ai-model".to_string(),
+                    platform: "windows".to_string(),
+                    paths: model_patterns,
+                    risk: RiskLevel::Review,
+                    cleanup: crate::rules::Cleanup {
+                        method: "report-only".to_string(),
+                    },
+                    exclusions: Vec::new(),
+                    reason: "model files".to_string(),
+                    warnings: Vec::new(),
+                    metadata: crate::rules::RuleMetadata::default(),
+                },
+            ],
+            20,
+        )
+        .expect("scan should succeed");
+
+        assert_eq!(report.summary.matched_paths, 5);
+        assert_eq!(report.summary.total_size_bytes, 190);
+        assert_eq!(report.summary.quarantine_bytes, 60);
+        assert_eq!(report.summary.report_only_bytes, 130);
+        assert_eq!(report.summary.safe_bytes, 60);
+        assert_eq!(report.summary.review_bytes, 130);
+        assert_eq!(
+            super::SHARED_ROOT_ENUMERATIONS.load(Ordering::SeqCst),
+            1,
+            "multiple rules with the same recursive root should share one enumeration"
+        );
     }
 
     #[test]
@@ -675,7 +983,7 @@ mod tests {
         assert_eq!(report.scan_root, root.display().to_string());
         assert_eq!(report.min_size_bytes, 500);
         assert!(
-            report.entries.len() >= 1,
+            !report.entries.is_empty(),
             "should find at least one entry above 500 bytes"
         );
 
@@ -907,6 +1215,66 @@ mod tests {
             metadata: crate::rules::RuleMetadata::default(),
         }
     }
+
+    fn create_shared_root_fixture(user: &std::path::Path) {
+        let dirs = [
+            user.join("project-a").join("node_modules"),
+            user.join("project-a").join("dist"),
+            user.join("project-b").join("node_modules"),
+            user.join("project-b").join("__pycache__"),
+            user.join("rust-project").join("target"),
+            user.join("models"),
+            user.join("unrelated"),
+        ];
+        for dir in dirs {
+            fs::create_dir_all(dir).expect("fixture dir should exist");
+        }
+        fs::write(
+            user.join("project-a").join("node_modules").join("a.bin"),
+            vec![0_u8; 10],
+        )
+        .expect("node_modules file should write");
+        fs::write(
+            user.join("project-a").join("dist").join("bundle.js"),
+            vec![0_u8; 20],
+        )
+        .expect("dist file should write");
+        fs::write(
+            user.join("project-b").join("node_modules").join("b.bin"),
+            vec![0_u8; 30],
+        )
+        .expect("node_modules file should write");
+        fs::write(
+            user.join("project-b").join("__pycache__").join("cache.pyc"),
+            vec![0_u8; 40],
+        )
+        .expect("pycache file should write");
+        fs::write(
+            user.join("rust-project").join("target").join("lib.rlib"),
+            vec![0_u8; 50],
+        )
+        .expect("target file should write");
+        fs::write(user.join("models").join("model.onnx"), vec![0_u8; 60])
+            .expect("onnx file should write");
+        fs::write(user.join("models").join("model.gguf"), vec![0_u8; 70])
+            .expect("gguf file should write");
+        fs::write(user.join("unrelated").join("normal.txt"), vec![0_u8; 80])
+            .expect("unrelated file should write");
+    }
+
+    fn shared_root_patterns(user: &std::path::Path) -> Vec<String> {
+        [
+            "node_modules",
+            "target",
+            "dist",
+            "__pycache__",
+            "*.onnx",
+            "*.gguf",
+        ]
+        .into_iter()
+        .map(|tail| user.join("**").join(tail).display().to_string())
+        .collect()
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -955,7 +1323,7 @@ pub fn scan_large_files(root: &Path, min_size_bytes: u64) -> Result<LargeFilesRe
         }
     }
 
-    entries.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.size_bytes));
 
     Ok(LargeFilesReport {
         scan_root: root.display().to_string(),

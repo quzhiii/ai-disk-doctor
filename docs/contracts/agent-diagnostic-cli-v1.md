@@ -16,6 +16,8 @@ The bounded explainability diagnostic is:
 aidisk explain --json [--category CATEGORY] [--snapshot save|skip]
 ```
 
+Release/package smoke uses `aidisk explain --json --snapshot skip` as the fixed Agent diagnostic probe.
+
 `--snapshot save` is the default and preserves the normal snapshot behavior. `--snapshot skip` executes the same read-only Core scan and explainability application boundary without creating a `scan-*.json` history snapshot.
 
 The Agent consumer uses only this fixed subset. Human commands retain their existing options, but Agent integrations must not pass arbitrary roots, rules directories, rules repositories, policy overrides, reports directories, executable paths, shell commands, or mutation controls.
@@ -30,7 +32,7 @@ The Agent consumer uses only this fixed subset. Human commands retain their exis
   "command": "capabilities",
   "contract": "agent-capabilities-v1",
   "schema_version": 1,
-  "core_version": "1.7.0",
+  "core_version": "1.8.0",
   "capabilities": {
     "explainability": {
       "contract": "explainability-v1",
@@ -63,7 +65,7 @@ The command returns an envelope whose `explainability` member is the authoritati
   "command": "explain",
   "contract": "agent-diagnostic-cli-v1",
   "schema_version": 1,
-  "core_version": "1.7.0",
+  "core_version": "1.8.0",
   "snapshot": {
     "requested": "skip",
     "persisted": false,

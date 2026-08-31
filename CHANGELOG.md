@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.8.0
+
+- Promoted the accepted Core master `20d90a3febe63607112b920f48d1e3ca3cdaa6ca` into the v1.8.0 release-candidate baseline for Agent Alpha consumers.
+- Added release-candidate coverage for the Agent diagnostic contracts introduced after the published v1.7.0 artifact: `agent-capabilities-v1`, `agent-diagnostic-cli-v1`, and embedded `explainability-v1`.
+- Verified the Integration I3 tested baseline `cac502f73c39f1b5de13bab3e4de86a5c29684fc` is included in this release candidate, while the existing published v1.7.0 artifact at `fd6eb72a053b6da6f13a14f9c085e40f7deb9264` does not contain the full I3 runtime baseline.
+- Documented `aidisk capabilities --json` as the scan-free compatibility probe and `aidisk explain --json --snapshot skip` as the bounded Agent diagnostic CLI path.
+- Included the accepted P1 shared-root traversal performance fix in the release-candidate baseline without changing scanner risk, cleanup, action, quarantine, restore, or explainability semantics.
+- Extended release/package smoke coverage so packaged binaries prove `aidisk capabilities --json`, `agent-diagnostic-cli-v1`, snapshot `skip`, and embedded `explainability-v1` before artifacts are uploaded.
+- Retained the existing six-target artifact matrix, archives, SHA-256 checksums, Cargo metadata SBOM, provenance JSON, package smoke, built-in `rules/`, default `config/`, and one-click startup script packaging.
+- Do not tag or publish v1.8.0 until Owner Acceptance approves this release candidate.
+
 ## 1.7.0
 
 - Added scan and plan summary schema v2 fields to separate observed, potential, actionable, quarantine-ready, official/manual cleanup, report-only, and partial bytes.

@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -45,7 +45,9 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 
 默认姿态是**保守的**：先扫描报告，再 dry-run 预览，最后隔离移动——绝不直接删除。所有破坏性操作在执行前都会预览变更，真实执行需显式 `--yes`。
 
-**当前版本：** v1.7.0
+**当前版本：** v1.8.0
+
+发布状态：v1.8.0 当前是等待 Owner Acceptance 的 release candidate；在 `v1.8.0` tag 和 GitHub Release 发布前，不应把它视为已正式发布。
 
 详细的架构和设计决策，请参阅 [`docs/architecture.md`](./docs/architecture.md)。
 
@@ -72,6 +74,7 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 | **AI 感知规则** | 25 条 YAML 规则覆盖 200+ 路径：Claude、Codex、Gemini、Ollama、LM Studio、MCP、CUDA 等 |
 | **可视化仪表盘** | `visualize --html` 生成交互式 HTML 仪表盘，支持中英双语、类别筛选、可执行隔离候选清单 |
 | **AI 足迹报告** | `doctor --ai-footprint` 聚合 10 个 AI 类别发现，给出可执行建议 |
+| **Agent 诊断契约** | `capabilities --json` 和 `explain --json --snapshot skip` 为 Agent 集成提供稳定只读契约 |
 | **跨平台** | 支持 Windows、Linux、macOS，为所有 AI 工具提供平台原生路径 |
 | **规则驱动分类** | 25 条规则，风险等级：`safe`、`review`、`dangerous`。无硬编码路径 |
 | **默认仅预览** | 破坏性操作执行前预览变更，真实执行需显式 `--yes` |
@@ -99,6 +102,16 @@ AI Disk Doctor 是一款**规则驱动、安全优先**的磁盘空间诊断工�
 ---
 
 ## 最新动态
+
+### v1.8.0
+
+- **Agent Alpha runtime baseline** — 将已接受的 Core master `20d90a3febe63607112b920f48d1e3ca3cdaa6ca` 提升为 v1.8.0 release candidate artifact 基线
+- **Agent diagnostic CLI** — `aidisk capabilities --json` 声明 `agent-capabilities-v1`；`aidisk explain --json --snapshot skip` 返回 `agent-diagnostic-cli-v1`
+- **Explainability bridge** — Agent 诊断直接嵌入未改变的 `explainability-v1` payload，不复制 scanner、risk、handling 或 recovery 语义
+- **P1 shared-root traversal** — 包含已接受的性能修复，使完整 explain 低于 Integration timeout，同时保持 evidence 语义不变
+- **Package smoke** — release artifact 上传前会验证 capabilities、diagnostic envelope、snapshot skip 和嵌入的 explainability
+
+完整说明：[CHANGELOG.md](./CHANGELOG.md) · [Release Notes v1.8.0](./docs/release-notes/v1.8.0.md)。
 
 ### v1.7.0
 
@@ -221,13 +234,13 @@ Release 包包含 `aidisk` 二进制、`Start-AIDiskDoctor.ps1`、内置 `rules/
 安装前先验证 SHA-256：
 
 ```powershell
-Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.8.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.8.0-x86_64-pc-windows-msvc.sha256
 ```
 
 ```bash
-sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.8.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.8.0-aarch64-apple-darwin.sha256
 ```
 
 每个 release 还包含 `*.sbom.cargo-metadata.json` 和 `*.provenance.json`。参见 [`docs/trusted-distribution.md`](./docs/trusted-distribution.md)，了解 artifact 命名、checksum 验证、SBOM、provenance、升级、卸载、Homebrew 草案、winget 草案和 crates.io 状态。
@@ -237,7 +250,11 @@ shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
 ```bash
 aidisk --help
 aidisk scan --help
+aidisk capabilities --json
+aidisk explain --json --snapshot skip --category dev-artifact
 ```
+
+Agent 集成校验时，`aidisk capabilities --json` 必须声明 `agent-capabilities-v1` 和 `explainability-v1`；`aidisk explain --json --snapshot skip` 必须返回 `agent-diagnostic-cli-v1`、嵌入 `explainability-v1`，且不持久化 snapshot。
 
 ### 方式 2：从源码构建（需要 Rust）
 
@@ -466,6 +483,8 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 | `plan` | 生成清理建议 | `--safe-only`, `--skip-modified-within-minutes` |
 | `clean` | 执行隔离或预览 | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | 恢复隔离的文件 | `--dry-run`, `--yes`, `--index` |
+| `capabilities` | 无扫描的 Agent 兼容性探测 | `--json` |
+| `explain` | 包含 explainability evidence 的只读 Agent diagnostic envelope | `--json`, `--category`, `--snapshot save\|skip` |
 | `doctor` | 运行针对性诊断 | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | 校验规则 schema 并展示来源 digest | `--json`, `--rules-dir`, `--rules-repo` |
 | `models inventory` | 只读模型资产清单 | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
@@ -499,6 +518,8 @@ export FEISHU_WEBHOOK_URL="https://example.test/feishu-webhook"
 - 现有 v1 规则仍可通过兼容加载器读取。
 - `rules lint` 会校验全部 YAML 规则、拒绝重复 ID，并报告 SHA-256 来源 digest。
 - `scan --json` 会在 `summary.rule_sources` 中记录每条已加载规则的路径、schema 版本和 digest。
+- `capabilities --json` 是无扫描的 Agent 兼容性探测，会声明 `agent-capabilities-v1`、支持的 `explainability-v1` schema version 和 snapshot mode。
+- `explain --json --snapshot skip` 返回带有 `explainability-v1` evidence 的 `agent-diagnostic-cli-v1`，且不会写入扫描历史。
 - 模型文件和未知模型缓存仍保持 review/report-only，除非规则明确提供更安全的动作。
 - `models inventory` 全程只读，不解析模型内容，也不修改 Ollama/Hugging Face/LM Studio 官方索引。
 - 当本地存在且可解析的小型元数据索引时，`models inventory` 会报告 Hugging Face refs/snapshot/blob 和 Ollama manifest/blob 关系。LM Studio 模型文件会被识别为托管但 unresolved，因为当前不解析安全的官方清理索引；无法确认来源的资产仍保持 `report-only`。

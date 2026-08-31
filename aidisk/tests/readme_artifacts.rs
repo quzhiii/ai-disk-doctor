@@ -24,7 +24,17 @@ fn readme_english_exists_and_has_required_sections() {
         "Should link to Chinese readme"
     );
     assert!(readme.contains("![Version]"), "Should have version badge");
-    assert!(readme.contains("version-1.7.0"), "Should show v1.7.0 badge");
+    assert!(readme.contains("version-1.8.0"), "Should show v1.8.0 badge");
+    assert!(
+        readme.contains("### v1.8.0") && readme.contains("docs/release-notes/v1.8.0.md"),
+        "Should document v1.8.0 release notes"
+    );
+    assert!(
+        readme.contains("aidisk capabilities --json")
+            && readme.contains("aidisk explain --json --snapshot skip")
+            && readme.contains("agent-diagnostic-cli-v1"),
+        "Should document v1.8.0 agent diagnostic contract"
+    );
     assert!(
         readme.contains("### v1.7.0") && readme.contains("docs/release-notes/v1.7.0.md"),
         "Should document v1.7.0 release notes"
@@ -124,10 +134,20 @@ fn readme_chinese_exists_and_has_required_sections() {
         readme.contains("[English](./README.md)"),
         "Should link to English readme"
     );
-    assert!(readme.contains("version-1.7.0"), "Should show v1.7.0 badge");
+    assert!(readme.contains("version-1.8.0"), "Should show v1.8.0 badge");
     assert!(
-        readme.contains("**当前版本：** v1.7.0"),
-        "Should show v1.7.0 current release"
+        readme.contains("**当前版本：** v1.8.0"),
+        "Should show v1.8.0 current release"
+    );
+    assert!(
+        readme.contains("### v1.8.0") && readme.contains("docs/release-notes/v1.8.0.md"),
+        "Should document v1.8.0 release notes"
+    );
+    assert!(
+        readme.contains("aidisk capabilities --json")
+            && readme.contains("aidisk explain --json --snapshot skip")
+            && readme.contains("agent-diagnostic-cli-v1"),
+        "Should document v1.8.0 agent diagnostic contract"
     );
     assert!(
         readme.contains("### v1.7.0") && readme.contains("docs/release-notes/v1.7.0.md"),

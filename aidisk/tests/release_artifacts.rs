@@ -295,8 +295,6 @@ fn changelog_readmes_and_release_notes_cover_v1_7_scope() {
     let readme = read_repo_file("README.md");
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
-    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
-    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
 
     let required_terms = [
         "Start-AIDiskDoctor.ps1",
@@ -315,9 +313,6 @@ fn changelog_readmes_and_release_notes_cover_v1_7_scope() {
     assert!(readme.contains("v1.7.0"));
     assert!(readme_zh.contains("v1.7.0"));
     assert!(roadmap.contains("Phase 19 status: Completed"));
-    assert!(cargo_toml.contains("version = \"1.7.0\""));
-    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.7.0\""));
 
     for term in required_terms {
         assert!(
@@ -408,6 +403,8 @@ fn smoke_script_is_non_destructive_and_covers_core_commands() {
         "cargo test",
         "cargo build",
         "target\\debug\\aidisk.exe",
+        "capabilities --json",
+        "explain --json --snapshot skip --category dev-artifact",
         "scan --rules-repo",
         "scan --large-files --min-size 500MB",
         "--root",
@@ -728,12 +725,12 @@ fn crate_version_and_readme_reference_release_artifacts() {
     let readme_zh = read_repo_file("README.zh-CN.md");
     let roadmap = read_repo_file("docs/execution-plan.md");
 
-    assert!(cargo_toml.contains("version = \"1.7.0\""));
+    assert!(cargo_toml.contains("version = \"1.8.0\""));
     let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
-    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.7.0\""));
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.8.0\""));
     assert!(readme.contains("CHANGELOG.md"));
-    assert!(readme.contains("docs/release-notes/v1.7.0.md"));
-    assert!(readme_zh.contains("docs/release-notes/v1.7.0.md"));
+    assert!(readme.contains("docs/release-notes/v1.8.0.md"));
+    assert!(readme_zh.contains("docs/release-notes/v1.8.0.md"));
     assert!(roadmap.contains("docs/release-notes/v1.7.0.md"));
     assert!(roadmap.contains("`aidisk` crate version `1.7.0`"));
     assert!(readme.contains("scripts/release-smoke.ps1"));
@@ -860,6 +857,14 @@ fn github_actions_run_tests_and_build_windows_release_artifact() {
         "Skipping execution smoke for $target on x64 Windows runner",
         "& $binary --help",
         "scan --help",
+        "capabilities --json",
+        "agent-capabilities-v1",
+        "explainability-v1",
+        "explain --json --snapshot skip --category dev-artifact",
+        "RUNNER_TEMP",
+        "$fixtureProject = Join-Path $fixtureRoot \"project\"",
+        "$env:USERPROFILE = $fixtureRoot",
+        "agent-diagnostic-cli-v1",
         "rules lint --json",
     ] {
         assert!(
@@ -890,6 +895,128 @@ fn github_actions_run_tests_and_build_windows_release_artifact() {
 }
 
 #[test]
+fn release_candidate_metadata_covers_v1_8_agent_alpha_scope() {
+    let changelog = read_repo_file("CHANGELOG.md");
+    let release_notes = read_repo_file("docs/release-notes/v1.8.0.md");
+    let readme = read_repo_file("README.md");
+    let readme_zh = read_repo_file("README.zh-CN.md");
+    let trusted_distribution = read_repo_file("docs/trusted-distribution.md");
+    let agent_contract = read_repo_file("docs/contracts/agent-diagnostic-cli-v1.md");
+    let performance = read_repo_file("docs/performance/p1-shared-root-traversal.md");
+    let cargo_toml = read_repo_file("aidisk/Cargo.toml");
+    let cargo_lock = read_repo_file("aidisk/Cargo.lock");
+    let homebrew = read_repo_file("packaging/homebrew/aidisk.rb");
+    let winget = read_repo_file("packaging/winget/AI-Disk-Doctor.yaml");
+
+    assert!(changelog.contains("## 1.8.0"));
+    assert!(release_notes.contains("# AI Disk Doctor v1.8.0"));
+    assert!(release_notes.contains("## Test Plan"));
+    assert!(release_notes.contains("## Safety Boundaries"));
+    assert!(release_notes.contains("## Known Limits"));
+    assert!(readme.contains("version-1.8.0"));
+    assert!(readme.contains("**Current release:** v1.8.0"));
+    assert!(readme_zh.contains("version-1.8.0"));
+    assert!(readme_zh.contains("**当前版本：** v1.8.0"));
+    assert!(cargo_toml.contains("version = \"1.8.0\""));
+    let normalized_cargo_lock = cargo_lock.replace("\r\n", "\n");
+    assert!(normalized_cargo_lock.contains("name = \"aidisk\"\nversion = \"1.8.0\""));
+    assert!(homebrew.contains("version \"1.8.0\""));
+    assert!(winget.contains("PackageVersion: 1.8.0"));
+    assert!(winget.contains("/releases/download/v1.8.0/aidisk-v1.8.0-x86_64-pc-windows-msvc.zip"));
+
+    for term in [
+        "agent-capabilities-v1",
+        "agent-diagnostic-cli-v1",
+        "explainability-v1",
+        "aidisk capabilities --json",
+        "aidisk explain --json --snapshot skip",
+        "P1 shared-root traversal",
+        "20d90a3febe63607112b920f48d1e3ca3cdaa6ca",
+        "cac502f73c39f1b5de13bab3e4de86a5c29684fc",
+        "fd6eb72a053b6da6f13a14f9c085e40f7deb9264",
+        "six-target",
+        "SHA-256",
+        "SBOM",
+        "provenance",
+        "package smoke",
+        "Do not tag or publish",
+    ] {
+        assert!(
+            changelog.contains(term),
+            "CHANGELOG.md should mention {term}"
+        );
+        assert!(
+            release_notes.contains(term),
+            "release notes should mention {term}"
+        );
+    }
+
+    for term in [
+        "agent-capabilities-v1",
+        "agent-diagnostic-cli-v1",
+        "explainability-v1",
+        "aidisk capabilities --json",
+        "aidisk explain --json --snapshot skip",
+    ] {
+        assert!(readme.contains(term), "README.md should mention {term}");
+        assert!(
+            trusted_distribution.contains(term),
+            "trusted distribution docs should mention {term}"
+        );
+        assert!(
+            agent_contract.contains(term),
+            "agent contract docs should mention {term}"
+        );
+    }
+
+    assert!(performance.contains("## Gate Result") && performance.contains("**PASS**"));
+    assert!(performance.contains("Median complete explain after P1: `43.577s`"));
+    assert!(readme_zh.contains("Agent diagnostic CLI"));
+    assert!(readme_zh.contains("P1 shared-root traversal"));
+}
+
+#[test]
+fn release_candidate_keeps_six_target_artifact_matrix_and_sidecars() {
+    let release = read_repo_file(".github/workflows/release-artifacts.yml");
+
+    for target in [
+        "x86_64-pc-windows-msvc",
+        "aarch64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin",
+    ] {
+        assert!(
+            release.contains(target),
+            "release workflow should retain {target}"
+        );
+    }
+
+    for term in [
+        "archive_ext",
+        "Get-FileHash -Algorithm SHA256",
+        "cargo metadata --format-version 1",
+        ".provenance.json",
+        "Smoke test packaged binary",
+        "capabilities --json",
+        "agent-capabilities-v1",
+        "explain --json --snapshot skip --category dev-artifact",
+        "RUNNER_TEMP",
+        "$fixtureProject = Join-Path $fixtureRoot \"project\"",
+        "$env:USERPROFILE = $fixtureRoot",
+        "agent-diagnostic-cli-v1",
+        "explainability-v1",
+        "rules lint --json",
+    ] {
+        assert!(
+            release.contains(term),
+            "release workflow should preserve {term}"
+        );
+    }
+}
+
+#[test]
 fn package_manager_drafts_cover_release_metadata_contract() {
     let homebrew = read_repo_file("packaging/homebrew/aidisk.rb");
     let winget = read_repo_file("packaging/winget/AI-Disk-Doctor.yaml");
@@ -912,12 +1039,12 @@ fn package_manager_drafts_cover_release_metadata_contract() {
 
     for term in [
         "PackageIdentifier: quzhiii.AIDiskDoctor",
-        "PackageVersion: 1.7.0",
+        "PackageVersion: 1.8.0",
         "InstallerType: zip",
         "NestedInstallerType: portable",
         "PortableCommandAlias: aidisk",
-        "aidisk-v1.7.0-x86_64-pc-windows-msvc.zip",
-        "aidisk-v1.7.0-aarch64-pc-windows-msvc.zip",
+        "aidisk-v1.8.0-x86_64-pc-windows-msvc.zip",
+        "aidisk-v1.8.0-aarch64-pc-windows-msvc.zip",
         "InstallerSha256: TO_BE_FILLED_FROM_RELEASE_ARTIFACT",
     ] {
         assert!(winget.contains(term), "winget draft should mention {term}");

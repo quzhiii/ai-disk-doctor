@@ -23,6 +23,8 @@ try {
     $env:HOME = $FixtureUserRoot
 
     & $AidiskExe scan --rules-repo "tests/fixtures/community-rules" --json
+    & $AidiskExe capabilities --json
+    & $AidiskExe explain --json --snapshot skip --category dev-artifact
     & $AidiskExe scan --large-files --min-size 500MB --root $FixtureUserRoot --json
     & $AidiskExe plan --safe-only --json
     & $AidiskExe clean --dry-run --safe-only --markdown

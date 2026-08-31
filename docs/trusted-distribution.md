@@ -2,6 +2,8 @@
 
 AI Disk Doctor release artifacts are built by `.github/workflows/release-artifacts.yml` when a `v*.*.*` tag is pushed or the workflow is run manually.
 
+The v1.8.0 artifact line is prepared as a release candidate for Owner Acceptance. Do not tag or publish v1.8.0 until approval; the existing published v1.7.0 artifact remains the older release baseline and does not contain the complete Agent Alpha runtime contract.
+
 ## Artifact Matrix
 
 | Platform | Target | Package |
@@ -38,15 +40,15 @@ Verify SHA-256 before placing `aidisk` on PATH.
 Windows PowerShell:
 
 ```powershell
-Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.8.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.8.0-x86_64-pc-windows-msvc.sha256
 ```
 
 Linux / macOS:
 
 ```bash
-sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.8.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.8.0-aarch64-apple-darwin.sha256
 ```
 
 Then run:
@@ -54,23 +56,27 @@ Then run:
 ```bash
 aidisk --help
 aidisk scan --help
+aidisk capabilities --json
+aidisk explain --json --snapshot skip --category dev-artifact
 ```
+
+For v1.8.0, `aidisk capabilities --json` must advertise `agent-capabilities-v1` and `explainability-v1`; `aidisk explain --json --snapshot skip` must return `agent-diagnostic-cli-v1` with embedded `explainability-v1` and `snapshot.persisted = false`.
 
 ## Install
 
 Windows PowerShell:
 
 ```powershell
-Expand-Archive .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -DestinationPath "$env:LOCALAPPDATA\aidisk" -Force
-$env:Path = "$env:LOCALAPPDATA\aidisk\aidisk-v1.7.0-x86_64-pc-windows-msvc;$env:Path"
+Expand-Archive .\aidisk-v1.8.0-x86_64-pc-windows-msvc.zip -DestinationPath "$env:LOCALAPPDATA\aidisk" -Force
+$env:Path = "$env:LOCALAPPDATA\aidisk\aidisk-v1.8.0-x86_64-pc-windows-msvc;$env:Path"
 aidisk --help
 ```
 
 Linux / macOS:
 
 ```bash
-tar -xzf aidisk-v1.7.0-x86_64-unknown-linux-gnu.tar.gz
-sudo install -m 0755 aidisk-v1.7.0-x86_64-unknown-linux-gnu/aidisk /usr/local/bin/aidisk
+tar -xzf aidisk-v1.8.0-x86_64-unknown-linux-gnu.tar.gz
+sudo install -m 0755 aidisk-v1.8.0-x86_64-unknown-linux-gnu/aidisk /usr/local/bin/aidisk
 aidisk --help
 ```
 
@@ -81,6 +87,8 @@ Download the new package, verify the checksum, replace the old `aidisk` binary, 
 ```bash
 aidisk --help
 aidisk scan --help
+aidisk capabilities --json
+aidisk explain --json --snapshot skip --category dev-artifact
 ```
 
 ## Uninstall

@@ -55,7 +55,7 @@ These files are preserved for traceability. Do not use them as the current roadm
 
 ## Release Notes
 
-`release-notes/v*.md` are historical release records and should not be rewritten for strategy changes. Add new release notes only during explicit release-readiness milestones.
+`release-notes/v*.md` are historical release records and should not be rewritten for strategy changes. Add new release notes only during explicit release-readiness milestones. Current release-candidate notes: `release-notes/v1.8.0.md`.
 
 ## M0 Rule
 

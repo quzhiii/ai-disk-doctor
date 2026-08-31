@@ -2,7 +2,7 @@
 
 # AI Disk Doctor
 
-[![Version](https://img.shields.io/badge/version-1.7.0-blue?style=for-the-badge)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue?style=for-the-badge)](./CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?style=for-the-badge)](https://rustup.rs/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green?style=for-the-badge)](./LICENSE-MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)]()
@@ -45,7 +45,9 @@ AI Disk Doctor is a **rule-driven, safety-first** disk space diagnostic tool bui
 
 The default posture is **conservative**: scan and report first, dry-run second, quarantine third—never delete directly. All destructive operations preview changes before touching your disk. Explicit `--yes` is required for any real action.
 
-**Current release:** v1.7.0
+**Current release:** v1.8.0
+
+Release status: v1.8.0 is prepared as a release candidate for Owner Acceptance. Do not treat it as published until the `v1.8.0` tag and GitHub Release exist.
 
 For detailed architecture and design decisions, see [`docs/architecture.md`](./docs/architecture.md).
 
@@ -72,6 +74,7 @@ Key starting points:
 | **AI-Aware Rules** | 25 YAML rules covering 200+ paths: Claude, Codex, Gemini, Ollama, LM Studio, MCP servers, CUDA, etc. |
 | **Visual Dashboard** | `visualize --html` generates interactive HTML dashboard with bilingual support, category filtering, and quarantine-ready checklist |
 | **AI Footprint Report** | `doctor --ai-footprint` aggregates all AI findings across 10 categories with actionable recommendations |
+| **Agent Diagnostics** | `capabilities --json` and `explain --json --snapshot skip` provide stable read-only contracts for Agent integrations |
 | **Cross-Platform** | Windows, Linux, macOS with platform-native paths for all AI tools |
 | **Rule-Driven Classification** | 25 rules with risk levels: `safe`, `review`, `dangerous`. No hardcoded paths. |
 | **Dry-Run by Default** | Preview all changes before touching disk. `--yes` required for real action. |
@@ -99,6 +102,16 @@ Key starting points:
 ---
 
 ## What's New
+
+### v1.8.0
+
+- **Agent Alpha runtime baseline** — promotes accepted Core master `20d90a3febe63607112b920f48d1e3ca3cdaa6ca` into the v1.8.0 release-candidate artifact line
+- **Agent diagnostic CLI** — `aidisk capabilities --json` advertises `agent-capabilities-v1`; `aidisk explain --json --snapshot skip` returns `agent-diagnostic-cli-v1`
+- **Explainability bridge** — Agent diagnostics embed the unchanged `explainability-v1` payload instead of duplicating scanner, risk, handling, or recovery semantics
+- **P1 shared-root traversal** — includes the accepted performance fix that keeps complete explain runs below the Integration timeout while preserving evidence semantics
+- **Package smoke** — release artifacts now verify capabilities, diagnostic envelope, snapshot skip behavior, and embedded explainability before upload
+
+Full notes: [`CHANGELOG.md`](./CHANGELOG.md) · [`docs/release-notes/v1.8.0.md`](./docs/release-notes/v1.8.0.md).
 
 ### v1.7.0
 
@@ -221,13 +234,13 @@ Release packages include the `aidisk` binary, `Start-AIDiskDoctor.ps1`, built-in
 Verify the SHA-256 checksum before installing:
 
 ```powershell
-Get-FileHash .\aidisk-v1.7.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
-Get-Content .\aidisk-v1.7.0-x86_64-pc-windows-msvc.sha256
+Get-FileHash .\aidisk-v1.8.0-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-Content .\aidisk-v1.8.0-x86_64-pc-windows-msvc.sha256
 ```
 
 ```bash
-sha256sum -c aidisk-v1.7.0-x86_64-unknown-linux-gnu.sha256
-shasum -a 256 -c aidisk-v1.7.0-aarch64-apple-darwin.sha256
+sha256sum -c aidisk-v1.8.0-x86_64-unknown-linux-gnu.sha256
+shasum -a 256 -c aidisk-v1.8.0-aarch64-apple-darwin.sha256
 ```
 
 Each release also includes `*.sbom.cargo-metadata.json` and `*.provenance.json` files. See [`docs/trusted-distribution.md`](./docs/trusted-distribution.md) for artifact naming, checksum verification, SBOM, provenance, upgrade, uninstall, Homebrew draft, winget draft, and crates.io status. crates.io publishing is deferred until the CLI name, package description, release signing expectations, and support policy are stable.
@@ -237,9 +250,13 @@ Extract the package and place `aidisk` / `aidisk.exe` on your PATH, then verify:
 ```bash
 aidisk --help
 aidisk scan --help
+aidisk capabilities --json
+aidisk explain --json --snapshot skip --category dev-artifact
 ```
 
-**Upgrade:** download the new package, verify its checksum, replace the old `aidisk` binary, and rerun `aidisk --help` plus `aidisk scan --help`.
+For Agent integrations, `aidisk capabilities --json` must advertise `agent-capabilities-v1` and `explainability-v1`; `aidisk explain --json --snapshot skip` must return `agent-diagnostic-cli-v1` with embedded `explainability-v1` and no persisted snapshot.
+
+**Upgrade:** download the new package, verify its checksum, replace the old `aidisk` binary, and rerun `aidisk --help`, `aidisk scan --help`, `aidisk capabilities --json`, and `aidisk explain --json --snapshot skip --category dev-artifact`.
 
 **Uninstall:** remove the installed binary or package directory. Optional project-local data lives in `.aidisk/` under directories where you ran the tool.
 
@@ -468,6 +485,8 @@ For comprehensive governance documentation covering all four platforms, deduplic
 | `plan` | Generate cleanup recommendations | `--safe-only`, `--skip-modified-within-minutes` |
 | `clean` | Execute quarantine or dry-run | `--dry-run`, `--yes`, `--quarantine-root`, `--safe-only` |
 | `restore` | Restore quarantined files | `--dry-run`, `--yes`, `--index` |
+| `capabilities` | Scan-free Agent compatibility probe | `--json` |
+| `explain` | Read-only Agent diagnostic envelope with explainability evidence | `--json`, `--category`, `--snapshot save\|skip` |
 | `doctor` | Run targeted diagnostics | `--agents`, `--docker`, `--wsl`, `--ollama`, `--playwright`, `--huggingface`, `--probe-tools`, `--latest`, `--reports-dir` |
 | `rules lint` | Validate rule schemas and show source digests | `--json`, `--rules-dir`, `--rules-repo` |
 | `models inventory` | Read-only model asset inventory | `--tool`, `--root`, `--max-depth`, `--stale-after-days`, `--json`, `--markdown` |
@@ -501,6 +520,8 @@ When `--json` or `--format json` is selected and a command fails, `aidisk` write
 - Existing v1 rules remain loadable through the compatibility loader.
 - `rules lint` validates all YAML rules, rejects duplicate IDs, and reports SHA-256 source digests.
 - `scan --json` records each loaded rule's path, schema version, and digest under `summary.rule_sources`.
+- `capabilities --json` is a scan-free Agent compatibility probe that advertises `agent-capabilities-v1`, supported `explainability-v1` schema versions, and snapshot modes.
+- `explain --json --snapshot skip` returns `agent-diagnostic-cli-v1` with embedded `explainability-v1` evidence and does not write scan history.
 - Model files and unknown model caches remain review/report-only unless a rule explicitly provides a safer action.
 - `models inventory` is read-only and does not parse model contents or modify Ollama/Hugging Face/LM Studio indexes.
 - When small local metadata indexes are available, `models inventory` reports Hugging Face refs/snapshots/blobs and Ollama manifest/blob relationships. LM Studio model files are identified as managed but unresolved because no safe official cleanup index is parsed. Unresolved or unknown assets remain `report-only`.

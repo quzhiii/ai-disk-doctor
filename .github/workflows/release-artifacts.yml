@@ -115,9 +115,52 @@ jobs:
             Write-Host "Skipping execution smoke for $target on x64 Windows runner; archive contents verified."
             return
           }
+          $binary = (Resolve-Path $binary).Path
           if ("${{ matrix.exe_suffix }}" -eq "") { chmod +x $binary }
           & $binary --help
           & $binary scan --help
+          $capabilities = & $binary capabilities --json | ConvertFrom-Json
+          if ($capabilities.contract -ne "agent-capabilities-v1") {
+            throw "Packaged binary did not advertise agent-capabilities-v1."
+          }
+          if ($capabilities.capabilities.explainability.contract -ne "explainability-v1") {
+            throw "Packaged binary did not advertise explainability-v1."
+          }
+          if ($capabilities.capabilities.explainability.snapshot_modes -notcontains "skip") {
+            throw "Packaged binary did not advertise snapshot skip mode."
+          }
+          $fixtureRoot = Join-Path $env:RUNNER_TEMP "aidisk-agent-smoke"
+          $fixtureProject = Join-Path $fixtureRoot "project"
+          $fixtureCache = Join-Path $fixtureProject "node_modules"
+          New-Item -ItemType Directory -Force -Path $fixtureCache | Out-Null
+          Set-Content -Encoding ascii -Path (Join-Path $fixtureCache "artifact.bin") -Value "package-smoke"
+          $previousUserProfile = $env:USERPROFILE
+          $previousHome = $env:HOME
+          $previousLocalAppData = $env:LOCALAPPDATA
+          $previousAppData = $env:APPDATA
+          $env:USERPROFILE = $fixtureRoot
+          $env:HOME = $fixtureRoot
+          $env:LOCALAPPDATA = Join-Path (Join-Path $fixtureRoot "AppData") "Local"
+          $env:APPDATA = Join-Path (Join-Path $fixtureRoot "AppData") "Roaming"
+          Push-Location $fixtureRoot
+          try {
+            $explain = & $binary explain --json --snapshot skip --category dev-artifact | ConvertFrom-Json
+          } finally {
+            Pop-Location
+            $env:USERPROFILE = $previousUserProfile
+            $env:HOME = $previousHome
+            $env:LOCALAPPDATA = $previousLocalAppData
+            $env:APPDATA = $previousAppData
+          }
+          if ($explain.contract -ne "agent-diagnostic-cli-v1") {
+            throw "Packaged binary did not return agent-diagnostic-cli-v1."
+          }
+          if ($explain.snapshot.requested -ne "skip" -or $explain.snapshot.persisted -ne $false) {
+            throw "Packaged binary did not preserve snapshot skip semantics."
+          }
+          if ($explain.explainability.contract -ne "explainability-v1") {
+            throw "Packaged binary did not embed explainability-v1."
+          }
           & $binary rules lint --json
       - name: Upload release package
         uses: actions/upload-artifact@v7

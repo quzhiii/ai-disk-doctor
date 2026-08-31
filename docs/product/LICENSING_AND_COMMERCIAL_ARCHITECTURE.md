@@ -10,7 +10,7 @@
 | README license wording | `README.md`, `README.zh-CN.md` say MIT/Apache-2.0, user's option | dual-license claim |
 | Contribution license | `CONTRIBUTING.md` says contributions use the same dual license | dual-license contribution policy |
 | Cargo package field | `aidisk/Cargo.toml` has `license = "MIT"` | inconsistent with README/contribution docs |
-| Version | `aidisk/Cargo.toml` version `1.7.0` | unchanged by M0 |
+| Version | `aidisk/Cargo.toml` version `1.8.0` | updated by Core Agent-Alpha release readiness |
 | Third-party dependency licenses | `cargo tree --format "{p} {l}"` shows MIT, Apache-2.0, Unlicense, BSL-1.0, Unicode-3.0 combinations; dependency identifier BSL-1.0 means Boost Software License 1.0, not Business Source License 1.1 / BUSL-1.1 | needs full legal review before commercial release |
 
 Product decision: M0 documents the inconsistency but does not change license files, Cargo metadata, contribution terms, or versioning.

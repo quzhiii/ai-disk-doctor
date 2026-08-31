@@ -6,7 +6,7 @@ Scope: M0 architecture spike only; no Desktop runtime dependency is added.
 
 ## Context
 
-Current repo fact: AI Disk Doctor is a Rust CLI/Core at v1.7.0 with scanner, planner, cleaner/quarantine/restore, doctor, model inventory, diff, anomaly, history, reporter, visualization, rules, release workflows, and Skill wrappers.
+Current repo fact: AI Disk Doctor is a Rust CLI/Core prepared for v1.8.0 release candidacy with scanner, planner, cleaner/quarantine/restore, doctor, model inventory, diff, anomaly, history, reporter, visualization, Agent diagnostic CLI contracts, rules, release workflows, and Skill wrappers.
 
 Product decision: future Desktop must provide a human-first UI while preserving one execution truth in the Core. It must not duplicate cleanup, restore, risk, or policy logic.
 

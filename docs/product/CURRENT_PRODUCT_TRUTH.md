@@ -1,7 +1,7 @@
 # Current Product Truth
 
-Date: 2026-08-13
-Reality audit baseline: M1A PR #14 after read-only Core application boundary implementation, based on `master` at `9dd102abbb2908894103a3c1f2fc3f7fa50fad87`
+Date: 2026-08-31
+Reality audit baseline: Core Agent-Alpha Release Readiness, based on `master` at `20d90a3febe63607112b920f48d1e3ca3cdaa6ca`
 
 This document separates current repository facts from product decisions and future hypotheses. It is the first place to check before making capability claims.
 
@@ -14,8 +14,8 @@ This document separates current repository facts from product decisions and futu
 
 ## Current Repo Facts
 
-- Current repo fact: `aidisk/Cargo.toml` defines package `aidisk` at version `1.7.0` with description `Cross-platform AI disk space diagnostics and governance CLI`.
-- Current repo fact: `aidisk/src/main.rs` is now a thin binary entrypoint; internal CLI command orchestration for `scan`, `plan`, `clean`, `restore`, `diff`, `anomaly`, `doctor`, `rules`, `models`, and `visualize` lives in `aidisk/src/cli.rs`.
+- Current repo fact: `aidisk/Cargo.toml` defines package `aidisk` at version `1.8.0` with description `Cross-platform AI disk space diagnostics and governance CLI`.
+- Current repo fact: `aidisk/src/main.rs` is now a thin binary entrypoint; internal CLI command orchestration for `capabilities`, `explain`, `scan`, `plan`, `clean`, `restore`, `diff`, `anomaly`, `doctor`, `rules`, `models`, and `visualize` lives in `aidisk/src/cli.rs`.
 - Current repo fact: `aidisk/src/lib.rs` exposes a public `aidisk::application` read-only Core application boundary for scan, AI asset inventory, and history metadata while keeping mutation modules internal.
 - Current repo fact: the Rust Core includes scanner, planner, cleaner/quarantine/restore, doctor, model inventory, diff, anomaly, history, reporter, rules, rules repo, policy, HTML visualization, CLI orchestration, and read-only application-boundary modules.
 - Current repo fact: built-in rule coverage lives in `aidisk/rules/` and includes AI agents, coding agents, IDEs, CLIs, caches, models, Hugging Face, Docker, WSL, Playwright, browser, dev-cache, and sensitive-sample rules.
@@ -24,6 +24,8 @@ This document separates current repository facts from product decisions and futu
 - Current repo fact: `history.rs`, `diff.rs`, and `anomaly.rs` support local scan snapshots, latest-pair diffs, and threshold-based growth anomaly reports.
 - Current repo fact: `.github/workflows/ci.yml` runs `cargo test` on Windows, Ubuntu, and macOS; the Windows job also runs `cargo run --quiet -- rules lint --json`.
 - Current repo fact: `.github/workflows/release-artifacts.yml` defines six target release artifacts and packages binary, README, changelog, licenses, rules, config, report schema, checksum, SBOM, and provenance.
+- Current repo fact: `aidisk capabilities --json` implements `agent-capabilities-v1`; `aidisk explain --json --snapshot skip` implements `agent-diagnostic-cli-v1` and embeds `explainability-v1`.
+- Current repo fact: P1 shared-root traversal optimization is accepted in `aidisk/src/scanner.rs` and documented in `docs/performance/p1-shared-root-traversal.md` with performance evidence.
 - Current repo fact: no Tauri, Electron, native GUI, billing, auth, cloud sync, account, SaaS, or telemetry dependency is present in the current repository.
 - Current repo fact: no root `AGENTS.md` existed before M0.
 
@@ -31,8 +33,11 @@ This document separates current repository facts from product decisions and futu
 
 | Claim | Repo evidence | Status |
 |---|---|---|
-| v1.7.0 is the current release baseline | `README.md`, `README.zh-CN.md`, `CHANGELOG.md`, `aidisk/Cargo.toml` | true |
+| v1.8.0 is the prepared release-candidate baseline | `README.md`, `README.zh-CN.md`, `CHANGELOG.md`, `aidisk/Cargo.toml`, `docs/release-notes/v1.8.0.md` | true |
+| v1.7.0 is the currently published GitHub Release baseline | tag `v1.7.0` at `fd6eb72a053b6da6f13a14f9c085e40f7deb9264` | true |
 | Cross-platform CLI/Core is implemented | CI on Windows/Ubuntu/macOS and release artifact matrix | true |
+| Agent diagnostic CLI bridge is implemented | `aidisk capabilities --json`, `aidisk explain --json --snapshot skip`, `docs/contracts/agent-diagnostic-cli-v1.md`, `aidisk/tests/agent_cli.rs` | true |
+| P1 shared-root traversal performance fix is implemented | `aidisk/src/scanner.rs`, `docs/performance/p1-shared-root-traversal.md` | true |
 | Scanner, planner, cleaner, restore, doctor, diff, anomaly, history, model inventory, reporter, visualize are implemented | `aidisk/src/*.rs` modules, internal CLI orchestration, and application boundary wiring | true |
 | Quarantine/restore are recoverable and journaled | `aidisk/src/cleaner.rs` execution and restore reports | true |
 | Model asset intelligence has a metadata-only foundation | `aidisk/src/model_inventory.rs`; `models inventory` and `models adapters` | true |
